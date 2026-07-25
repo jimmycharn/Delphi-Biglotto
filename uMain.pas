@@ -893,6 +893,7 @@ type
     procedure N16Click(Sender: TObject);
     procedure N17Click(Sender: TObject);
     procedure N18Click(Sender: TObject);
+    procedure UpdateMainTitleWithLicenseStatus;
     procedure Btn_PrintNum1MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure N31Click(Sender: TObject);
@@ -1156,7 +1157,7 @@ var
 
 implementation
 
-uses uDm, Utils, uCustList, uFindCust, ufrmFindRef, uPrintCutPrev, uNum,
+uses uLicense, ufrmRegister, ufrmKeyGen, uDm, Utils, uCustList, uFindCust, ufrmFindRef, uPrintCutPrev, uNum,
   uFindDealer, ufrmLogin, uAbout, uRegis, MyUnit, ufrmToDBServ, uUserProp,
   uAddHuad, uPrintPrev, uDealerList, uPrintAllPrev, uShowCut, ufilelist,
   uImportfilelist,EncDec, ufrmHuad, uCutByChart, uFInputText, //Clipbrd,
@@ -1164,6 +1165,28 @@ uses uDm, Utils, uCustList, uFindCust, ufrmFindRef, uPrintCutPrev, uNum,
   SerialGenerator;
 
 {$R *.dfm}
+
+procedure TfMain.UpdateMainTitleWithLicenseStatus;
+var
+  Info: TLicenseInfo;
+  BaseTitle, StatusSuffix: string;
+begin
+  if Dm.ZConnection1.Connected then
+    BaseTitle := 'BigLOTTO 2.0.26.11 - Firebird Database (' + Dm.ZConnection1.HostName + ')'
+  else
+    BaseTitle := 'BigLOTTO 2.0.26.11 - Firebird Database (127.0.0.1)';
+
+  if CheckCurrentLicense(Info) then
+  begin
+    StatusSuffix := ' - (ลงทะเบียนแล้ว: หมดอายุ ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate) +
+                    ' - เหลือ ' + IntToStr(Info.DaysLeft) + ' วัน)';
+  end
+  else
+  begin
+    StatusSuffix := ' - (' + Info.StatusText + ')';
+  end;
+  Caption := BaseTitle + StatusSuffix;
+end;
 
 procedure TfMain.InSertDate(Const LstDate, LstRun: TDatetime);
 Var QrRegis: TABSQuery;
@@ -20718,9 +20741,7 @@ begin
     Panel65.Visible := (ChkSumbook.Checked and ChkSumCust.Checked) or ChkTotal.Checked;
 
     if Regis then
-      Caption := 'BigLOTTO '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'
-    else
-      Caption := 'BigLOTTO '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'+' - (ไม่ลงทะเบียน)';
+      UpdateMainTitleWithLicenseStatus;
 
     BtnSaveLotNum.Enabled := true;
     RepPageControl.Enabled := true;
@@ -21278,44 +21299,18 @@ begin
 end;
 
 procedure TfMain.N6Click(Sender: TObject);
-Var Key, RegKey, SerialNo: String;
-    i: integer;
-    DriveNumber: Byte;
-    SerialInfo: TSerialInfo;
+var
+  RegForm: TfrmRegister;
 begin
-  with fRegis do
-  begin
-    EdCode.Text := GetHardwareID;
-    SerialNo    := ReadSerialNo;
-
-    if Regis then
-    begin
-      edKey.PasswordChar := '#';
-      edKey.Text := SerialNo;
-      edKey.ReadOnly := true;
-    end
-    else
-    begin
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;//edKey.Visible := true;
-    end;
-
-    if Showmodal = mrOk then
-    begin
-      UpdateSerialNo(edKey.Text);
-      UpdateLastDate(Date);
-      UpdateLastRun(Date);
-      UpDateRPD(1);
-      AppKey := EdKey.text;
-      LastInputDate := Date;
-
-      Regis := true;
-      MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-      SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-      lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-    end;
-  end
+  RegForm := TfrmRegister.Create(Self);
+  try
+    RegForm.ShowModal;
+    UpdateMainTitleWithLicenseStatus;
+  finally
+    RegForm.Free;
+  end;
 end;
+
 
 procedure TfMain.SetGridFilterChar(Sender: TObject; Col, Row: Integer;
   Chr: Char; var Allowed: Boolean);
@@ -39956,9 +39951,7 @@ begin
     Panel65.Visible := (ChkSumbook.Checked and ChkSumCust.Checked) or ChkTotal.Checked;
 
     if Regis then
-      Caption := 'BigLOTTO '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'
-    else
-      Caption := 'BigLOTTO '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'+' - (ไม่ลงทะเบียน)';
+      UpdateMainTitleWithLicenseStatus;
 
     BtnSaveLotNum.Enabled := true;
     RepPageControl.Enabled := true;
@@ -40516,44 +40509,18 @@ begin
 end;
 
 procedure TfMain.N6Click(Sender: TObject);
-Var Key, RegKey, SerialNo: String;
-    i: integer;
-    DriveNumber: Byte;
-    SerialInfo: TSerialInfo;
+var
+  RegForm: TfrmRegister;
 begin
-  with fRegis do
-  begin
-    EdCode.Text := GetHardwareID;
-    SerialNo    := ReadSerialNo;
-
-    if Regis then
-    begin
-      edKey.PasswordChar := '#';
-      edKey.Text := SerialNo;
-      edKey.ReadOnly := true;
-    end
-    else
-    begin
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;//edKey.Visible := true;
-    end;
-
-    if Showmodal = mrOk then
-    begin
-      UpdateSerialNo(edKey.Text);
-      UpdateLastDate(Date);
-      UpdateLastRun(Date);
-      UpDateRPD(1);
-      AppKey := EdKey.text;
-      LastInputDate := Date;
-
-      Regis := true;
-      MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-      SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-      lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-    end;
-  end
+  RegForm := TfrmRegister.Create(Self);
+  try
+    RegForm.ShowModal;
+    UpdateMainTitleWithLicenseStatus;
+  finally
+    RegForm.Free;
+  end;
 end;
+
 
 procedure TfMain.SetGridFilterChar(Sender: TObject; Col, Row: Integer;
   Chr: Char; var Allowed: Boolean);

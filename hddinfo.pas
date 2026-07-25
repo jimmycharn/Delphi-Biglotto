@@ -4,6 +4,8 @@ interface
 
 uses Windows, SysUtils, Classes;
 
+function GetCDriveVolumeSerial: string;
+
 const
   IOCTL_STORAGE_QUERY_PROPERTY = $2D1400;
 
