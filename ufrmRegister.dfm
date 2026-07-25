@@ -151,21 +151,6 @@ object frmRegister: TfrmRegister
       TabOrder = 1
       OnClick = btnActivateClick
     end
-    object btnOpenKeyGen: TButton
-      Left = 300
-      Top = 108
-      Width = 200
-      Height = 32
-      Caption = 'เครื่องมือผู้ขาย (KeyGen)'
-      Font.Charset = THAI_CHARSET
-      Font.Color = clWindowText
-      Font.Height = -13
-      Font.Name = 'Tahoma'
-      Font.Style = []
-      ParentFont = False
-      TabOrder = 2
-      OnClick = btnOpenKeyGenClick
-    end
   end
   object grpStatus: TGroupBox
     Left = 12

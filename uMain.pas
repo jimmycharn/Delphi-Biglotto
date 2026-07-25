@@ -1157,7 +1157,7 @@ var
 
 implementation
 
-uses uLicense, ufrmRegister, ufrmKeyGen, uDm, Utils, uCustList, uFindCust, ufrmFindRef, uPrintCutPrev, uNum,
+uses uLicense, ufrmRegister, uDm, Utils, uCustList, uFindCust, ufrmFindRef, uPrintCutPrev, uNum,
   uFindDealer, ufrmLogin, uAbout, uRegis, MyUnit, ufrmToDBServ, uUserProp,
   uAddHuad, uPrintPrev, uDealerList, uPrintAllPrev, uShowCut, ufilelist,
   uImportfilelist,EncDec, ufrmHuad, uCutByChart, uFInputText, //Clipbrd,

@@ -43,7 +43,6 @@ uses
   uLottoParser in 'uLottoParser.pas',
   uLicense in 'uLicense.pas',
   ufrmRegister in 'ufrmRegister.pas' {frmRegister},
-  ufrmKeyGen in 'ufrmKeyGen.pas' {frmKeyGen},
   uLottoCalc in 'uLottoCalc.pas',
   uChart in 'uChart.pas' {frmChart},
   uEditNumPrice in 'uEditNumPrice.pas' {frmPasteNumPrice},

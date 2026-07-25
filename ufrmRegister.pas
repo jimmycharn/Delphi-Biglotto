@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, Clipbrd, uLicense, ufrmKeyGen;
+  Dialogs, StdCtrls, ExtCtrls, Clipbrd, uLicense;
 
 type
   TfrmRegister = class(TForm)
@@ -23,12 +23,10 @@ type
     lblExpDate: TLabel;
     lblDaysLeft: TLabel;
     lblMaxClients: TLabel;
-    btnOpenKeyGen: TButton;
     btnClose: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnCopyHWIDClick(Sender: TObject);
     procedure btnActivateClick(Sender: TObject);
-    procedure btnOpenKeyGenClick(Sender: TObject);
     procedure btnCloseClick(Sender: TObject);
   private
     procedure RefreshLicenseStatus;
@@ -109,19 +107,6 @@ begin
   else
   begin
     ShowMessage('การเปิดใช้งานไม่สำเร็จ:' + #13#10 + Info.StatusText);
-  end;
-end;
-
-procedure TfrmRegister.btnOpenKeyGenClick(Sender: TObject);
-var
-  KeyGenForm: TfrmKeyGen;
-begin
-  KeyGenForm := TfrmKeyGen.Create(Self);
-  try
-    KeyGenForm.ShowModal;
-    RefreshLicenseStatus;
-  finally
-    KeyGenForm.Free;
   end;
 end;
 
