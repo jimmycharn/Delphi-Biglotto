@@ -13265,59 +13265,86 @@ end;
 procedure TfMain.ComboLotTypeChange(Sender: TObject);
 Var found : Boolean;
     i: integer;
+    CurrLotName: String;
 begin
   with Dm, ComboLotType Do
   begin
-    lbLottoName.Caption := ComboLotType.Items[ComboLotType.itemIndex];
-    Lotto.Close;
-    Lotto.Open;
-    found := Lotto.Locate('LotName',ComboLotType.Items[ItemIndex],[]); //ค้นหาหมายเลขล็อตเตอรี่
-    if found then
-    begin
-      edLotID.Text := Lotto.fieldByName('ID').AsString;
-      LottoID := StrToInt(EdLotID.Text);
+    if (ItemIndex >= 0) and (ItemIndex < Items.Count) then
+      CurrLotName := ComboLotType.Items[ItemIndex]
+    else
+      CurrLotName := '';
 
-      ShowCorNum; //แสดงเลขที่ออกรางวัล
-      //----------------แสดงเลขปิด เลขอั้นเฉพาะเลข------------------------
+    lbLottoName.Caption := CurrLotName;
+
+    if ZConnection1.Connected then
+    begin
+      ZExecQuery.Close;
+      ZExecQuery.SQL.Text := 'SELECT ID FROM LOTTO WHERE LOTNAME = :pName';
+      ZExecQuery.ParamByName('pName').AsString := CurrLotName;
+      try ZExecQuery.Open; except end;
+      if ZExecQuery.Active and not ZExecQuery.IsEmpty then
+      begin
+        edLotID.Text := ZExecQuery.FieldByName('ID').AsString;
+        LottoID := StrToIntDef(EdLotID.Text, ItemIndex + 1);
+      end
+      else
+      begin
+        edLotID.Text := IntToStr(ItemIndex + 1);
+        LottoID := ItemIndex + 1;
+      end;
+      ZExecQuery.Close;
+    end
+    else
+    begin
+      try
+        Lotto.Close;
+        Lotto.Open;
+        found := Lotto.Locate('LotName', CurrLotName, []);
+        if found then
+        begin
+          edLotID.Text := Lotto.fieldByName('ID').AsString;
+          LottoID := StrToIntDef(EdLotID.Text, ItemIndex + 1);
+        end
+        else
+        begin
+          edLotID.Text := IntToStr(ItemIndex + 1);
+          LottoID := ItemIndex + 1;
+        end;
+      except
+        edLotID.Text := IntToStr(ItemIndex + 1);
+        LottoID := ItemIndex + 1;
+      end;
+    end;
+
+    ShowCorNum;
+
+    try
       Limit3.Close;
       Limit3.ParamByName('LNum').Value   := PageControlLimit.TabIndex+1;
       Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
-      Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text); //LottoID;
+      Limit3.ParamByName('aLotID').Value := StrToIntDef(edLotID.Text, 1);
       Limit3.Open;
-      //------------------------------------------------------------------
+    except
+    end;
 
-      Case MainPageControl.TabIndex of
-       0:begin
-          //RefreshBtnClick(Sender);
-          NewRefreshBtnClick(Sender);
-          RunFirstTime := false;
+    Case MainPageControl.TabIndex of
+      0: begin
+           NewRefreshBtnClick(Sender);
+           RunFirstTime := false;
          end;
-       1:begin
-          RdgSellClick(Sender);
+      1: begin
+           RdgSellClick(Sender);
          end;
-       2:begin
-
-            if RepPageControl.TabIndex = 0 then
-            begin
-              TabByCustRepShow(Sender);
-            end
-            else
-            if RepPageControl.TabIndex = 1 then
-            begin
-              FindCustAllRepBtnClick(Sender);
-              //RepTotalsCust;
-            end
-            else
-            if RepPageControl.TabIndex = 2 then
-            begin
-              TabByDealerNumRepShow(Sender);
-            end;
-
+      2: begin
+           if RepPageControl.TabIndex = 0 then
+             TabByCustRepShow(Sender)
+           else if RepPageControl.TabIndex = 1 then
+             FindCustAllRepBtnClick(Sender)
+           else if RepPageControl.TabIndex = 2 then
+             TabByDealerNumRepShow(Sender);
          end;
-      end;
     end;
   end;
-
 end;
 
 procedure TfMain.PeopleBtnMouseUp(Sender: TObject; Button: TMouseButton;
