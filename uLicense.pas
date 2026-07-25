@@ -3,7 +3,7 @@ unit uLicense;
 interface
 
 uses
-  SysUtils, Classes, Windows, DateUtils, uDm, hddinfo, ZDataset, ZConnection;
+  SysUtils, Classes, Windows, DateUtils, WinSock, uDm, hddinfo, ZDataset, ZConnection;
 
 type
   TLicenseInfo = record
@@ -23,8 +23,68 @@ function ValidateLicenseKey(const AKey: string; var AInfo: TLicenseInfo): Boolea
 procedure EnsureLicenseTableExists;
 function CheckCurrentLicense(var AInfo: TLicenseInfo): Boolean;
 function SaveLicenseToDB(const AKey: string; const AInfo: TLicenseInfo): Boolean;
+function GetLocalIPAddress: string;
+function GetServerDisplayIP: string;
 
 implementation
+
+function GetLocalIPAddress: string;
+type
+  PPInAddr = ^PInAddr;
+var
+  WSAData: TWSAData;
+  HostName: array[0..255] of Char;
+  HostEnt: PHostEnt;
+  pAddrList: PPInAddr;
+begin
+  Result := '127.0.0.1';
+  if WSAStartup($0101, WSAData) = 0 then
+  begin
+    try
+      if GetHostName(HostName, SizeOf(HostName)) = 0 then
+      begin
+        HostEnt := GetHostByName(HostName);
+        if (HostEnt <> nil) and (HostEnt^.h_addr_list <> nil) then
+        begin
+          pAddrList := PPInAddr(HostEnt^.h_addr_list);
+          while pAddrList^ <> nil do
+          begin
+            Result := inet_ntoa(pAddrList^^);
+            if (Result <> '127.0.0.1') and (Pos('127.', Result) <> 1) then
+              Break;
+            Inc(pAddrList);
+          end;
+        end;
+      end;
+    finally
+      WSACleanup;
+    end;
+  end;
+end;
+
+function GetServerDisplayIP: string;
+var
+  Host: string;
+  LocalIP: string;
+begin
+  if (Dm <> nil) and (Dm.ZConnection1 <> nil) then
+    Host := Trim(Dm.ZConnection1.HostName)
+  else
+    Host := '';
+
+  LocalIP := GetLocalIPAddress;
+
+  if (Host = '') or (Host = '127.0.0.1') or (SameText(Host, 'localhost')) then
+  begin
+    if (LocalIP <> '') and (LocalIP <> '127.0.0.1') then
+      Result := LocalIP
+    else
+      Result := '127.0.0.1';
+  end
+  else
+    Result := Host;
+end;
+
 
 const
   LICENSE_SALT = 'BIGLOTTO_2026_SECRET_KEY_PRO_SALT_8899';
