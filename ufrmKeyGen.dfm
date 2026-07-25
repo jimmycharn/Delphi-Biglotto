@@ -3,7 +3,7 @@ object frmKeyGen: TfrmKeyGen
   Top = 200
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
-  Caption = 'BigLotto License Key Generator (เครื่องมือผู้ขาย)'
+  Caption = 'BigLotto License Key Generator (����ͧ��ͼ����)'
   ClientHeight = 440
   ClientWidth = 520
   Color = clBtnFace
@@ -30,7 +30,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 10
       Width = 360
       Height = 23
-      Caption = 'ระบบสร้างรหัสลงทะเบียน (License Generator)'
+      Caption = '�к����ҧ����ŧ����¹ (License Generator)'
       Font.Charset = THAI_CHARSET
       Font.Color = clWhite
       Font.Height = -19
@@ -44,7 +44,7 @@ object frmKeyGen: TfrmKeyGen
     Top = 55
     Width = 496
     Height = 175
-    Caption = ' ข้อมูลสำหรับการออกสิทธิ์ '
+    Caption = ' ����������Ѻ����͡�Է��� '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -57,7 +57,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 32
       Width = 111
       Height = 16
-      Caption = 'Hardware ID ลูกค้า:'
+      Caption = 'Hardware ID �١���:'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -70,7 +70,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 68
       Width = 105
       Height = 16
-      Caption = 'จำนวนปี (Years):'
+      Caption = '�ӹǹ�� (Years):'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -83,7 +83,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 68
       Width = 128
       Height = 16
-      Caption = 'จำนวนเดือน (Months):'
+      Caption = '�ӹǹ��͹ (Months):'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -96,7 +96,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 104
       Width = 186
       Height = 16
-      Caption = 'จำนวนเครื่องลูกสูงสุด (Clients):'
+      Caption = '�ӹǹ����ͧ�١�٧�ش (Clients):'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -122,7 +122,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 27
       Width = 120
       Height = 26
-      Caption = 'เครื่องปัจจุบัน'
+      Caption = '����ͧ�Ѩ�غѹ'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -179,7 +179,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 135
       Width = 220
       Height = 32
-      Caption = '🔑 สร้างรหัสลงทะเบียน'
+      Caption = '���ҧ����ŧ����¹'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -195,7 +195,7 @@ object frmKeyGen: TfrmKeyGen
     Top = 238
     Width = 496
     Height = 150
-    Caption = ' รหัสเปิดใช้งานที่ได้ (License Key) '
+    Caption = ' �����Դ��ҹ����� (License Key) '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -223,7 +223,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 106
       Width = 180
       Height = 32
-      Caption = '📋 คัดลอกรหัส (Copy)'
+      Caption = '�Ѵ�͡���� (Copy)'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -238,7 +238,7 @@ object frmKeyGen: TfrmKeyGen
       Top = 106
       Width = 120
       Height = 32
-      Caption = 'ปิดหน้าต่าง'
+      Caption = '�Դ˹�ҵ�ҧ'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13

@@ -3,7 +3,7 @@ object frmRegister: TfrmRegister
   Top = 180
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
-  Caption = 'à¸à¸²à¸£à¸¥à¸à¸—à¸°à¹€à¸à¸µà¸¢à¸à¹à¸à¸£à¹à¸à¸£à¸¡ BigLotto (Registration)'
+  Caption = '¡ÒÃÅ§·ÐàºÕÂ¹â»Ãá¡ÃÁ BigLotto (Registration)'
   ClientHeight = 480
   ClientWidth = 540
   Color = clBtnFace
@@ -30,7 +30,7 @@ object frmRegister: TfrmRegister
       Top = 12
       Width = 370
       Height = 23
-      Caption = 'à¸¥à¸à¸—à¸°à¹€à¸à¸µà¸¢à¸à¸ªà¸´à¸—à¸à¸´à¹à¹à¸à¹à¸à¸²à¸à¹à¸à¸£à¹à¸à¸£à¸¡ BigLotto'
+      Caption = 'Å§·ÐàºÕÂ¹ÊÔ·¸Ôìãªé§Ò¹â»Ãá¡ÃÁ BigLotto'
       Font.Charset = THAI_CHARSET
       Font.Color = clWhite
       Font.Height = -19
@@ -44,7 +44,7 @@ object frmRegister: TfrmRegister
     Top = 60
     Width = 516
     Height = 90
-    Caption = ' 1. à¸£à¸«à¸±à¸ªà¸à¸£à¸°à¸à¸³à¹€à¸à¸£à¸·à¹à¸­à¸à¸à¸µà¹ (Hardware ID) '
+    Caption = ' 1. ÃËÑÊ»ÃÐ¨Óà¤Ã×èÍ§¹Õé (Hardware ID) '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -57,7 +57,7 @@ object frmRegister: TfrmRegister
       Top = 25
       Width = 345
       Height = 16
-      Caption = 'à¸ªà¹à¸à¸£à¸«à¸±à¸ªà¹€à¸à¸£à¸·à¹à¸­à¸à¸à¸µà¹à¹à¸«à¹à¸à¸¹à¹à¸à¸²à¸¢à¹€à¸à¸·à¹à¸­à¸à¸­à¸£à¸±à¸à¸£à¸«à¸±à¸ªà¸¥à¸à¸—à¸°à¹€à¸à¸µà¸¢à¸ (License Key):'
+      Caption = 'Êè§ÃËÑÊà¤Ã×èÍ§¹ÕéãËé¼Ùé¢ÒÂà¾×èÍ¢ÍÃÑºÃËÑÊÅ§·ÐàºÕÂ¹ (License Key):'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -85,7 +85,7 @@ object frmRegister: TfrmRegister
       Top = 46
       Width = 135
       Height = 28
-      Caption = 'ð“ à¸à¸±à¸”à¸¥à¸­à¸ HWID'
+      Caption = '¤Ñ´ÅÍ¡ HWID'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -101,7 +101,7 @@ object frmRegister: TfrmRegister
     Top = 160
     Width = 516
     Height = 150
-    Caption = ' 2. à¸à¸£à¸­à¸à¸£à¸«à¸±à¸ªà¸¥à¸à¸—à¸°à¹€à¸à¸µà¸¢à¸ (License Key) '
+    Caption = ' 2. ¡ÃÍ¡ÃËÑÊÅ§·ÐàºÕÂ¹ (License Key) '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -114,7 +114,7 @@ object frmRegister: TfrmRegister
       Top = 24
       Width = 277
       Height = 16
-      Caption = 'à¸§à¸²à¸à¸£à¸«à¸±à¸ªà¸¥à¸à¸—à¸°à¹€à¸à¸µà¸¢à¸à¸—à¸µà¹à¹à¸”à¹à¸£à¸±à¸à¸à¸²à¸à¸à¸¹à¹à¸à¸²à¸¢à¸¥à¸à¹à¸à¸à¹à¸­à¸à¸”à¹à¸²à¸à¸¥à¹à¸²à¸:'
+      Caption = 'ÇÒ§ÃËÑÊÅ§·ÐàºÕÂ¹·Õèä´éÃÑº¨Ò¡¼Ùé¢ÒÂÅ§ã¹ªèÍ§´éÒ¹ÅèÒ§:'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -141,7 +141,7 @@ object frmRegister: TfrmRegister
       Top = 108
       Width = 200
       Height = 32
-      Caption = 'â… à¸¢à¸·à¸à¸¢à¸±à¸à¹€à¸à¸´à¸”à¹à¸à¹à¸à¸²à¸'
+      Caption = 'Â×¹ÂÑ¹à»Ô´ãªé§Ò¹'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -156,7 +156,7 @@ object frmRegister: TfrmRegister
       Top = 108
       Width = 200
       Height = 32
-      Caption = 'âï¸ à¹€à¸à¸£à¸·à¹à¸­à¸à¸¡à¸·à¸­à¸à¸¹à¹à¸à¸²à¸¢ (KeyGen)'
+      Caption = 'à¤Ã×èÍ§Á×Í¼Ùé¢ÒÂ (KeyGen)'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -172,7 +172,7 @@ object frmRegister: TfrmRegister
     Top = 320
     Width = 516
     Height = 110
-    Caption = ' à¸ªà¸–à¸²à¸à¸°à¸ªà¸´à¸—à¸à¸´à¹à¹à¸à¹à¸à¸²à¸à¸à¸±à¸à¸à¸¸à¸à¸±à¸ '
+    Caption = ' Ê¶Ò¹ÐÊÔ·¸Ôìãªé§Ò¹»Ñ¨¨ØºÑ¹ '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -185,7 +185,7 @@ object frmRegister: TfrmRegister
       Top = 25
       Width = 250
       Height = 18
-      Caption = 'à¸ªà¸–à¸²à¸à¸°: à¸•à¸£à¸§à¸à¸ªà¸­à¸à¸à¹à¸­à¸¡à¸¹à¸¥à¸ªà¸´à¸—à¸à¸´à¹...'
+      Caption = 'Ê¶Ò¹Ð: µÃÇ¨ÊÍº¢éÍÁÙÅÊÔ·¸Ôì...'
       Font.Charset = THAI_CHARSET
       Font.Color = clBlue
       Font.Height = -15
@@ -198,7 +198,7 @@ object frmRegister: TfrmRegister
       Top = 52
       Width = 105
       Height = 16
-      Caption = 'à¸§à¸±à¸à¸—à¸µà¹à¸«à¸¡à¸”à¸­à¸²à¸¢à¸¸: -'
+      Caption = 'ÇÑ¹·ÕèËÁ´ÍÒÂØ: -'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -211,7 +211,7 @@ object frmRegister: TfrmRegister
       Top = 52
       Width = 132
       Height = 16
-      Caption = 'à¸£à¸°à¸¢à¸°à¹€à¸§à¸¥à¸²à¸à¸à¹€à¸«à¸¥à¸·à¸­: -'
+      Caption = 'ÃÐÂÐàÇÅÒ¤§àËÅ×Í: -'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -224,7 +224,7 @@ object frmRegister: TfrmRegister
       Top = 78
       Width = 188
       Height = 16
-      Caption = 'à¸à¸³à¸à¸§à¸à¹€à¸à¸£à¸·à¹à¸­à¸à¸¥à¸¹à¸à¸—à¸µà¹à¸­à¸à¸¸à¸à¸²à¸•: -'
+      Caption = '¨Ó¹Ç¹à¤Ã×èÍ§ÅÙ¡·ÕèÍ¹Ø­Òµ: -'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -238,7 +238,7 @@ object frmRegister: TfrmRegister
     Top = 438
     Width = 120
     Height = 32
-    Caption = 'à¸à¸´à¸”à¸«à¸à¹à¸²à¸•à¹à¸²à¸'
+    Caption = '»Ô´Ë¹éÒµèÒ§'
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13

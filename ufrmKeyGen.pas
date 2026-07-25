@@ -65,7 +65,7 @@ begin
   HWID := Trim(edHWID.Text);
   if HWID = '' then
   begin
-    ShowMessage('เธเธฃเธธเธ“เธฒเธเธฃเธญเธ Hardware ID เธเธญเธเธฅเธนเธเธเนเธฒเธเนเธญเธเธเธฃเธฑเธ');
+    ShowMessage('กรุณากรอก Hardware ID ของลูกค้าก่อนครับ');
     edHWID.SetFocus;
     Exit;
   end;
@@ -83,10 +83,10 @@ begin
   memKey.Text := GenKey;
   Clipboard.AsText := GenKey;
 
-  ShowMessage('เธชเธฃเนเธฒเธเธฃเธซเธฑเธชเธฅเธเธ—เธฐเน€เธเธตเธขเธเน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง!' + #13#10 +
-              'เธฃเธฐเธขเธฐเน€เธงเธฅเธฒ: ' + IntToStr(Years) + ' เธเธต ' + IntToStr(Months) + ' เน€เธ”เธทเธญเธ' + #13#10 +
-              'เธเธณเธเธงเธเน€เธเธฃเธทเนเธญเธเธฅเธนเธ: ' + IntToStr(MaxClients) + ' เน€เธเธฃเธทเนเธญเธ' + #13#10 +
-              '(เธเธฑเธ”เธฅเธญเธเธฅเธ Clipboard เน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง เธชเธฒเธกเธฒเธฃเธ–เธชเนเธเนเธซเนเธฅเธนเธเธเนเธฒเนเธ”เนเธ—เธฑเธเธ—เธต)');
+  ShowMessage('สร้างรหัสลงทะเบียนเรียบร้อยแล้ว!' + #13#10 +
+              'ระยะเวลา: ' + IntToStr(Years) + ' ปี ' + IntToStr(Months) + ' เดือน' + #13#10 +
+              'จำนวนเครื่องลูก: ' + IntToStr(MaxClients) + ' เครื่อง' + #13#10 +
+              '(คัดลอกลง Clipboard เรียบร้อยแล้ว สามารถส่งให้ลูกค้าได้ทันที)');
 end;
 
 procedure TfrmKeyGen.btnCopyKeyClick(Sender: TObject);
@@ -94,7 +94,7 @@ begin
   if Trim(memKey.Text) <> '' then
   begin
     Clipboard.AsText := Trim(memKey.Text);
-    ShowMessage('เธเธฑเธ”เธฅเธญเธเธฃเธซเธฑเธชเธฅเธเธ—เธฐเน€เธเธตเธขเธเธฅเธ Clipboard เน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง');
+    ShowMessage('คัดลอกรหัสลงทะเบียนลง Clipboard เรียบร้อยแล้ว');
   end;
 end;
 

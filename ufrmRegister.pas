@@ -56,27 +56,27 @@ begin
   CheckCurrentLicense(Info);
   if Info.IsRegistered then
   begin
-    lblStatus.Caption := 'สถานะ: ✅ ลงทะเบียนเรียบร้อยแล้ว';
+    lblStatus.Caption := 'ʶҹ�: ŧ����¹���º��������';
     lblStatus.Font.Color := clGreen;
-    lblExpDate.Caption := 'วันที่หมดอายุ: ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate);
-    lblDaysLeft.Caption := 'ระยะเวลาคงเหลือ: ' + IntToStr(Info.DaysLeft) + ' วัน';
-    lblMaxClients.Caption := 'จำนวนเครื่องลูกที่อนุญาต: ' + IntToStr(Info.MaxClients) + ' เครื่อง';
+    lblExpDate.Caption := '�ѹ����������: ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate);
+    lblDaysLeft.Caption := '�������Ҥ������: ' + IntToStr(Info.DaysLeft) + ' �ѹ';
+    lblMaxClients.Caption := '�ӹǹ����ͧ�١���͹حҵ: ' + IntToStr(Info.MaxClients) + ' ����ͧ';
   end
   else
   begin
-    lblStatus.Caption := 'สถานะ: ❌ ' + Info.StatusText;
+    lblStatus.Caption := 'ʶҹ�: ' + Info.StatusText;
     lblStatus.Font.Color := clRed;
-    lblExpDate.Caption := 'วันที่หมดอายุ: -';
-    lblDaysLeft.Caption := 'ระยะเวลาคงเหลือ: 0 วัน';
-    lblMaxClients.Caption := 'จำนวนเครื่องลูกที่อนุญาต: -';
+    lblExpDate.Caption := '�ѹ����������: -';
+    lblDaysLeft.Caption := '�������Ҥ������: 0 �ѹ';
+    lblMaxClients.Caption := '�ӹǹ����ͧ�١���͹حҵ: -';
   end;
 end;
 
 procedure TfrmRegister.btnCopyHWIDClick(Sender: TObject);
 begin
   Clipboard.AsText := edHWID.Text;
-  ShowMessage('คัดลอก Hardware ID (' + edHWID.Text + ') ลง Clipboard เรียบร้อยแล้ว' + #13#10 +
-              'สามารถนำไปส่งให้ผู้ขายเพื่อขอรหัสลงทะเบียนได้ทันที');
+  ShowMessage('�Ѵ�͡ Hardware ID (' + edHWID.Text + ') ŧ Clipboard ���º��������' + #13#10 +
+              '����ö���������������͢��Ѻ����ŧ����¹��ѹ��');
 end;
 
 procedure TfrmRegister.btnActivateClick(Sender: TObject);
@@ -87,7 +87,7 @@ begin
   Key := Trim(memKey.Text);
   if Key = '' then
   begin
-    ShowMessage('กรุณาวางรหัสลงทะเบียน (License Key) ในช่องก่อนครับ');
+    ShowMessage('��س��ҧ����ŧ����¹ (License Key) 㹪�ͧ��͹��Ѻ');
     memKey.SetFocus;
     Exit;
   end;
@@ -96,19 +96,19 @@ begin
   begin
     if SaveLicenseToDB(Key, Info) then
     begin
-      ShowMessage('🎉 เปิดใช้งานสำเร็จ!' + #13#10 +
-                  'สิทธิ์ใช้งานถึงวันที่: ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate) + #13#10 +
-                  'จำนวนเครื่องลูก: ' + IntToStr(Info.MaxClients) + ' เครื่อง');
+      ShowMessage('�Դ��ҹ�����!' + #13#10 +
+                  '�Է�����ҹ�֧�ѹ���: ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate) + #13#10 +
+                  '�ӹǹ����ͧ�١: ' + IntToStr(Info.MaxClients) + ' ����ͧ');
       RefreshLicenseStatus;
     end
     else
     begin
-      ShowMessage('ไม่สามารถบันทึกข้อมูลสิทธิ์ลงในฐานข้อมูลได้');
+      ShowMessage('�������ö�ѹ�֡�������Է���ŧ㹰ҹ��������');
     end;
   end
   else
   begin
-    ShowMessage('❌ การเปิดใช้งานไม่สำเร็จ:' + #13#10 + Info.StatusText);
+    ShowMessage('����Դ��ҹ��������:' + #13#10 + Info.StatusText);
   end;
 end;
 
