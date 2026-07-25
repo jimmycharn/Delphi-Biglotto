@@ -21999,15 +21999,18 @@ end;
 procedure TfMain.DeleteBtnClick(Sender: TObject);
 Var QrDelete: TABSQuery;
     i,j: Integer;
+    IDStr: String;
 begin
     with InputGrid, Dm do
     begin
+      if InputGrid.RowCount = 0 then Exit;
+
       QrDelete := TABSQuery.Create(nil);
-      QrDelete.DatabaseName := Database.DatabaseName;
+      try QrDelete.DatabaseName := Database.DatabaseName; except end;
 
       if ((SelectArea.Bottom - (SelectArea.Top-1)) > 1)and((SelectArea.Bottom - (SelectArea.Top-1)) < InputGrid.RowCount) Or (edFindData.Text <> '')  then
       begin
-        if MessageDlg('ต้องลบรายการที่ป้อนจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ ใช่หรือไม่?',
+        if MessageDlg('ต้องการลบรายการที่เลือกจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ หรือไม่?',
           mtConfirmation, [mbYes, mbNo], 0) = mrYes then
         begin
           progressbar2.MinValue := 0;
@@ -22017,11 +22020,22 @@ begin
 
           for i := SelectArea.Bottom Downto SelectArea.Top  do
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete from Data');
-            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
-            QrDelete.ExecSQL;
+            IDStr := InputGrid[3,i];
+            if (IDStr <> '') and ZConnection1.Connected then
+            begin
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Text := 'DELETE FROM DATA WHERE ID = ' + QuotedStr(IDStr);
+              try ZExecQuery.ExecSQL; except end;
+            end;
+
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete from Data');
+              QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+              QrDelete.ExecSQL;
+            except
+            end;
 
             DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
             if InputGrid.RowCount = 1 then
@@ -22051,11 +22065,22 @@ begin
       begin
           for i := SelectArea.Bottom Downto SelectArea.Top  do
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete from Data');
-            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
-            QrDelete.ExecSQL;
+            IDStr := InputGrid[3,i];
+            if (IDStr <> '') and ZConnection1.Connected then
+            begin
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Text := 'DELETE FROM DATA WHERE ID = ' + QuotedStr(IDStr);
+              try ZExecQuery.ExecSQL; except end;
+            end;
+
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete from Data');
+              QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+              QrDelete.ExecSQL;
+            except
+            end;
 
             DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
             if InputGrid.RowCount = 1 then
@@ -22085,48 +22110,75 @@ begin
       else
       if ((SelectArea.Bottom - (SelectArea.Top-1)) = InputGrid.RowCount) and (InputGrid.RowCount <> 1) then
       begin
-        if MessageDlg('ต้องลบรายการที่ป้อนจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ ใช่หรือไม่?',
+        if MessageDlg('ต้องการลบรายการที่เลือกจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ หรือไม่?',
           mtConfirmation, [mbYes, mbNo], 0) = mrYes then
         begin
          if (CbNumLen.ItemIndex = 0) and (CbUpDwn.ItemIndex = 0) then
          begin
           if (edFindData.Text = '') then
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete From Data');
-
-            QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
-            QrDelete.SQL.Add('and (LotType =:aLotType)');
-
-            if Not ChkTotal.Checked then
+            if ZConnection1.Connected then
             begin
-              if Not ChkSumCust.Checked then
-                QrDelete.SQL.Add('and (CustNo =:aCustNo)');
-              if Not ChkSumBook.Checked then
-                QrDelete.SQL.Add('and (RefNo =:aBookNo)');
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Clear;
+              ZExecQuery.SQL.Add('DELETE FROM DATA WHERE (Period_Date = :aDate) AND (LotType = :aLotType)');
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  ZExecQuery.SQL.Add('AND (CustNo = :aCustNo)');
+                if Not ChkSumBook.Checked then
+                  ZExecQuery.SQL.Add('AND (RefNo = :aBookNo)');
+              end;
+              ZExecQuery.ParamByName('aDate').AsString     := DateToStr(DatePick.Date);
+              ZExecQuery.ParamByName('aLotType').AsString  := edLotID.Text;
+
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  ZExecQuery.ParamByName('aCustNo').AsString := edCustNo.Text;
+                if Not ChkSumbook.Checked then
+                  ZExecQuery.ParamByName('aBookNo').AsString := edRefNo.Text;
+              end;
+              try ZExecQuery.ExecSQL; except end;
             end;
 
-            QrDelete.SQL.Add(')');
-          
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete From Data');
 
-            QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
-            QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+              QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
+              QrDelete.SQL.Add('and (LotType =:aLotType)');
 
-            if Not ChkTotal.Checked then
-            begin
-              if Not ChkSumCust.Checked then
-                QrDelete.ParamByName('aCustNo').Value := edCustNo.Text;
-              if Not ChkSumbook.Checked then
-                QrDelete.ParamByName('aBookNo').Value := edRefNo.Text;
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  QrDelete.SQL.Add('and (CustNo =:aCustNo)');
+                if Not ChkSumBook.Checked then
+                  QrDelete.SQL.Add('and (RefNo =:aBookNo)');
+              end;
+
+              QrDelete.SQL.Add(')');
+
+              QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
+              QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  QrDelete.ParamByName('aCustNo').Value := edCustNo.Text;
+                if Not ChkSumbook.Checked then
+                  QrDelete.ParamByName('aBookNo').Value := edRefNo.Text;
+              end;
+              QrDelete.ExecSQL;
+            except
             end;
-            QrDelete.ExecSQL;
 
             //RefreshBtnClick(Sender);
             NewRefreshBtnClick(Sender);
             BtnSpecLimitNumClick(Sender);
             lbItems1.Caption := IntToStr(InputGrid.RowCount)+'  รายการ';
-            MessageDlg('ข้อมูลถูกลบเรียบร้อยแล้ว',mtInformation, [mbOk], 0);
+            MessageDlg('ถูกลบเรียบร้อย',mtInformation, [mbOk], 0);
           end;
          end
          else
@@ -22138,11 +22190,22 @@ begin
 
           for i := SelectArea.Bottom Downto SelectArea.Top  do
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete from Data');
-            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
-            QrDelete.ExecSQL;
+            IDStr := InputGrid[3,i];
+            if (IDStr <> '') and ZConnection1.Connected then
+            begin
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Text := 'DELETE FROM DATA WHERE ID = ' + QuotedStr(IDStr);
+              try ZExecQuery.ExecSQL; except end;
+            end;
+
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete from Data');
+              QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+              QrDelete.ExecSQL;
+            except
+            end;
 
             DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
             if InputGrid.RowCount = 1 then
@@ -22169,13 +22232,12 @@ begin
          end;
         end;
       end;
-      QrDelete.Free;
+      try QrDelete.Free; except end;
       Btn_RefreshCutClick(Sender);
       TotalRecFree  := ReadDataCount;
       IsKeyCount := false;
     end;
 end;
-
 procedure TfMain.BtnAddClick(Sender: TObject);
 Var QrMaxUser: TABSQuery;
 begin
@@ -41209,15 +41271,18 @@ end;
 procedure TfMain.DeleteBtnClick(Sender: TObject);
 Var QrDelete: TABSQuery;
     i,j: Integer;
+    IDStr: String;
 begin
     with InputGrid, Dm do
     begin
+      if InputGrid.RowCount = 0 then Exit;
+
       QrDelete := TABSQuery.Create(nil);
-      QrDelete.DatabaseName := Database.DatabaseName;
+      try QrDelete.DatabaseName := Database.DatabaseName; except end;
 
       if ((SelectArea.Bottom - (SelectArea.Top-1)) > 1)and((SelectArea.Bottom - (SelectArea.Top-1)) < InputGrid.RowCount) Or (edFindData.Text <> '')  then
       begin
-        if MessageDlg('ต้องลบรายการที่ป้อนจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ ใช่หรือไม่?',
+        if MessageDlg('ต้องการลบรายการที่เลือกจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ หรือไม่?',
           mtConfirmation, [mbYes, mbNo], 0) = mrYes then
         begin
           progressbar2.MinValue := 0;
@@ -41227,11 +41292,22 @@ begin
 
           for i := SelectArea.Bottom Downto SelectArea.Top  do
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete from Data');
-            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
-            QrDelete.ExecSQL;
+            IDStr := InputGrid[3,i];
+            if (IDStr <> '') and ZConnection1.Connected then
+            begin
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Text := 'DELETE FROM DATA WHERE ID = ' + QuotedStr(IDStr);
+              try ZExecQuery.ExecSQL; except end;
+            end;
+
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete from Data');
+              QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+              QrDelete.ExecSQL;
+            except
+            end;
 
             DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
             if InputGrid.RowCount = 1 then
@@ -41261,11 +41337,22 @@ begin
       begin
           for i := SelectArea.Bottom Downto SelectArea.Top  do
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete from Data');
-            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
-            QrDelete.ExecSQL;
+            IDStr := InputGrid[3,i];
+            if (IDStr <> '') and ZConnection1.Connected then
+            begin
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Text := 'DELETE FROM DATA WHERE ID = ' + QuotedStr(IDStr);
+              try ZExecQuery.ExecSQL; except end;
+            end;
+
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete from Data');
+              QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+              QrDelete.ExecSQL;
+            except
+            end;
 
             DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
             if InputGrid.RowCount = 1 then
@@ -41295,48 +41382,75 @@ begin
       else
       if ((SelectArea.Bottom - (SelectArea.Top-1)) = InputGrid.RowCount) and (InputGrid.RowCount <> 1) then
       begin
-        if MessageDlg('ต้องลบรายการที่ป้อนจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ ใช่หรือไม่?',
+        if MessageDlg('ต้องการลบรายการที่เลือกจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ หรือไม่?',
           mtConfirmation, [mbYes, mbNo], 0) = mrYes then
         begin
          if (CbNumLen.ItemIndex = 0) and (CbUpDwn.ItemIndex = 0) then
          begin
           if (edFindData.Text = '') then
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete From Data');
-
-            QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
-            QrDelete.SQL.Add('and (LotType =:aLotType)');
-
-            if Not ChkTotal.Checked then
+            if ZConnection1.Connected then
             begin
-              if Not ChkSumCust.Checked then
-                QrDelete.SQL.Add('and (CustNo =:aCustNo)');
-              if Not ChkSumBook.Checked then
-                QrDelete.SQL.Add('and (RefNo =:aBookNo)');
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Clear;
+              ZExecQuery.SQL.Add('DELETE FROM DATA WHERE (Period_Date = :aDate) AND (LotType = :aLotType)');
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  ZExecQuery.SQL.Add('AND (CustNo = :aCustNo)');
+                if Not ChkSumBook.Checked then
+                  ZExecQuery.SQL.Add('AND (RefNo = :aBookNo)');
+              end;
+              ZExecQuery.ParamByName('aDate').AsString     := DateToStr(DatePick.Date);
+              ZExecQuery.ParamByName('aLotType').AsString  := edLotID.Text;
+
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  ZExecQuery.ParamByName('aCustNo').AsString := edCustNo.Text;
+                if Not ChkSumbook.Checked then
+                  ZExecQuery.ParamByName('aBookNo').AsString := edRefNo.Text;
+              end;
+              try ZExecQuery.ExecSQL; except end;
             end;
 
-            QrDelete.SQL.Add(')');
-          
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete From Data');
 
-            QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
-            QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+              QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
+              QrDelete.SQL.Add('and (LotType =:aLotType)');
 
-            if Not ChkTotal.Checked then
-            begin
-              if Not ChkSumCust.Checked then
-                QrDelete.ParamByName('aCustNo').Value := edCustNo.Text;
-              if Not ChkSumbook.Checked then
-                QrDelete.ParamByName('aBookNo').Value := edRefNo.Text;
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  QrDelete.SQL.Add('and (CustNo =:aCustNo)');
+                if Not ChkSumBook.Checked then
+                  QrDelete.SQL.Add('and (RefNo =:aBookNo)');
+              end;
+
+              QrDelete.SQL.Add(')');
+
+              QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
+              QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+
+              if Not ChkTotal.Checked then
+              begin
+                if Not ChkSumCust.Checked then
+                  QrDelete.ParamByName('aCustNo').Value := edCustNo.Text;
+                if Not ChkSumbook.Checked then
+                  QrDelete.ParamByName('aBookNo').Value := edRefNo.Text;
+              end;
+              QrDelete.ExecSQL;
+            except
             end;
-            QrDelete.ExecSQL;
 
             //RefreshBtnClick(Sender);
             NewRefreshBtnClick(Sender);
             BtnSpecLimitNumClick(Sender);
             lbItems1.Caption := IntToStr(InputGrid.RowCount)+'  รายการ';
-            MessageDlg('ข้อมูลถูกลบเรียบร้อยแล้ว',mtInformation, [mbOk], 0);
+            MessageDlg('ถูกลบเรียบร้อย',mtInformation, [mbOk], 0);
           end;
          end
          else
@@ -41348,11 +41462,22 @@ begin
 
           for i := SelectArea.Bottom Downto SelectArea.Top  do
           begin
-            QrDelete.Close;
-            QrDelete.SQL.Clear;
-            QrDelete.SQL.Add('Delete from Data');
-            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
-            QrDelete.ExecSQL;
+            IDStr := InputGrid[3,i];
+            if (IDStr <> '') and ZConnection1.Connected then
+            begin
+              ZExecQuery.Close;
+              ZExecQuery.SQL.Text := 'DELETE FROM DATA WHERE ID = ' + QuotedStr(IDStr);
+              try ZExecQuery.ExecSQL; except end;
+            end;
+
+            try
+              QrDelete.Close;
+              QrDelete.SQL.Clear;
+              QrDelete.SQL.Add('Delete from Data');
+              QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+              QrDelete.ExecSQL;
+            except
+            end;
 
             DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
             if InputGrid.RowCount = 1 then
@@ -41379,13 +41504,12 @@ begin
          end;
         end;
       end;
-      QrDelete.Free;
+      try QrDelete.Free; except end;
       Btn_RefreshCutClick(Sender);
       TotalRecFree  := ReadDataCount;
       IsKeyCount := false;
     end;
 end;
-
 procedure TfMain.BtnAddClick(Sender: TObject);
 Var QrMaxUser: TABSQuery;
 begin
