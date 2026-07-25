@@ -1281,7 +1281,7 @@ object fMain: TfMain
     Performance = kspNoBuffer
     Transparent = False
     Align = alClient
-    ActivePage = TabInput
+    ActivePage = TabSetting
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clNavy
     Font.Height = -13
@@ -1293,7 +1293,7 @@ object fMain: TfMain
       '   '#3605#3637#3629#3629#3585'   '
       '  '#3605#3619#3623#3592#3612#3621#3627#3623#3618'  '
       '  '#3605#3633#3657#3591#3588#3656#3634'  ')
-    TabIndex = 0
+    TabIndex = 3
     TabOrder = 0
     TabStop = True
     SkinObject = 'Tabs'
@@ -11970,7 +11970,6 @@ object fMain: TfMain
                     Height = 25
                     Performance = kspDoubleBuffer
                     Transparent = False
-                    Visible = False
                     OnClick = BtnAddLotClick
                     BlackAndWhiteGlyph = False
                     Caption = #3648#3614#3636#3656#3617
@@ -11988,7 +11987,6 @@ object fMain: TfMain
                     Height = 25
                     Performance = kspDoubleBuffer
                     Transparent = False
-                    Visible = False
                     OnClick = BtnDelLotClick
                     BlackAndWhiteGlyph = False
                     Caption = #3621#3610
@@ -12244,6 +12242,7 @@ object fMain: TfMain
                   TabOrder = 1
                   OnClick = LotTypeGridClick
                   OnKeyDown = LotTypeGridKeyDown
+                  OnKeyUp = LotTypeGridKeyUp
                 end
                 object Panel24: TPanel
                   Left = 5
@@ -12323,7 +12322,7 @@ object fMain: TfMain
                       Columns = <
                         item
                           Title = #3629#3633#3657#3609
-                          Width = 76
+                          Width = 75
                           Font.Charset = DEFAULT_CHARSET
                           Font.Color = clMaroon
                           Font.Height = -11
@@ -12377,7 +12376,7 @@ object fMain: TfMain
                         end
                         item
                           Title = #3588#3656#3634#3588#3629#3617#3617#3636#3594#3594#3633#3656#3609' (%)'
-                          Width = 266
+                          Width = 267
                           Font.Charset = DEFAULT_CHARSET
                           Font.Color = clWindowText
                           Font.Height = -11

@@ -776,6 +776,8 @@ type
     procedure LotTypeGridClick(Sender: TObject);
     procedure LotTypeGridKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
+    procedure LotTypeGridKeyUp(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
     procedure SeSkinButton7Click(Sender: TObject);
     procedure FormResize(Sender: TObject);
     procedure Panel60Resize(Sender: TObject);
@@ -20091,21 +20093,22 @@ end;
 procedure TfMain.LotTypeGridKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  if (Key = VK_Up)or(Key = VK_Down) then
-  begin
-    ShowSetting;
-    Key := 0;
-  end;
-
   if (Key = VK_Delete) then
   begin
     with LotTypeGrid do
     begin
       BtnDelLotClick(Self);
-      //DeleteRow(Row);
     end;
-    //ShowSetting;
     Key := 0;
+  end;
+end;
+
+procedure TfMain.LotTypeGridKeyUp(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if (Key = VK_Up) or (Key = VK_Down) then
+  begin
+    ShowSetting;
   end;
 end;
 
@@ -20115,6 +20118,77 @@ Var QrUpDateSet: TABSQuery;
 begin
    with Dm, LotTypeGrid do
    begin
+      if ZConnection1.Connected then
+      begin
+        ZExecQuery.Close;
+        ZExecQuery.SQL.Clear;
+        ZExecQuery.SQL.Add('UPDATE LOTTO SET ' +
+          'LOTNAME=:aLotname, ' +
+          'LIMITRNUP=:aLRnU, LIMITPOS=:aLPU, LIMITRNDWN=:aLRnD, LIMITPOSDWN=:aLPD, LIMIT2UP=:aL2U, LIMIT2TOD=:aL2T, LIMIT2MEE=:aL2M, LIMIT2DWN=:aL2D, '+
+          'LIMIT2POS=:aL2P, LIMIT3UP=:aL3U, LIMIT3TOD=:aL3T, LIMIT3DWN=:aL3D, LIMIT4=:aL4, LIMIT4TOD=:aL4Tod, LIMIT5=:aL5, LIMIT5TOD=:aL5Tod, '+
+          'COMRNUP=:aCRnU, COMPOS=:aCPU, COMRNDWN=:aCRnD, COMPOSDWN=:aCPD, COM2UP=:aC2U, COM2TOD=:aC2T, COM2MEE=:aC2M, COM2DWN=:aC2D, '+
+          'COM2POS=:aC2P, COM3UP=:aC3U, COM3TOD=:aC3T, COM3DWN=:aC3D, COM4=:aC4, COM4TOD=:aC4Tod, COM5=:aC5, COM5TOD=:aC5Tod, '+
+          'PAYRNUP=:aPRnU, PAYPOS=:aPPU, PAYRNDWN=:aPRnD, PAYPOSDWN=:aPPD, PAY2UP=:aP2U, PAY2TOD=:aP2T, PAY2MEE=:aP2M, PAY2DWN=:aP2D, '+
+          'PAY2POS=:aP2P, PAY3UP=:aP3U, PAY3TOD=:aP3T, PAY3DWN=:aP3D, PAY4=:aP4, PAY4TOD=:aP4Tod, PAY5=:aP5, PAY5TOD=:aP5Tod '+
+          'WHERE ID = :aID');
+
+        ZExecQuery.ParamByName('aLotName').AsString := LotTypeGrid[0,Row];
+        ZExecQuery.ParamByName('aID').AsString := LotTypeGrid[1,Row];
+
+        ZExecQuery.ParamByName('aLRnU').AsFloat := TxtToFloat(SetGrid[0,0]);
+        ZExecQuery.ParamByName('aLPU').AsFloat  := TxtToFloat(SetGrid[0,1]);
+        ZExecQuery.ParamByName('aLRnD').AsFloat := TxtToFloat(SetGrid[0,2]);
+        ZExecQuery.ParamByName('aLPD').AsFloat  := TxtToFloat(SetGrid[0,3]);
+        ZExecQuery.ParamByName('aL2U').AsFloat  := TxtToFloat(SetGrid[0,4]);
+        ZExecQuery.ParamByName('aL2T').AsFloat  := TxtToFloat(SetGrid[0,5]);
+        ZExecQuery.ParamByName('aL2M').AsFloat  := TxtToFloat(SetGrid[0,6]);
+        ZExecQuery.ParamByName('aL2P').AsFloat  := TxtToFloat(SetGrid[0,7]);
+        ZExecQuery.ParamByName('aL2D').AsFloat  := TxtToFloat(SetGrid[0,8]);
+        ZExecQuery.ParamByName('aL3U').AsFloat  := TxtToFloat(SetGrid[0,9]);
+        ZExecQuery.ParamByName('aL3T').AsFloat  := TxtToFloat(SetGrid[0,10]);
+        ZExecQuery.ParamByName('aL3D').AsFloat  := TxtToFloat(SetGrid[0,11]);
+        ZExecQuery.ParamByName('aL4').AsFloat   := TxtToFloat(SetGrid[0,12]);
+        ZExecQuery.ParamByName('aL4Tod').AsFloat:= TxtToFloat(SetGrid[0,13]);
+        ZExecQuery.ParamByName('aL5').AsFloat   := TxtToFloat(SetGrid[0,14]);
+        ZExecQuery.ParamByName('aL5Tod').AsFloat:= TxtToFloat(SetGrid[0,15]);
+
+        ZExecQuery.ParamByName('aPRnU').AsFloat := TxtToFloat(SetGrid[1,0]);
+        ZExecQuery.ParamByName('aPPU').AsFloat  := TxtToFloat(SetGrid[1,1]);
+        ZExecQuery.ParamByName('aPRnD').AsFloat := TxtToFloat(SetGrid[1,2]);
+        ZExecQuery.ParamByName('aPPD').AsFloat  := TxtToFloat(SetGrid[1,3]);
+        ZExecQuery.ParamByName('aP2U').AsFloat  := TxtToFloat(SetGrid[1,4]);
+        ZExecQuery.ParamByName('aP2T').AsFloat  := TxtToFloat(SetGrid[1,5]);
+        ZExecQuery.ParamByName('aP2M').AsFloat  := TxtToFloat(SetGrid[1,6]);
+        ZExecQuery.ParamByName('aP2P').AsFloat  := TxtToFloat(SetGrid[1,7]);
+        ZExecQuery.ParamByName('aP2D').AsFloat  := TxtToFloat(SetGrid[1,8]);
+        ZExecQuery.ParamByName('aP3U').AsFloat  := TxtToFloat(SetGrid[1,9]);
+        ZExecQuery.ParamByName('aP3T').AsFloat  := TxtToFloat(SetGrid[1,10]);
+        ZExecQuery.ParamByName('aP3D').AsFloat  := TxtToFloat(SetGrid[1,11]);
+        ZExecQuery.ParamByName('aP4').AsFloat   := TxtToFloat(SetGrid[1,12]);
+        ZExecQuery.ParamByName('aP4Tod').AsFloat:= TxtToFloat(SetGrid[1,13]);
+        ZExecQuery.ParamByName('aP5').AsFloat   := TxtToFloat(SetGrid[1,14]);
+        ZExecQuery.ParamByName('aP5Tod').AsFloat:= TxtToFloat(SetGrid[1,15]);
+
+        ZExecQuery.ParamByName('aCRnU').AsFloat := TxtToFloat(SetGrid[2,0]);
+        ZExecQuery.ParamByName('aCPU').AsFloat  := TxtToFloat(SetGrid[2,1]);
+        ZExecQuery.ParamByName('aCRnD').AsFloat := TxtToFloat(SetGrid[2,2]);
+        ZExecQuery.ParamByName('aCPD').AsFloat  := TxtToFloat(SetGrid[2,3]);
+        ZExecQuery.ParamByName('aC2U').AsFloat  := TxtToFloat(SetGrid[2,4]);
+        ZExecQuery.ParamByName('aC2T').AsFloat  := TxtToFloat(SetGrid[2,5]);
+        ZExecQuery.ParamByName('aC2M').AsFloat  := TxtToFloat(SetGrid[2,6]);
+        ZExecQuery.ParamByName('aC2P').AsFloat  := TxtToFloat(SetGrid[2,7]);
+        ZExecQuery.ParamByName('aC2D').AsFloat  := TxtToFloat(SetGrid[2,8]);
+        ZExecQuery.ParamByName('aC3U').AsFloat  := TxtToFloat(SetGrid[2,9]);
+        ZExecQuery.ParamByName('aC3T').AsFloat  := TxtToFloat(SetGrid[2,10]);
+        ZExecQuery.ParamByName('aC3D').AsFloat  := TxtToFloat(SetGrid[2,11]);
+        ZExecQuery.ParamByName('aC4').AsFloat   := TxtToFloat(SetGrid[2,12]);
+        ZExecQuery.ParamByName('aC4Tod').AsFloat:= TxtToFloat(SetGrid[2,13]);
+        ZExecQuery.ParamByName('aC5').AsFloat   := TxtToFloat(SetGrid[2,14]);
+        ZExecQuery.ParamByName('aC5Tod').AsFloat:= TxtToFloat(SetGrid[2,15]);
+
+        try ZExecQuery.ExecSQL; except end;
+      end;
+
       QrUpDateSet := TABSQuery.Create(nil);
       QrUpDateSet.DatabaseName := Database.DatabaseName;
       QrUpDateSet.Close;
@@ -39257,21 +39331,22 @@ end;
 procedure TfMain.LotTypeGridKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  if (Key = VK_Up)or(Key = VK_Down) then
-  begin
-    ShowSetting;
-    Key := 0;
-  end;
-
   if (Key = VK_Delete) then
   begin
     with LotTypeGrid do
     begin
       BtnDelLotClick(Self);
-      //DeleteRow(Row);
     end;
-    //ShowSetting;
     Key := 0;
+  end;
+end;
+
+procedure TfMain.LotTypeGridKeyUp(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if (Key = VK_Up) or (Key = VK_Down) then
+  begin
+    ShowSetting;
   end;
 end;
 
@@ -39281,6 +39356,77 @@ Var QrUpDateSet: TABSQuery;
 begin
    with Dm, LotTypeGrid do
    begin
+      if ZConnection1.Connected then
+      begin
+        ZExecQuery.Close;
+        ZExecQuery.SQL.Clear;
+        ZExecQuery.SQL.Add('UPDATE LOTTO SET ' +
+          'LOTNAME=:aLotname, ' +
+          'LIMITRNUP=:aLRnU, LIMITPOS=:aLPU, LIMITRNDWN=:aLRnD, LIMITPOSDWN=:aLPD, LIMIT2UP=:aL2U, LIMIT2TOD=:aL2T, LIMIT2MEE=:aL2M, LIMIT2DWN=:aL2D, '+
+          'LIMIT2POS=:aL2P, LIMIT3UP=:aL3U, LIMIT3TOD=:aL3T, LIMIT3DWN=:aL3D, LIMIT4=:aL4, LIMIT4TOD=:aL4Tod, LIMIT5=:aL5, LIMIT5TOD=:aL5Tod, '+
+          'COMRNUP=:aCRnU, COMPOS=:aCPU, COMRNDWN=:aCRnD, COMPOSDWN=:aCPD, COM2UP=:aC2U, COM2TOD=:aC2T, COM2MEE=:aC2M, COM2DWN=:aC2D, '+
+          'COM2POS=:aC2P, COM3UP=:aC3U, COM3TOD=:aC3T, COM3DWN=:aC3D, COM4=:aC4, COM4TOD=:aC4Tod, COM5=:aC5, COM5TOD=:aC5Tod, '+
+          'PAYRNUP=:aPRnU, PAYPOS=:aPPU, PAYRNDWN=:aPRnD, PAYPOSDWN=:aPPD, PAY2UP=:aP2U, PAY2TOD=:aP2T, PAY2MEE=:aP2M, PAY2DWN=:aP2D, '+
+          'PAY2POS=:aP2P, PAY3UP=:aP3U, PAY3TOD=:aP3T, PAY3DWN=:aP3D, PAY4=:aP4, PAY4TOD=:aP4Tod, PAY5=:aP5, PAY5TOD=:aP5Tod '+
+          'WHERE ID = :aID');
+
+        ZExecQuery.ParamByName('aLotName').AsString := LotTypeGrid[0,Row];
+        ZExecQuery.ParamByName('aID').AsString := LotTypeGrid[1,Row];
+
+        ZExecQuery.ParamByName('aLRnU').AsFloat := TxtToFloat(SetGrid[0,0]);
+        ZExecQuery.ParamByName('aLPU').AsFloat  := TxtToFloat(SetGrid[0,1]);
+        ZExecQuery.ParamByName('aLRnD').AsFloat := TxtToFloat(SetGrid[0,2]);
+        ZExecQuery.ParamByName('aLPD').AsFloat  := TxtToFloat(SetGrid[0,3]);
+        ZExecQuery.ParamByName('aL2U').AsFloat  := TxtToFloat(SetGrid[0,4]);
+        ZExecQuery.ParamByName('aL2T').AsFloat  := TxtToFloat(SetGrid[0,5]);
+        ZExecQuery.ParamByName('aL2M').AsFloat  := TxtToFloat(SetGrid[0,6]);
+        ZExecQuery.ParamByName('aL2P').AsFloat  := TxtToFloat(SetGrid[0,7]);
+        ZExecQuery.ParamByName('aL2D').AsFloat  := TxtToFloat(SetGrid[0,8]);
+        ZExecQuery.ParamByName('aL3U').AsFloat  := TxtToFloat(SetGrid[0,9]);
+        ZExecQuery.ParamByName('aL3T').AsFloat  := TxtToFloat(SetGrid[0,10]);
+        ZExecQuery.ParamByName('aL3D').AsFloat  := TxtToFloat(SetGrid[0,11]);
+        ZExecQuery.ParamByName('aL4').AsFloat   := TxtToFloat(SetGrid[0,12]);
+        ZExecQuery.ParamByName('aL4Tod').AsFloat:= TxtToFloat(SetGrid[0,13]);
+        ZExecQuery.ParamByName('aL5').AsFloat   := TxtToFloat(SetGrid[0,14]);
+        ZExecQuery.ParamByName('aL5Tod').AsFloat:= TxtToFloat(SetGrid[0,15]);
+
+        ZExecQuery.ParamByName('aPRnU').AsFloat := TxtToFloat(SetGrid[1,0]);
+        ZExecQuery.ParamByName('aPPU').AsFloat  := TxtToFloat(SetGrid[1,1]);
+        ZExecQuery.ParamByName('aPRnD').AsFloat := TxtToFloat(SetGrid[1,2]);
+        ZExecQuery.ParamByName('aPPD').AsFloat  := TxtToFloat(SetGrid[1,3]);
+        ZExecQuery.ParamByName('aP2U').AsFloat  := TxtToFloat(SetGrid[1,4]);
+        ZExecQuery.ParamByName('aP2T').AsFloat  := TxtToFloat(SetGrid[1,5]);
+        ZExecQuery.ParamByName('aP2M').AsFloat  := TxtToFloat(SetGrid[1,6]);
+        ZExecQuery.ParamByName('aP2P').AsFloat  := TxtToFloat(SetGrid[1,7]);
+        ZExecQuery.ParamByName('aP2D').AsFloat  := TxtToFloat(SetGrid[1,8]);
+        ZExecQuery.ParamByName('aP3U').AsFloat  := TxtToFloat(SetGrid[1,9]);
+        ZExecQuery.ParamByName('aP3T').AsFloat  := TxtToFloat(SetGrid[1,10]);
+        ZExecQuery.ParamByName('aP3D').AsFloat  := TxtToFloat(SetGrid[1,11]);
+        ZExecQuery.ParamByName('aP4').AsFloat   := TxtToFloat(SetGrid[1,12]);
+        ZExecQuery.ParamByName('aP4Tod').AsFloat:= TxtToFloat(SetGrid[1,13]);
+        ZExecQuery.ParamByName('aP5').AsFloat   := TxtToFloat(SetGrid[1,14]);
+        ZExecQuery.ParamByName('aP5Tod').AsFloat:= TxtToFloat(SetGrid[1,15]);
+
+        ZExecQuery.ParamByName('aCRnU').AsFloat := TxtToFloat(SetGrid[2,0]);
+        ZExecQuery.ParamByName('aCPU').AsFloat  := TxtToFloat(SetGrid[2,1]);
+        ZExecQuery.ParamByName('aCRnD').AsFloat := TxtToFloat(SetGrid[2,2]);
+        ZExecQuery.ParamByName('aCPD').AsFloat  := TxtToFloat(SetGrid[2,3]);
+        ZExecQuery.ParamByName('aC2U').AsFloat  := TxtToFloat(SetGrid[2,4]);
+        ZExecQuery.ParamByName('aC2T').AsFloat  := TxtToFloat(SetGrid[2,5]);
+        ZExecQuery.ParamByName('aC2M').AsFloat  := TxtToFloat(SetGrid[2,6]);
+        ZExecQuery.ParamByName('aC2P').AsFloat  := TxtToFloat(SetGrid[2,7]);
+        ZExecQuery.ParamByName('aC2D').AsFloat  := TxtToFloat(SetGrid[2,8]);
+        ZExecQuery.ParamByName('aC3U').AsFloat  := TxtToFloat(SetGrid[2,9]);
+        ZExecQuery.ParamByName('aC3T').AsFloat  := TxtToFloat(SetGrid[2,10]);
+        ZExecQuery.ParamByName('aC3D').AsFloat  := TxtToFloat(SetGrid[2,11]);
+        ZExecQuery.ParamByName('aC4').AsFloat   := TxtToFloat(SetGrid[2,12]);
+        ZExecQuery.ParamByName('aC4Tod').AsFloat:= TxtToFloat(SetGrid[2,13]);
+        ZExecQuery.ParamByName('aC5').AsFloat   := TxtToFloat(SetGrid[2,14]);
+        ZExecQuery.ParamByName('aC5Tod').AsFloat:= TxtToFloat(SetGrid[2,15]);
+
+        try ZExecQuery.ExecSQL; except end;
+      end;
+
       QrUpDateSet := TABSQuery.Create(nil);
       QrUpDateSet.DatabaseName := Database.DatabaseName;
       QrUpDateSet.Close;
