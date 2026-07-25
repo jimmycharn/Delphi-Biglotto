@@ -1,0 +1,398 @@
+unit ufrmDealer;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, ExtCtrls, StdCtrls, MoneyEdit, Buttons,  Grids, sMemo, sEdit,
+  sCustomComboBox, se_controls, Mask, sCustomComboEdit, sCurrEdit,
+  sCurrencyEdit, DB, ADODB, PngBitBtn, NiceGrid, EditAlign, KsSkinCheckBoxs;
+
+type
+  TfrmDealer = class(TForm)
+    Label2: TLabel;
+    Label3: TLabel;
+    Label5: TLabel;
+    Label6: TLabel;
+    Label7: TLabel;
+    CbBfn: TsComboBox;
+    EdfName: TsEdit;
+    MmoAdr1: TsMemo;
+    EdPhone1: TsEdit;
+    EdMobile1: TsEdit;
+    Comment: TsMemo;
+    Label1: TLabel;
+    Label4: TLabel;
+    EdCode: TsEdit;
+    Label8: TLabel;
+    EdlName: TsEdit;
+    RdgState: TRadioGroup;
+    PngBitBtn2: TPngBitBtn;
+    SaveBtn: TPngBitBtn;
+    Panel7: TPanel;
+    PayGrid: TNiceGrid;
+    Panel9: TPanel;
+    ComChk: TSeSkinCheckBox;
+    procedure FormShow(Sender: TObject);
+    procedure SaveBtnClick(Sender: TObject);
+    procedure PayGridKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure PayGridFilterChar(Sender: TObject; Col, Row: Integer;
+      Chr: Char; var Allowed: Boolean);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  frmDealer: TfrmDealer;
+
+implementation
+
+uses uDm, Utils;
+
+{$R *.dfm}
+
+
+
+procedure TfrmDealer.FormShow(Sender: TObject);
+var QrFindCust,QrTemp : TADOQuery;
+    FindFileData : TWin32FindData;
+    SearchHandle : THandle;
+    i: Integer;
+begin
+  //PayGrid.MergeCells(0,17,0,18,'');
+  //PayGrid.MergeCells(0,20,0,23,'');
+
+  if RdgState.ItemIndex = 1 then
+  begin
+    QrFindCust := TADOQuery.Create(nil);
+    QrFindCust.Connection := Dm.ADOConnection;
+    QrFindCust.Close;
+    QrFindCust.SQL.Clear;
+    QrFindCust.SQL.Add('Select * from Dealer Where Code = :aCode ORDER BY CODE ASC');
+    QrFindCust.Parameters.ParamByName('aCode').Value := EdCode.Text;
+
+    QrFindCust.Open;
+    if not QrFindCust.Eof then
+    begin
+      CbBfN.ItemIndex:= CbBfn.Items.IndexOf(QrFindCust.FieldByName('bfName').AsString);
+      EdFname.Text   := QrFindCust.FieldByName('fName').AsString;
+      EdLname.Text   := QrFindCust.FieldByName('lName').AsString;
+      MmoAdr1.Text   := QrFindCust.FieldByName('address1').AsString;
+      EdPhone1.Text  := QrFindCust.FieldByName('Phone1').AsString;
+      EdMobile1.Text := QrFindCust.FieldByName('Mobile1').AsString;
+      ComChk.Checked := QrFindCust.FieldByName('Hascom').AsBoolean;
+      //ComRate.Value  := QrFindCust.FieldByName('Commis').AsFloat;
+      //PayRate.Value  := QrFindCust.FieldByName('PayRate').AsFloat;
+
+      PayGrid[0,0]   := QrFindCust.FieldByName('ComRnUp').AsString;
+      PayGrid[0,1]   := QrFindCust.FieldByName('ComRnDwn').AsString;
+      PayGrid[0,2]   := QrFindCust.FieldByName('ComPosUp').AsString;
+      PayGrid[0,3]   := QrFindCust.FieldByName('ComPosDwn').AsString;
+      PayGrid[0,4]   := QrFindCust.FieldByName('Com2Up').AsString;
+      PayGrid[0,5]   := QrFindCust.FieldByName('Com2Tod').AsString;
+      PayGrid[0,6]   := QrFindCust.FieldByName('Com2Dwn').AsString;
+      PayGrid[0,7]   := QrFindCust.FieldByName('Com2Mee').AsString;
+      PayGrid[0,8]   := QrFindCust.FieldByName('Com2Pos').AsString;
+      PayGrid[0,9]   := QrFindCust.FieldByName('Com3Up').AsString;
+      PayGrid[0,10]  := QrFindCust.FieldByName('Com3Tod').AsString;
+      PayGrid[0,11]  := QrFindCust.FieldByName('Com3Dwn').AsString;
+      PayGrid[0,12]  := QrFindCust.FieldByName('Com4').AsString;
+      PayGrid[0,13]  := QrFindCust.FieldByName('Com4Tod').AsString;
+      PayGrid[0,14]  := QrFindCust.FieldByName('Com5').AsString;
+      PayGrid[0,15]  := QrFindCust.FieldByName('Com5Tod').AsString;
+
+      PayGrid[1,0]   := QrFindCust.FieldByName('PayRnUp').AsString;
+      PayGrid[1,1]   := QrFindCust.FieldByName('PayRnDwn').AsString;
+      PayGrid[1,2]   := QrFindCust.FieldByName('PayPosUp').AsString;
+      PayGrid[1,3]   := QrFindCust.FieldByName('PayPosDwn').AsString;
+      PayGrid[1,4]   := QrFindCust.FieldByName('Pay2Up').AsString;
+      PayGrid[1,5]   := QrFindCust.FieldByName('Pay2Tod').AsString;
+      PayGrid[1,6]   := QrFindCust.FieldByName('Pay2Dwn').AsString;
+      PayGrid[1,7]   := QrFindCust.FieldByName('Pay2Mee').AsString;
+      PayGrid[1,8]   := QrFindCust.FieldByName('Pay2Pos').AsString;
+      PayGrid[1,9]   := QrFindCust.FieldByName('Pay3Up').AsString;
+      PayGrid[1,10]  := QrFindCust.FieldByName('Pay3Tod').AsString;
+      PayGrid[1,11]  := QrFindCust.FieldByName('Pay3Dwn').AsString;
+      PayGrid[1,12]  := QrFindCust.FieldByName('Pay4').AsString;
+      PayGrid[1,13]  := QrFindCust.FieldByName('Pay4Tod').AsString;
+      PayGrid[1,14]  := QrFindCust.FieldByName('Pay5').AsString;
+      PayGrid[1,15]  := QrFindCust.FieldByName('Pay5Tod').AsString;
+      Comment.Text   := QrFindCust.FieldByName('Comment').AsString;
+
+      for i := 0 to PayGrid.RowCount-1 do
+      begin
+        if PayGrid[0,i] = '' then
+          PayGrid[0,i] := '0';
+        if PayGrid[1,i] = '' then
+          PayGrid[1,i] := '0';
+      end;
+    end;
+  end
+  else
+  begin
+    QrTemp := TADOQuery.Create(nil);
+    QrTemp.Connection := Dm.ADOConnection;
+    QrTemp.Close;
+    QrTemp.SQL.Clear;
+    QrTemp.SQL.Add('Select * from TempLotto');
+    QrTemp.Open;
+
+    for i := 0 to PayGrid.RowCount-1 do
+    begin
+      //if PayGrid[0,i] = '' then
+        PayGrid[0,i] := '0';
+      //if PayGrid[1,i] = '' then
+        PayGrid[1,i] := '0';
+    end;
+
+      PayGrid[0,0]   := QrTemp.FieldByName('ComRnUp').AsString;
+      PayGrid[0,1]   := QrTemp.FieldByName('ComRnDwn').AsString;
+      PayGrid[0,2]   := QrTemp.FieldByName('ComPosUp').AsString;
+      PayGrid[0,3]   := QrTemp.FieldByName('ComPosDwn').AsString;
+      PayGrid[0,4]   := QrTemp.FieldByName('Com2Up').AsString;
+      PayGrid[0,5]   := QrTemp.FieldByName('Com2Tod').AsString;
+      PayGrid[0,6]   := QrTemp.FieldByName('Com2Dwn').AsString;
+      PayGrid[0,7]   := QrTemp.FieldByName('Com2Mee').AsString;
+      PayGrid[0,8]   := QrTemp.FieldByName('Com2Pos').AsString;
+      PayGrid[0,9]   := QrTemp.FieldByName('Com3Up').AsString;
+      PayGrid[0,10]  := QrTemp.FieldByName('Com3Tod').AsString;
+      PayGrid[0,11]  := QrTemp.FieldByName('Com3Dwn').AsString;
+      PayGrid[0,12]  := QrTemp.FieldByName('Com4').AsString;
+      PayGrid[0,13]  := QrTemp.FieldByName('Com4Tod').AsString;
+      PayGrid[0,14]  := QrTemp.FieldByName('Com5').AsString;
+      PayGrid[0,15]  := QrTemp.FieldByName('Com5Tod').AsString;
+
+      PayGrid[1,0]   := QrTemp.FieldByName('PayRnUp').AsString;
+      PayGrid[1,1]   := QrTemp.FieldByName('PayRnDwn').AsString;
+      PayGrid[1,2]   := QrTemp.FieldByName('PayPosUp').AsString;
+      PayGrid[1,3]   := QrTemp.FieldByName('PayPosDwn').AsString;
+      PayGrid[1,4]   := QrTemp.FieldByName('Pay2Up').AsString;
+      PayGrid[1,5]   := QrTemp.FieldByName('Pay2Tod').AsString;
+      PayGrid[1,6]   := QrTemp.FieldByName('Pay2Dwn').AsString;
+      PayGrid[1,7]   := QrTemp.FieldByName('Pay2Mee').AsString;
+      PayGrid[1,8]   := QrTemp.FieldByName('Pay2Pos').AsString;
+      PayGrid[1,9]   := QrTemp.FieldByName('Pay3Up').AsString;
+      PayGrid[1,10]  := QrTemp.FieldByName('Pay3Tod').AsString;
+      PayGrid[1,11]  := QrTemp.FieldByName('Pay3Dwn').AsString;
+      PayGrid[1,12]  := QrTemp.FieldByName('Pay4').AsString;
+      PayGrid[1,13]  := QrTemp.FieldByName('Pay4Tod').AsString;
+      PayGrid[1,14]  := QrTemp.FieldByName('Pay5').AsString;
+      PayGrid[1,15]  := QrTemp.FieldByName('Pay5Tod').AsString;
+
+    CbBfn.ItemIndex := 4;
+    EdfName.Text := '';
+    EdlName.Text := '';
+    MmoAdr1.Text := '';
+    EdPhone1.Text := '';
+    EdMobile1.Text := '';
+    //ComRate.Value := QrHconf.fieldByName('ComRate').AsFloat;
+    //PayRate.Value := QrHconf.fieldByName('PayRate').AsFloat;
+    Comment.Text := '';
+    EdfName.SetFocus;
+    QrTemp.Free;
+  end;
+
+end;
+
+procedure TfrmDealer.SaveBtnClick(Sender: TObject);
+var QrUpDateCust : TADOQuery;
+begin
+  if Trim(EdfName.Text) = '' then
+  begin
+    Showmessage('กรุณากรอกชื่อลูกค้า');
+    EdfName.SetFocus;
+    exit;
+  end;
+  try
+    QrUpDateCust := TADOQuery.Create(nil);
+    QrUpDateCust.Connection := Dm.ADOConnection;
+    if RdgState.ItemIndex = 1 then // สถานะแก้ไข
+    begin
+      QrUpDateCust.Close;
+      QrUpDateCust.SQL.Clear;
+      QrUpDateCust.SQL.Add('Update Dealer');
+      QrUpDateCust.SQL.Add('Set bfName=:aBfn, fName=:afName, lName=:alName, Address1=:aAdr1, Phone1=:aPhone1, Mobile1=:aMoBile1, HasCom=:aHasCom, Comment=:aComment, ' +
+                           'ComRnUp=:aCRnU, ComRnDwn=:aCRnD, ComPosUp=:aCPU, ComPosDwn=:aCPD, Com2Up=:aC2U, Com2Tod=:aC2T, Com2Dwn=:aC2D, Com2Mee=:aC2M, '+
+                           'Com2Pos=:aC2P, Com3Up=:aC3U, Com3Tod=:aC3T, Com3Dwn=:aC3D, Com4=:aC4, Com4Tod=:aC4Tod, Com5=:aC5, Com5Tod=:aC5Tod, '+
+
+                           'PayRnUp=:aPRnU, PayRnDwn=:aPRnD, PayPosUp=:aPPU, PayPosDwn=:aPPD, Pay2Up=:aP2U, Pay2Tod=:aP2T, Pay2Dwn=:aP2D, Pay2Mee=:aP2M, '+
+                           'Pay2Pos=:aP2P, Pay3Up=:aP3U, Pay3Tod=:aP3T, Pay3Dwn=:aP3D, Pay4=:aP4, Pay4Tod=:aP4Tod, Pay5=:aP5, Pay5Tod=:aP5tod ');
+
+      QrUpDateCust.SQL.Add('where Code =:aCode');
+
+      QrUpDateCust.Parameters.ParamByName('aCode').Value    := EdCode.Text;
+      QrUpDateCust.Parameters.ParamByName('aBfn').Value     := CbBfn.Text;
+      QrUpDateCust.Parameters.ParamByName('afName').Value   := EdfName.Text;
+      QrUpDateCust.Parameters.ParamByName('alName').Value   := EdlName.Text;
+      QrUpDateCust.Parameters.ParamByName('aAdr1').Value    := MmoAdr1.Text;
+      QrUpDateCust.Parameters.ParamByName('aPhone1').Value  := EdPhone1.Text;
+      QrUpDateCust.Parameters.ParamByName('aMobile1').Value := EdMobile1.Text;
+      QrUpDateCust.Parameters.ParamByName('aHasCom').Value  := ComChk.Checked;
+
+      QrUpDateCust.Parameters.ParamByName('aCRnU').Value:= StrToFloat(PayGrid[0,0]);
+      QrUpDateCust.Parameters.ParamByName('aCRnD').Value:= StrToFloat(PayGrid[0,1]);
+      QrUpDateCust.Parameters.ParamByName('aCPU').Value := StrToFloat(PayGrid[0,2]);
+      QrUpDateCust.Parameters.ParamByName('aCPD').Value := StrToFloat(PayGrid[0,3]);
+      QrUpDateCust.Parameters.ParamByName('aC2U').Value := StrToFloat(PayGrid[0,4]);
+      QrUpDateCust.Parameters.ParamByName('aC2T').Value := StrToFloat(PayGrid[0,5]);
+      QrUpDateCust.Parameters.ParamByName('aC2D').Value := StrToFloat(PayGrid[0,6]);
+      QrUpDateCust.Parameters.ParamByName('aC2M').Value := StrToFloat(PayGrid[0,7]);
+      QrUpDateCust.Parameters.ParamByName('aC2P').Value := StrToFloat(PayGrid[0,8]);
+      QrUpDateCust.Parameters.ParamByName('aC3U').Value := StrToFloat(PayGrid[0,9]);
+      QrUpDateCust.Parameters.ParamByName('aC3T').Value := StrToFloat(PayGrid[0,10]);
+      QrUpDateCust.Parameters.ParamByName('aC3D').Value := StrToFloat(PayGrid[0,11]);
+      QrUpDateCust.Parameters.ParamByName('aC4').Value  := StrToFloat(PayGrid[0,12]);
+      QrUpDateCust.Parameters.ParamByName('aC4Tod').Value  := StrToFloat(PayGrid[0,13]);
+      QrUpDateCust.Parameters.ParamByName('aC5').Value  := StrToFloat(PayGrid[0,14]);
+      QrUpDateCust.Parameters.ParamByName('aC5Tod').Value  := StrToFloat(PayGrid[0,15]);
+
+      QrUpDateCust.Parameters.ParamByName('aPRnU').Value:= StrToFloat(PayGrid[1,0]);
+      QrUpDateCust.Parameters.ParamByName('aPRnD').Value:= StrToFloat(PayGrid[1,1]);
+      QrUpDateCust.Parameters.ParamByName('aPPU').Value := StrToFloat(PayGrid[1,2]);
+      QrUpDateCust.Parameters.ParamByName('aPPD').Value := StrToFloat(PayGrid[1,3]);
+      QrUpDateCust.Parameters.ParamByName('aP2U').Value := StrToFloat(PayGrid[1,4]);
+      QrUpDateCust.Parameters.ParamByName('aP2T').Value := StrToFloat(PayGrid[1,5]);
+      QrUpDateCust.Parameters.ParamByName('aP2D').Value := StrToFloat(PayGrid[1,6]);
+      QrUpDateCust.Parameters.ParamByName('aP2M').Value := StrToFloat(PayGrid[1,7]);
+      QrUpDateCust.Parameters.ParamByName('aP2P').Value := StrToFloat(PayGrid[1,8]);
+      QrUpDateCust.Parameters.ParamByName('aP3U').Value := StrToFloat(PayGrid[1,9]);
+      QrUpDateCust.Parameters.ParamByName('aP3T').Value := StrToFloat(PayGrid[1,10]);
+      QrUpDateCust.Parameters.ParamByName('aP3D').Value := StrToFloat(PayGrid[1,11]);
+      QrUpDateCust.Parameters.ParamByName('aP4').Value  := StrToFloat(PayGrid[1,12]);
+      QrUpDateCust.Parameters.ParamByName('aP4Tod').Value  := StrToFloat(PayGrid[1,13]);
+      QrUpDateCust.Parameters.ParamByName('aP5').Value  := StrToFloat(PayGrid[1,14]);
+      QrUpDateCust.Parameters.ParamByName('aP5Tod').Value  := StrToFloat(PayGrid[1,15]);
+      QrUpDateCust.Parameters.ParamByName('aComment').Value := Comment.Text;
+
+      QrUpDateCust.ExecSQL;
+
+      QrUpDateCust.Free;
+      Showmessage('ข้อมูลได้รับการบันทึกเรียบร้อยแล้ว');
+      Close;
+    end
+    else // สถานะเพิ่มใหม่
+    begin
+      QrUpDateCust.Close;
+      QrUpDateCust.SQL.Clear;
+      QrUpDateCust.SQL.Add('INSERT INTO Dealer (Code, bfName, fName, lName, Address1, Phone1, Mobile1, HasCom, Comment, '+
+                           'ComRnUp, ComRnDwn, ComPosUp, ComPosDwn, Com2Up, Com2Tod, Com2Dwn, Com2Mee, '+
+                           'Com2Pos, Com3Up, Com3Tod, Com3Dwn, Com4, Com4Tod, Com5, Com5Tod, '+
+                           'PayRnUp, PayRnDwn, PayPosUp, PayPosDwn, Pay2Up, Pay2Tod, Pay2Dwn, Pay2Mee, '+
+                           'Pay2Pos, Pay3Up, Pay3Tod, Pay3Dwn, Pay4, Pay4Tod, Pay5, Pay5Tod)');
+
+      QrUpDateCust.SQL.Add('VALUES (:aCode, :aBfn, :afName, :alName, :aAdr1, :aPhone1, :aMoBile1, :aHasCom, :aComment, '+
+                           ':aCRnU, :aCRnD, :aCPU, :aCPD, :aC2U, :aC2T, :aC2D, :aC2M, '+
+                           ':aC2P, :aC3U, :aC3T, :aC3D, :aC4, :aC4Tod, :aC5, :aC5Tod, '+
+                           ':aPRnU, :aPRnD, :aPPU, :aPPD, :aP2U, :aP2T, :aP2D, :aP2M, '+
+                           ':aP2P, :aP3U, :aP3T, :aP3D, :aP4, :aP4tod, :aP5, :aP5Tod)');
+
+      QrUpDateCust.Parameters.ParamByName('aCode').Value    := EdCode.Text;
+      QrUpDateCust.Parameters.ParamByName('aBfn').Value     := CbBfn.Text;
+      QrUpDateCust.Parameters.ParamByName('afName').Value   := EdfName.Text;
+      QrUpDateCust.Parameters.ParamByName('alName').Value   := EdlName.Text;
+      QrUpDateCust.Parameters.ParamByName('aAdr1').Value    := MmoAdr1.Text;
+      QrUpDateCust.Parameters.ParamByName('aPhone1').Value  := EdPhone1.Text;
+      QrUpDateCust.Parameters.ParamByName('aMobile1').Value := EdMobile1.Text;
+      QrUpDateCust.Parameters.ParamByName('aHasCom').Value  := ComChk.Checked;
+      //QrUpDateCust.Parameters.ParamByName('aCommis').Value  := ComRate.Value;
+      //QrUpDateCust.Parameters.ParamByName('aPayRate').Value := PayRate.Value;
+
+      QrUpDateCust.Parameters.ParamByName('aCRnU').Value:= StrToFloat(PayGrid[0,0]);
+      QrUpDateCust.Parameters.ParamByName('aCRnD').Value:= StrToFloat(PayGrid[0,1]);
+      QrUpDateCust.Parameters.ParamByName('aCPU').Value := StrToFloat(PayGrid[0,2]);
+      QrUpDateCust.Parameters.ParamByName('aCPD').Value := StrToFloat(PayGrid[0,3]);
+      QrUpDateCust.Parameters.ParamByName('aC2U').Value := StrToFloat(PayGrid[0,4]);
+      QrUpDateCust.Parameters.ParamByName('aC2T').Value := StrToFloat(PayGrid[0,5]);
+      QrUpDateCust.Parameters.ParamByName('aC2D').Value := StrToFloat(PayGrid[0,6]);
+      QrUpDateCust.Parameters.ParamByName('aC2M').Value := StrToFloat(PayGrid[0,7]);
+      QrUpDateCust.Parameters.ParamByName('aC2P').Value := StrToFloat(PayGrid[0,8]);
+      QrUpDateCust.Parameters.ParamByName('aC3U').Value := StrToFloat(PayGrid[0,9]);
+      QrUpDateCust.Parameters.ParamByName('aC3T').Value := StrToFloat(PayGrid[0,10]);
+      QrUpDateCust.Parameters.ParamByName('aC3D').Value := StrToFloat(PayGrid[0,11]);
+      QrUpDateCust.Parameters.ParamByName('aC4').Value  := StrToFloat(PayGrid[0,12]);
+      QrUpDateCust.Parameters.ParamByName('aC4Tod').Value  := StrToFloat(PayGrid[0,13]);
+      QrUpDateCust.Parameters.ParamByName('aC5').Value  := StrToFloat(PayGrid[0,14]);
+      QrUpDateCust.Parameters.ParamByName('aC5Tod').Value  := StrToFloat(PayGrid[0,15]);
+
+      QrUpDateCust.Parameters.ParamByName('aPRnU').Value:= StrToFloat(PayGrid[1,0]);
+      QrUpDateCust.Parameters.ParamByName('aPRnD').Value:= StrToFloat(PayGrid[1,1]);
+      QrUpDateCust.Parameters.ParamByName('aPPU').Value := StrToFloat(PayGrid[1,2]);
+      QrUpDateCust.Parameters.ParamByName('aPPD').Value := StrToFloat(PayGrid[1,3]);
+      QrUpDateCust.Parameters.ParamByName('aP2U').Value := StrToFloat(PayGrid[1,4]);
+      QrUpDateCust.Parameters.ParamByName('aP2T').Value := StrToFloat(PayGrid[1,5]);
+      QrUpDateCust.Parameters.ParamByName('aP2D').Value := StrToFloat(PayGrid[1,6]);
+      QrUpDateCust.Parameters.ParamByName('aP2M').Value := StrToFloat(PayGrid[1,7]);
+      QrUpDateCust.Parameters.ParamByName('aP2P').Value := StrToFloat(PayGrid[1,8]);
+      QrUpDateCust.Parameters.ParamByName('aP3U').Value := StrToFloat(PayGrid[1,9]);
+      QrUpDateCust.Parameters.ParamByName('aP3T').Value := StrToFloat(PayGrid[1,10]);
+      QrUpDateCust.Parameters.ParamByName('aP3D').Value := StrToFloat(PayGrid[1,11]);
+      QrUpDateCust.Parameters.ParamByName('aP4').Value  := StrToFloat(PayGrid[1,12]);
+      QrUpDateCust.Parameters.ParamByName('aP4Tod').Value  := StrToFloat(PayGrid[1,13]);
+      QrUpDateCust.Parameters.ParamByName('aP5').Value  := StrToFloat(PayGrid[1,14]);
+      QrUpDateCust.Parameters.ParamByName('aP5Tod').Value  := StrToFloat(PayGrid[1,15]);
+
+
+      QrUpDateCust.Parameters.ParamByName('aComment').Value := Comment.Text;
+      QrUpDateCust.ExecSQL;
+
+      QrUpDateCust.Close;
+      QrUpDateCust.SQL.Clear;
+      QrUpDateCust.SQL.Add('Update LastDealer');
+      QrUpDateCust.SQL.Add('Set LastCode=:aLastCode');
+      QrUpDateCust.Parameters.ParamByName('aLastCode').Value := EdCode.Text;
+      QrUpDateCust.ExecSQL;
+
+      QrUpDateCust.Free;
+      Showmessage('ข้อมูลได้รับการบันทึกเรียบร้อยแล้ว');
+      Close;
+    end;
+  except
+    Showmessage('เกิดปัญหาในการบันทึกข้อมูล ไม่สามารถบันทึกข้อมูลได้');
+  end
+end;
+
+
+procedure TfrmDealer.PayGridKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+Var i,j: integer;
+begin
+ If (Sender is TNiceGrid) then
+ begin
+  if Key = VK_Delete then
+    for i:= 0 to TNiceGrid(Sender).Rowcount-1 do
+    begin
+      for j := 0 to TNiceGrid(Sender).ColCount-1 do
+      begin
+        if TNiceGrid(Sender).Cells[j,i] = '' then
+          TNiceGrid(Sender).Cells[j,i] := '0';
+      end;
+    end;
+  end;
+end;
+
+procedure TfrmDealer.PayGridFilterChar(Sender: TObject; Col, Row: Integer;
+  Chr: Char; var Allowed: Boolean);
+begin
+  if Col in [0,1] then
+  begin
+    if Chr in ['0'..'9','.'] then
+    begin
+      if Chr in ['0'..'9'] then
+        Allowed := true
+      else
+      begin
+        if foundChar(TNiceGrid(Sender).Cells[Col,Row],'.') then
+          Allowed := false
+        else
+          Allowed := true;
+      end;
+    end
+    else
+      Allowed := false;
+  end;
+end;
+
+end.
