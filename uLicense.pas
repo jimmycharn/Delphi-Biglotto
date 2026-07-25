@@ -30,36 +30,130 @@ implementation
 
 function GetLocalIPAddress: string;
 type
-  PPInAddr = ^PInAddr;
+  PIP_ADDR_STRING = ^IP_ADDR_STRING;
+  IP_ADDR_STRING = record
+    Next: PIP_ADDR_STRING;
+    IpAddress: array[0..15] of Char;
+    IpMask: array[0..15] of Char;
+    Context: DWORD;
+  end;
+
+  PIP_ADAPTER_INFO = ^IP_ADAPTER_INFO;
+  IP_ADAPTER_INFO = record
+    Next: PIP_ADAPTER_INFO;
+    ComboIndex: DWORD;
+    AdapterName: array[0..259] of Char;
+    Description: array[0..127] of Char;
+    AddressLength: UINT;
+    Address: array[0..7] of Byte;
+    Index: DWORD;
+    uType: UINT;
+    DhcpEnabled: UINT;
+    CurrentIpAddress: PIP_ADDR_STRING;
+    IpAddressList: IP_ADDR_STRING;
+    GatewayList: IP_ADDR_STRING;
+    DhcpServer: IP_ADDR_STRING;
+    HaveWins: BOOL;
+    PrimaryWinsServer: IP_ADDR_STRING;
+    SecondaryWinsServer: IP_ADDR_STRING;
+    LeaseObtained: Int64;
+    LeaseExpires: Int64;
+  end;
+
+  TGetAdaptersInfo = function(pAdapterInfo: Pointer; var pOutBufLen: ULONG): DWORD; stdcall;
+
 var
   WSAData: TWSAData;
-  HostName: array[0..255] of Char;
-  HostEnt: PHostEnt;
-  pAddrList: PPInAddr;
+  Sock: TSocket;
+  Addr: TSockAddrIn;
+  Len: Integer;
+  BufLen: ULONG;
+  pAdapterInfo, pAdapter: PIP_ADAPTER_INFO;
+  pAddrStr: PIP_ADDR_STRING;
+  IP: string;
+  HLib: HMODULE;
+  GetAdaptersInfoFunc: TGetAdaptersInfo;
 begin
-  Result := '127.0.0.1';
+  Result := '';
+
+  // Stage 1: Try UDP socket connect trick to find active LAN interface
   if WSAStartup($0101, WSAData) = 0 then
   begin
     try
-      if GetHostName(HostName, SizeOf(HostName)) = 0 then
+      Sock := socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+      if Sock <> INVALID_SOCKET then
       begin
-        HostEnt := GetHostByName(HostName);
-        if (HostEnt <> nil) and (HostEnt^.h_addr_list <> nil) then
-        begin
-          pAddrList := PPInAddr(HostEnt^.h_addr_list);
-          while pAddrList^ <> nil do
+        try
+          FillChar(Addr, SizeOf(Addr), 0);
+          Addr.sin_family := AF_INET;
+          Addr.sin_port := htons(80);
+          Addr.sin_addr.S_addr := inet_addr('8.8.8.8');
+          if connect(Sock, Addr, SizeOf(Addr)) = 0 then
           begin
-            Result := inet_ntoa(pAddrList^^);
-            if (Result <> '127.0.0.1') and (Pos('127.', Result) <> 1) then
-              Break;
-            Inc(pAddrList);
+            Len := SizeOf(Addr);
+            if getsockname(Sock, Addr, Len) = 0 then
+            begin
+              IP := string(inet_ntoa(Addr.sin_addr));
+              if (IP <> '') and (IP <> '0.0.0.0') and (Pos('127.', IP) <> 1) then
+              begin
+                Result := IP;
+                Exit;
+              end;
+            end;
           end;
+        finally
+          closesocket(Sock);
         end;
       end;
     finally
       WSACleanup;
     end;
   end;
+
+  // Stage 2: Dynamic Load of GetAdaptersInfo from iphlpapi.dll
+  HLib := LoadLibrary('iphlpapi.dll');
+  if HLib <> 0 then
+  begin
+    try
+      @GetAdaptersInfoFunc := GetProcAddress(HLib, 'GetAdaptersInfo');
+      if @GetAdaptersInfoFunc <> nil then
+      begin
+        BufLen := 0;
+        if GetAdaptersInfoFunc(nil, BufLen) = 111 then // ERROR_BUFFER_OVERFLOW = 111
+        begin
+          GetMem(pAdapterInfo, BufLen);
+          try
+            if GetAdaptersInfoFunc(pAdapterInfo, BufLen) = 0 then // NO_ERROR = 0
+            begin
+              pAdapter := pAdapterInfo;
+              while pAdapter <> nil do
+              begin
+                pAddrStr := @pAdapter^.IpAddressList;
+                while pAddrStr <> nil do
+                begin
+                  IP := Trim(String(pAddrStr^.IpAddress));
+                  if (IP <> '') and (IP <> '0.0.0.0') and (Pos('127.', IP) <> 1) then
+                  begin
+                    Result := IP;
+                    Exit;
+                  end;
+                  pAddrStr := pAddrStr^.Next;
+                end;
+                pAdapter := pAdapter^.Next;
+              end;
+            end;
+          finally
+            FreeMem(pAdapterInfo);
+          end;
+        end;
+      end;
+    finally
+      FreeLibrary(HLib);
+    end;
+  end;
+
+  if Result = '' then
+    Result := '127.0.0.1';
 end;
 
 function GetServerDisplayIP: string;
