@@ -3,7 +3,7 @@ object frmRegister: TfrmRegister
   Top = 180
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
-  Caption = 'การลงทะเบียนโปรแกรม BigLotto (Registration)'
+  Caption = '�ารล�ทะเ�ีย���ร��รม BigLotto (Registration)'
   ClientHeight = 480
   ClientWidth = 540
   Color = clBtnFace
@@ -23,14 +23,14 @@ object frmRegister: TfrmRegister
     Width = 540
     Height = 50
     Align = alTop
-    Color = clDarkGreen
+    Color = clNavy
     TabOrder = 0
     object lblTitle: TLabel
       Left = 16
       Top = 12
       Width = 370
       Height = 23
-      Caption = 'ลงทะเบียนสิทธิ์ใช้งานโปรแกรม BigLotto'
+      Caption = 'ล�ทะเ�ีย�สิท�ิ�����า���ร��รม BigLotto'
       Font.Charset = THAI_CHARSET
       Font.Color = clWhite
       Font.Height = -19
@@ -44,7 +44,7 @@ object frmRegister: TfrmRegister
     Top = 60
     Width = 516
     Height = 90
-    Caption = ' 1. รหัสประจำเครื่องนี้ (Hardware ID) '
+    Caption = ' 1. รหัส�ระ�ำเ�รื�อ��ี� (Hardware ID) '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -57,7 +57,7 @@ object frmRegister: TfrmRegister
       Top = 25
       Width = 345
       Height = 16
-      Caption = 'ส่งรหัสเครื่องนี้ให้ผู้ขายเพื่อขอรับรหัสลงทะเบียน (License Key):'
+      Caption = 'ส��รหัสเ�รื�อ��ี��ห��ู��ายเ�ื�อ�อรั�รหัสล�ทะเ�ีย� (License Key):'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -85,7 +85,7 @@ object frmRegister: TfrmRegister
       Top = 46
       Width = 135
       Height = 28
-      Caption = '📋 คัดลอก HWID'
+      Caption = '� �ัดลอ� HWID'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -101,7 +101,7 @@ object frmRegister: TfrmRegister
     Top = 160
     Width = 516
     Height = 150
-    Caption = ' 2. กรอกรหัสลงทะเบียน (License Key) '
+    Caption = ' 2. �รอ�รหัสล�ทะเ�ีย� (License Key) '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -114,7 +114,7 @@ object frmRegister: TfrmRegister
       Top = 24
       Width = 277
       Height = 16
-      Caption = 'วางรหัสลงทะเบียนที่ได้รับจากผู้ขายลงในช่องด้านล่าง:'
+      Caption = 'วา�รหัสล�ทะเ�ีย�ที��ด�รั��า��ู��ายล�����อ�ด�า�ล�า�:'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -141,7 +141,7 @@ object frmRegister: TfrmRegister
       Top = 108
       Width = 200
       Height = 32
-      Caption = '✅ ยืนยันเปิดใช้งาน'
+      Caption = '� ยื�ยั�เ�ิด����า�'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -156,7 +156,7 @@ object frmRegister: TfrmRegister
       Top = 108
       Width = 200
       Height = 32
-      Caption = '⚙️ เครื่องมือผู้ขาย (KeyGen)'
+      Caption = '�� เ�รื�อ�มือ�ู��าย (KeyGen)'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -172,7 +172,7 @@ object frmRegister: TfrmRegister
     Top = 320
     Width = 516
     Height = 110
-    Caption = ' สถานะสิทธิ์ใช้งานปัจจุบัน '
+    Caption = ' สถา�ะสิท�ิ�����า��ั��ุ�ั� '
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -185,7 +185,7 @@ object frmRegister: TfrmRegister
       Top = 25
       Width = 250
       Height = 18
-      Caption = 'สถานะ: ตรวจสอบข้อมูลสิทธิ์...'
+      Caption = 'สถา�ะ: ตรว�สอ���อมูลสิท�ิ�...'
       Font.Charset = THAI_CHARSET
       Font.Color = clBlue
       Font.Height = -15
@@ -198,7 +198,7 @@ object frmRegister: TfrmRegister
       Top = 52
       Width = 105
       Height = 16
-      Caption = 'วันที่หมดอายุ: -'
+      Caption = 'วั�ที�หมดอายุ: -'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -211,7 +211,7 @@ object frmRegister: TfrmRegister
       Top = 52
       Width = 132
       Height = 16
-      Caption = 'ระยะเวลาคงเหลือ: -'
+      Caption = 'ระยะเวลา��เหลือ: -'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -224,7 +224,7 @@ object frmRegister: TfrmRegister
       Top = 78
       Width = 188
       Height = 16
-      Caption = 'จำนวนเครื่องลูกที่อนุญาต: -'
+      Caption = '�ำ�ว�เ�รื�อ�ลู�ที�อ�ุ�าต: -'
       Font.Charset = THAI_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -238,7 +238,7 @@ object frmRegister: TfrmRegister
     Top = 438
     Width = 120
     Height = 32
-    Caption = 'ปิดหน้าต่าง'
+    Caption = '�ิดห��าต�า�'
     Font.Charset = THAI_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
