@@ -22263,71 +22263,19270 @@ end;
 
 procedure TfMain.BtnDelLotClick(Sender: TObject);
 Var QrDelLot: TABSQuery;
+    LotIDStr: String;
 begin
   if sit = 0 then
   begin
     with LotTypeGrid,Dm do
     begin
-        if MessageDlg('ต้องการลบรายการหวย "'+LotTypeGrid[0,Row]+'"  ใช่หรือไม่?',
+        if MessageDlg('คุณต้องการลบรายการ "'+LotTypeGrid[0,Row]+'" ใช่ไหม?',
           mtConfirmation, [mbYes, mbNo], 0) = mrYes then
         begin
-          QrDelLot := TABSQuery.Create(nil);
-          //if ServerDBFile = '' then
+          LotIDStr := LotTypeGrid[1,Row];
+
+          if ZConnection1.Connected then
+          begin
+            ZExecQuery.Close;
+            ZExecQuery.SQL.Text := 'DELETE FROM LOTTO WHERE ID = ' + QuotedStr(LotIDStr) + ' OR LOTID = ' + QuotedStr(LotIDStr);
+            try ZExecQuery.ExecSQL; except end;
+          end;
+
+          try
+            QrDelLot := TABSQuery.Create(nil);
             QrDelLot.DatabaseName := Database.DatabaseName;
-          //else
-            //QrDelLot.DatabaseName := ExportDB.DatabaseName;
+            QrDelLot.Close;
+            QrDelLot.SQL.Clear;
+            QrDelLot.SQL.Add('Delete from Lotto');
+            QrDelLot.SQL.Add('Where ID = "'+LotIDStr+'"');
+            QrDelLot.ExecSQL;
+            QrDelLot.Free;
+          except
+          end;
 
-
-          //QrDelLot.DatabaseName := Database.DatabaseName;
-          QrDelLot.Close;
-          QrDelLot.SQL.Clear;
-          QrDelLot.SQL.Add('Delete from Lotto');
-          QrDelLot.SQL.Add('Where ID = "'+LotTypeGrid[1,Row]+'"');
-          QrDelLot.ExecSQL;
-          QrDelLot.Free;
           DeleteRow(Row);
-          //ShowSetting;
-          MessageDlg('โปรแกรมจะเริ่มใหม่อีกครั้ง', mtInformation, [mbOK], 0);
-          LogoutBtnClick(Sender);
+          MessageDlg('ลบรายการเรียบร้อยแล้ว', mtInformation, [mbOK], 0);
+          TabLotTypeShow(Sender);
         end;
+    end;
+  end
+  else
+    MessageDlg('คุณไม่มีสิทธิ์ใช้งาน',mtWarning, [mbOk], 0);
+end;
+
+procedure TfMain.BtnAddLotClick(Sender: TObject);
+Var QrmaxLot: TABSQuery;
+    MaxIDStr: String;
+    MaxIDInt: Integer;
+begin
+  with frmAddLotto,Dm do
+  begin
+    MaxIDInt := 1;
+    MaxIDStr := '00001';
+
+    if ZConnection1.Connected then
+    begin
+      ZExecQuery.Close;
+      ZExecQuery.SQL.Text := 'SELECT MAX(CAST(ID AS INTEGER)) AS MAXID FROM LOTTO';
+      try ZExecQuery.Open; except end;
+      if ZExecQuery.Active and not ZExecQuery.IsEmpty then
+        MaxIDInt := ZExecQuery.FieldByName('MAXID').AsInteger + 1;
+      ZExecQuery.Close;
+      MaxIDStr := AutoNum(IntToStr(MaxIDInt));
+    end
+    else
+    begin
+      QrmaxLot := TABSQuery.Create(nil);
+      QrmaxLot.DatabaseName := Database.DatabaseName;
+      QrmaxLot.SQL.Clear;
+      QrmaxLot.SQL.Add('Select max(LotID) as MaxLotID from Lotto');
+      try QrmaxLot.Open; except end;
+      if QrmaxLot.Active and not QrmaxLot.IsEmpty then
+        MaxIDStr := AutoNum(QrmaxLot.fieldByName('MaxLotID').AsString);
+      QrmaxLot.Free;
+    end;
+
+    if Showmodal = mrOK then
+    begin
+      if ZConnection1.Connected then
+      begin
+        ZExecQuery.Close;
+        ZExecQuery.SQL.Text := 'INSERT INTO LOTTO (ID, LOTID, LOTNAME) VALUES (:ID, :LOTID, :LOTNAME)';
+        ZExecQuery.ParamByName('ID').AsString := IntToStr(MaxIDInt);
+        ZExecQuery.ParamByName('LOTID').AsString := MaxIDStr;
+        ZExecQuery.ParamByName('LOTNAME').AsString := edLottoName.Text;
+        try ZExecQuery.ExecSQL; except end;
+      end;
+
+      try
+        Lotto.Close;
+        Lotto.DatabaseName := Database.DatabaseName;
+        Lotto.Open;
+        Lotto.Append;
+        Lotto.FieldByName('LotID').AsString   := MaxIDStr;
+        Lotto.FieldByName('LotName').AsString := edLottoName.Text;
+        Lotto.Post;
+      except
+      end;
+
+      MessageDlg('บันทึกข้อมูลเรียบร้อยแล้ว', mtInformation, [mbOK], 0);
+      TabLotTypeShow(Sender);
+    end;
+  end;
+end;
+
+
+procedure TfMain.TransTotal(Num,ValUp,ValDwn,CustID: String);
+Var i,j,k,l,StarPos,LobPos,PlusPos: integer;
+    Price1,Price2,sNum,TmpNum : String;
+    found,IsUp,IsDown: boolean;
+begin
+  IsUp   := ValUp <> '';
+  IsDown := ValDwn <> '';
+
+  with Dm do
+  begin
+    with Numslist do
+    begin
+      Price1 := '0';
+      Price2 := '0';
+
+
+
+      if IsUp then  // บน
+      begin
+        if IsNumOnly(ValUp) then //ราคาไม่มีสัญลักษณ์
+        begin
+          Price1 := ValUp;
+          Price2 := '0';
+        end
+        else
+        if (Pos('-',ValUp) = 1) then //ราคามีเครื่องหมาย - อยู่ที่ตัวแรก
+        begin
+          Price1 := '0';
+          Price2 := Copy(ValUp,2,length(ValUp)-1);
+        end
+        else
+        if (Pos('*',ValUp) = Length(ValUp)) then  //ราคามีเครื่องหมาย * อยู่ที่ตัวสุดท้าย
+        begin
+          Price1 := '0';
+          Price2 := Copy(ValUp,2,length(ValUp)-1);
+        end
+        else
+        if (Pos('-',ValUp) > 1) and (Pos('-',ValUp) < Length(ValUp)) then
+        begin
+          Price1 := Copy(ValUp,1,Pos('-',ValUp)-1);
+          Price2 := Copy(ValUp,Pos('-',ValUp)+1,length(ValUp)-Pos('-',ValUp));
+        end
+        else
+        if (Pos('*',ValUp) > 1) and (Pos('*',ValUp) < Length(ValUp)) then
+        begin
+          Price1 := Copy(ValUp,1,Pos('*',ValUp)-1);
+          Price2 := Copy(ValUp,Pos('*',ValUp)+1,length(ValUp)-Pos('*',ValUp));
+        end
+
+      end
+      else
+      if ValDwn <> '' then  //ล่าง
+      begin
+        if IsNumOnly(ValDwn) then //ราคาไม่มีสัญลักษณ์
+        begin
+          Price1 := ValDwn;
+          Price2 := '0';
+        end
+        else
+        if (Pos('*',ValDwn) = Length(ValDwn)) then  //ราคามีเครื่องหมาย * อยู่ที่ตัวสุดท้าย
+        begin
+          Price1 := '0';
+          Price2 := Copy(ValDwn,2,length(ValDwn)-1);
+        end
+        else
+        if (Pos('-',ValDwn) > 1) and (Pos('-',ValDwn) < Length(ValDwn)) then
+        begin
+          Price1 := Copy(ValDwn,1,Pos('-',ValDwn)-1);
+          Price2 := Copy(ValDwn,Pos('-',ValDwn)+1,length(ValDwn)-Pos('-',ValDwn));
+        end
+        else
+        if (Pos('*',ValDwn) > 1) and (Pos('*',ValDwn) < Length(ValDwn)) then
+        begin
+          Price1 := Copy(ValDwn,1,Pos('*',ValDwn)-1);
+          Price2 := Copy(ValDwn,Pos('*',ValDwn)+1,length(ValDwn)-Pos('*',ValDwn));
+        end
+
+      end;
+
+      if (CountNum(Num) = 1) then
+      begin
+        if (length(Num)=1) and (Num[1] in ['0'..'9']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              //if  (ArTransData[i,0] = CustID)and(ArTransData[i,1] = Num[1]) then
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[1]) then
+                begin
+                  if IsUp then
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,2],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,4],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num;
+            if IsUp then
+              ArTransData[length(ArTransData)-1,2] := Price1 //วิ่งบน
+            else
+              ArTransData[length(ArTransData)-1,4] := Price1; //วิ่งล่าง
+          end;
+
+        end;
+          //---------------------------------------------------------------//
+      end;
+
+      if (CountNum(Num) = 1) then
+      begin
+        if (length(Num)=1) and (Num[1] in ['0'..'9']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              //if  (ArTransData[i,0] = CustID)and(ArTransData[i,1] = Num[1]) then
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[1]) then
+                begin
+                  if IsUp then
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,2],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,4],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num;
+            if IsUp then
+              ArTransData[length(ArTransData)-1,2] := Price1 //วิ่งบน
+            else
+              ArTransData[length(ArTransData)-1,4] := Price1; //วิ่งล่าง
+          end;
+
+        end;
+        //---------------------------------------------------------------//
+
+        if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['-']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[1]) then
+                begin
+                  if IsUp then
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,3],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num;
+            if IsUp then
+              ArTransData[length(ArTransData)-1,3] := Price1 //หน้าบน
+            else
+              ArTransData[length(ArTransData)-1,7] := Price1; //หน้าล่าง
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+        if (length(Num)=3) and (Num[1] in ['-']) and (Num[2] in ['0'..'9']) and (Num[3] in ['-']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[2]) then
+                begin
+                  ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,4],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num;
+            ArTransData[length(ArTransData)-1,4] := Price1; //กลางบน
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+        if (length(Num)=2) and (Num[1] in ['-']) and (Num[2] in ['0'..'9']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[2]) then
+                begin
+                  if IsUp then
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,5],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,8],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num;
+            if IsUp then
+              ArTransData[length(ArTransData)-1,5] := Price1 //หลังบน
+            else
+              ArTransData[length(ArTransData)-1,8] := Price1; //หลังล่าง
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+      end;
+
+      if (CountNum(Num) = 2) then
+      begin
+        if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num) then
+                begin
+                  if IsUp then
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,2],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,6],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num;
+            if IsUp then
+              ArTransData[length(ArTransData)-1,2] := Price1 //หน้าบน
+            else
+              ArTransData[length(ArTransData)-1,6] := Price1; //หน้าล่าง
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+        if (length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['+']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if IsNumTod(ArTransData[i,1], Num[1]+Num[2]) then
+                begin
+                  ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,3],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num[1]+Num[2];
+            ArTransData[length(ArTransData)-1,3] := Price1 //2 ตัวมี
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+        if (length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['-']) Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[1]+Num[2]) then
+                begin
+
+
+
+                  ArTransData[i,5] :=  FloatToStr(StrToFloatDef(ArTransData[i,5],0)+StrToFloat(Price1));
+
+
+
+                  
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num[1]+Num[2];
+            if (Pos('*',ValUp) > 0) then
+            begin
+              if Pos('*',ValUp) = Length(ValUp) then
+                ArTransData[length(ArTransData)-1,5] := IntToStr(StrToInt(Price1)*2) //2 ตัวถ่าง 1-2 = 100*
+              else
+              if (Pos('*',ValUp) > 1) and (Pos('*',ValUp) < Length(ValUp)) then
+                ArTransData[length(ArTransData)-1,5] := IntToStr(StrToInt(Price1)+StrToInt(Price2)) //2 ตัวถ่าง 1-2 = 100*20
+              else
+                ArTransData[length(ArTransData)-1,5] := Price1; //2 ตัวถ่าง 1-2 = 100
+            end;
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+        if (length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['-']) and (Num[3] in ['0'..'9'])  Then
+        begin
+          found := false;
+          if length(ArTransData) > 0 then
+          begin
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID) then
+              begin
+                if (ArTransData[i,1] = Num[1]+Num[3]) then
+                begin
+                  ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,4],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+            end;
+          end;
+
+          if Not found then
+          begin
+            setlength(ArTransData,length(ArTransData)+1,9); //เพิ่มเรคคอร์ดใหม่ใน อาเรย์
+            ArTransData[length(ArTransData)-1,0] := CustID;
+            ArTransData[length(ArTransData)-1,1] := Num[1]+Num[3];
+            ArTransData[length(ArTransData)-1,4] := Price1 //2 ตัวถ่าง
+          end;
+        end;
+        //---------------------------------------------------------------//
+
+      end;
+
+
+      //end;
+
+
+
+
+
+
+      if ValUp <> '' then
+      begin
+        StarPos := Pos('*',ValUP);
+        LobPos  := Pos('-',ValUP);
+        PlusPos := Pos('+',ValUP);
+
+        if (Not (foundChar(ValUp,'*'))) and (Not (foundChar(ValUp,'-'))) and (Not (foundChar(ValUp,'+'))) then
+        begin
+            Price1 := ValUp;
+            Price2 := '0';
+        end
+        else
+        if (foundChar(ValUp,'*')) then
+        begin
+          if StarPos = 1 then
+          begin
+            Price1 := Copy(ValUp,2,length(ValUp)-1);
+            Price2 := Copy(ValUp,2,length(ValUp)-1);
+          end
+          else
+          if (StarPos > 1)and(StarPos < length(ValUp)) then
+          begin
+            Price1 := Copy(ValUp,1,StarPos-1);
+            Price2 := Copy(ValUp,StarPos+1,length(ValUp)-StarPos);
+          end
+          else
+          if (StarPos = length(ValUp)) then
+          begin
+            Price1 := Copy(ValUp,1,StarPos-1);
+            Price2 := Price1;
+          end;
+        end;
+
+        if (foundChar(ValUp,'-')) then
+        begin
+          if LobPos = 1 then
+          begin
+            Price1 := Copy(ValUp,2,length(ValUp)-1);
+            Price2 := '0';
+          end
+          else
+          if (LobPos >1)and(lobPos < length(ValUp)) then
+          begin
+            Price1 := Copy(ValUp,1,LobPos-1);
+            Price2 := Copy(ValUp,LobPos+1,length(ValUp)-LobPos);
+          end
+          else
+          if (lobPos = length(ValUp)) then
+          begin
+            Price1 := Copy(ValUp,1,LobPos-1);
+            Price2 := Price1;
+          end;
+        end;
+
+        if (foundChar(ValUp,'+')) then
+        begin
+          if PlusPos = 1 then
+          begin
+            Price1 := '0';
+            Price2 := Copy(ValUp,2,length(ValUp)-1);
+          end
+          else
+          if (PlusPos > 1)and(PlusPos < length(ValUp)) then
+          begin
+            Price1 := Copy(ValUp,1,PlusPos-1);
+            Price2 := Copy(ValUp,PlusPos+1,length(ValUp)-PlusPos);
+          end
+          else
+          if (PlusPos = length(ValUp)) then
+          begin
+            Price1 := Copy(ValUp,1,PlusPos-1);
+            Price2 := Price1;
+            //Price2 := '0';
+          end;
+        end;
+
+ //---------------------------- เลข 1 ตัว ---------------------------------------------------//
+        with NiceGrid1 do
+        begin
+          //--------------------------- วิ่งบน ----------------------------//
+          if (Num[1] in ['0'..'9'])and(length(Num)=1) and (Not foundChar(ValUp,'+')) Then //and(StarPos =0)and(LobPos = 0) then //    and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-'))) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            begin
+              for i := 0 to length(ArTransData)-1 do
+              begin
+                //if  (ArTransData[i,0] = CustID)and(ArTransData[i,1] = Num[1]) then
+                if  (ArTransData[i,0] = CustID) then
+                begin
+                  if (ArTransData[i,1] = Num[1]) then
+                  begin
+                    ArTransData[i,2] :=  FloatToStr(StrToFloatDef(ArTransData[i,2],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num[1];
+              ArTransData[length(ArTransData)-1,2] := Price1;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- วิ่ง - ล่าง --------------------//
+          //if (Num[1] in ['0'..'9']) and (length(Num)=1) and (foundChar(ValUp,'+')) then
+          if (Num[1] in ['0'..'9']) and (length(Num)=1) and (PlusPos = 1) and (LobPos = 0) and (StarPos = 0) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+              begin
+                ArTransData[j,6] :=  FloatToStr(StrToFloatDef(ArTransData[j,6],0)+StrToFloat(Price2));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,6] := Price2;
+            end;
+          end;
+          //---------------------------------------------------------------// 
+
+          //--------------------------- วิ่งบน - ล่าง --------------------//
+          //if (Num[1] in ['0'..'9']) and (length(Num)=1) and (foundChar(ValUp,'+')) then
+          if (Num[1] in ['0'..'9']) and (length(Num)=1) and (PlusPos > 1) and (LobPos = 0) and (StarPos = 0) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+              begin
+                ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                ArTransData[j,6] :=  FloatToStr(StrToFloatDef(ArTransData[j,6],0)+StrToFloat(Price2));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,2] := Price1;
+              ArTransData[length(ArTransData)-1,6] := Price2;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------------- ปักหน้าบน ---------------------------//
+          if (Num[1] in ['0'..'9'])and(length(Num)=2)and(Num[2] in ['-'])and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-'))) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID)and(ArTransData[i,1] = Num[1]) then
+              begin
+                ArTransData[i,3] :=  FloatToStr(StrToFloatDef(ArTransData[i,3],0)+StrToFloat(Price1));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num[1];
+              ArTransData[length(ArTransData)-1,3] := Price1;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------------- ปักกลางบน ---------------------------//
+          if (Num[1] in ['-'])and(Num[2] in ['0'..'9'])and(Num[3] in ['-'])and((length(Num)=3))and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-'))) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID)and(ArTransData[i,1] = Num[2]) then
+              begin
+                ArTransData[i,4] :=  FloatToStr(StrToFloatDef(ArTransData[i,4],0)+StrToFloat(Price1));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num[2];
+              ArTransData[length(ArTransData)-1,4] := Price1;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------------- ปักหลังบน ---------------------------//
+          if (Num[1] in ['-'])and(length(Num)=2)and(Num[2] in  ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-'))) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for i := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[i,0] = CustID)and(ArTransData[i,1] = Num[2]) then
+              begin
+                ArTransData[i,5] :=  FloatToStr(StrToFloatDef(ArTransData[i,5],0)+StrToFloat(Price1));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num[2];
+              ArTransData[length(ArTransData)-1,5] := Price1;
+            end;
+          end;
+          //---------------------------------------------------------------//
+   
+        end;
+   
+ //---------------------------- เลข 2 ตัว ---------------------------------------------------//
+        //with NiceGrid2 do
+        //begin
+          //--------------------------- 2 ตัวบน ----------------------------//
+          //if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Not(foundChar(ValUp,'*'))) and (Not(foundChar(ValUp,'-'))) and (Not(foundChar(ValUp,'+'))) then
+          if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (PlusPos=0) and (LobPos=0) and (StarPos=0)  then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+              begin
+                ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,2] := Price1;
+            end;
+
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 2 ตัวบน - โต๊ด --------------------//
+          //if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (foundChar(ValUp,'-')) and (LobPos <> 1) then
+          if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (LobPos > 1) and (PlusPos=0) and (StarPos=0)  then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[2]) then
+              begin
+                ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price2));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,2] := Price1;
+              ArTransData[length(ArTransData)-1,3] := Price2;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 2 ตัวบน - ล่าง --------------------//
+          //if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (length(Num)=2) and (foundChar(ValUp,'+')) then
+          if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (PlusPos > 1) and (LobPos = 0) and (StarPos=0)  then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[2]) then
+              begin
+                ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price2));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,2] := Price1;
+              ArTransData[length(ArTransData)-1,7] := Price2;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวบน เลชคู่ -----------------//
+          if (length(Num)=1)and(Num[1] in ['.']) then
+          begin
+            for i := 0 to 9 do
+            begin
+              sNum := IntToStr(i)+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID) and (ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------- เลขชุด 2 ตัวบน เลขพี่น้อง -----------------//
+          if (length(Num)=2) and (Num[1] in ['.']) and (Num[2] in ['.']) then
+          begin
+
+            for i := 0 to 9 do
+            begin
+              if i = 9 then
+                sNum := IntToStr(i)+'0'
+              else
+                sNum := IntToStr(i)+IntToStr(i+1);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+
+            for i := 9 Downto 0 do
+            begin
+              if i = 0 then
+                sNum := IntToStr(i)+'9'
+              else
+                sNum := IntToStr(i)+IntToStr(i-1);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+          
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวบน รูดหน้า-----------------//
+          if (length(Num)=2)and(Num[1] in ['0'..'9'])and(Num[2] in ['/']) then
+          begin
+            for i := 0 to 9 do
+            begin
+              sNum := Num[1]+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวบน-ล่าง รูดหน้า-----------------//
+          if (length(Num)=2) and (Num[1] in ['0'..'9']) and (Num[2] in ['/']) and (PlusPos > 0) then
+          begin
+            for i := 0 to 9 do
+            begin
+              sNum := Num[2]+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  found := true;
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+
+                  if StrToFloat(Price2) <= 0 then
+                    ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price2));
+
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+                if StrToFloat(Price2) <= 0 then
+                  ArTransData[length(ArTransData)-1,7] := Price1
+                else
+                  ArTransData[length(ArTransData)-1,7] := Price2;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวบน รูดหลัง-----------------//
+          if (length(Num)=2)and(Num[1] in ['/'])and(Num[2] in ['0'..'9']) and (PlusPos = 0) then
+          begin
+            for i := 0 to 9 do
+            begin
+              sNum := IntToStr(i)+Num[2];
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID) and (ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวบน-ล่าง รูดหลัง-----------------//
+          if (length(Num)=2)and(Num[1] in ['/'])and(Num[2] in ['0'..'9']) and (PlusPos > 0) then
+          begin
+            for i := 0 to 9 do
+            begin
+              sNum := IntToStr(i)+Num[2];
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  found := true;
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+
+                  if StrToFloat(Price2) <= 0 then
+                    ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1))
+                  else
+                    ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price2));
+
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+                if StrToFloat(Price2) <= 0 then
+                  ArTransData[length(ArTransData)-1,7] := Price1
+                else
+                  ArTransData[length(ArTransData)-1,7] := Price2;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+
+          //----------------------- เลขชุด 2 ตัวบน 19 ประตู----------------//
+          if (length(Num)=4)and(Num[1] in ['1'])and(Num[2] in ['9'])and(Num[3] in ['.'])and(Num[4] in ['0'..'9']) then
+          begin
+            for i := 0 to 9 do
+            begin
+              sNum := Num[4]+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+
+            for i := 0 to 9 do
+            begin
+              sNum := IntToStr(i)+Num[4];
+
+              if intToStr(i) <> Num[4] then
+              begin
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                  begin
+                    ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := sNum;
+                  ArTransData[length(ArTransData)-1,2] := Price1;
+                end;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวบน 20 ประตู----------------//
+          if (length(Num)=4)and(Num[1] in ['2'])and(Num[2] in ['0'])and(Num[3] in ['.'])and(Num[4] in ['0'..'9']) then
+          begin
+            sNum := Num;
+            for i := 0 to 9 do
+            begin
+              sNum := Num[4]+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = sNum) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := sNum;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+
+            for i := 0 to 9 do
+            begin
+              sNum := IntToStr(i)+Num[4];
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[j,0] = CustID) and (ArTransData[j,1] = sNum) then
+                  begin
+                    ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := sNum;
+                  ArTransData[length(ArTransData)-1,2] := Price1;
+                end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- ชุดเลขวิน-----------------------//
+          if (FoundChar(Num,'*')) and (PlusPos = 0) and (StarPos = 0) then
+          begin
+            sNum := Copy(Num,1,length(Num)-1);
+            for i := 1 to length(sNum)-1 do
+            begin
+              for j := 1 to length(sNum)-i do
+              begin
+                Num := sNum[i]+sNum[i+j];
+
+                found := false;
+                if length(ArTransData) > 0 then
+                for k := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[k,0] = CustID)and(ArTransData[k,1] = Num) then
+                  begin
+                    ArTransData[k,2] :=  FloatToStr(StrToFloatDef(ArTransData[k,2],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,2] := Price1;
+                end;
+              end;
+
+            end;
+            Num := sNum+'*';
+          end;
+          //----------------------------------------------------------//
+
+          //-------------------------- ชุดเลขวิน-กลับ -----------------------//
+          if (FoundChar(Num,'*')) and (PlusPos = 0) and (StarPos > 0) then
+          begin
+            TmpNum := Copy(Num,1,length(Num)-1);
+
+            for l := 0 to 1 do
+            begin
+              if l = 0 then
+                sNum := TmpNum
+              else
+                sNum := Alter(TmpNum);
+
+              for i := 1 to length(sNum)-1 do
+              begin
+                for j := 1 to length(sNum)-i do
+                begin
+                  Num := sNum[i]+sNum[i+j];
+
+                  found := false;
+                  if length(ArTransData) > 0 then
+                  for k := 0 to length(ArTransData)-1 do
+                  begin
+                    if  (ArTransData[k,0] = CustID)and(ArTransData[k,1] = Num) then
+                    begin
+                      ArTransData[k,2] :=  FloatToStr(StrToFloatDef(ArTransData[k,2],0)+StrToFloat(Price1));
+                      found := true;
+                      break;
+                    end;
+                  end;
+
+                  if Not found then
+                  begin
+                    setlength(ArTransData,length(ArTransData)+1,9);
+                    ArTransData[length(ArTransData)-1,0] := CustID;
+                    ArTransData[length(ArTransData)-1,1] := Num;
+                    ArTransData[length(ArTransData)-1,2] := Price1;
+                  end;
+                end;
+
+              end;
+
+            end;
+            Num := TmpNum+'*';
+          end;
+          //----------------------------------------------------------//
+
+          //-------------------------- ชุดเลขวิน บน-ล่าง -----------------------//
+          if (FoundChar(Num,'*')) and (PlusPos > 0) and (StarPos = 0) then
+          begin
+            sNum := Copy(Num,1,length(Num)-1);
+            for i := 1 to length(sNum)-1 do
+            begin
+              for j := 1 to length(sNum)-i do
+              begin
+                Num := sNum[i]+sNum[i+j];
+
+                found := false;
+                if length(ArTransData) > 0 then
+                for k := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[k,0] = CustID)and(ArTransData[k,1] = Num) then
+                  begin
+                    ArTransData[k,2] :=  FloatToStr(StrToFloatDef(ArTransData[k,2],0)+StrToFloat(Price1));
+                    ArTransData[k,7] :=  FloatToStr(StrToFloatDef(ArTransData[k,7],0)+StrToFloat(Price2));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,2] := Price1;
+                  ArTransData[length(ArTransData)-1,7] := Price2;
+                end;
+              end;
+
+            end;
+            Num := sNum+'*';
+          end;
+          //----------------------------------------------------------//
+
+          //---------------------------2 ตัวโต๊ด --------------------------//
+          if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Length(Num)=2) and (LobPos = 1)  then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,3] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //---------------------------2 ตัว +ล่าง --------------------------//
+          if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Length(Num)=2) and (PlusPos = 1) and (LobPos = 0) and (StarPos = 0)  then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price2;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+
+          //--------------------------- 2 ตัวคูณบน--------------------------//
+          if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (length(Num)=2) and ((foundChar(ValUp,'*'))) and (Not(foundChar(ValUp,'-'))) then
+          begin
+           for i := 1 to 2 do
+           begin
+            if i = 1 then
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end
+            else
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[2]+Num[1]) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[2]+Num[1];
+                ArTransData[length(ArTransData)-1,2] := Price2;
+              end;
+            end;
+           end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 2 ตัวมี ---------------------------//
+          //if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['+']) and (length(Num)=3) and (Not(foundChar(ValUp,'*'))) and (Not(foundChar(ValUp,'-'))) then
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['+']) and (StarPos = 0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[2]) then
+                begin
+                  ArTransData[j,4] :=  FloatToStr(StrToFloatDef(ArTransData[j,4],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[1]+Num[2];
+                ArTransData[length(ArTransData)-1,4] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 2 ตัวหน้า -------------------------//
+          //if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['-']) and (Not(foundChar(ValUp,'*'))) and (Not(foundChar(ValUp,'-'))) then
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['-']) and (StarPos = 0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[2]) then
+                begin
+                  ArTransData[j,5] :=  FloatToStr(StrToFloatDef(ArTransData[j,5],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[1]+Num[2];
+                ArTransData[length(ArTransData)-1,5] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 2 ตัวหน้ากลับ--------------------------//
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['-']) and (StarPos > 0) then
+          begin
+           for i := 1 to 2 do
+           begin
+            if i = 1 then
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[2]) then
+                begin
+                  ArTransData[j,5] :=  FloatToStr(StrToFloatDef(ArTransData[j,5],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[1]+Num[2];
+                ArTransData[length(ArTransData)-1,5] := Price1;
+              end;
+            end
+            else
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[2]+Num[1]) then
+                begin
+                  ArTransData[j,5] :=  FloatToStr(StrToFloatDef(ArTransData[j,5],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[2]+Num[1];
+                ArTransData[length(ArTransData)-1,5] := Price2;
+              end;
+            end;
+           end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- คู่ถ่าง -------------------------//
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['-']) and (Num[3] in ['0'..'9']) and (StarPos = 0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[3]) then
+                begin
+                  ArTransData[j,6] :=  FloatToStr(StrToFloatDef(ArTransData[j,6],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[1]+Num[3];
+                ArTransData[length(ArTransData)-1,6] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 2 ตัวคู่ถ่างกลับ--------------------------//
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['-']) and (Num[3] in ['0'..'9']) and (StarPos > 0) then
+          begin
+           for i := 1 to 2 do
+           begin
+            if i = 1 then
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]+Num[3]) then
+                begin
+                  ArTransData[j,6] :=  FloatToStr(StrToFloatDef(ArTransData[j,6],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[1]+Num[3];
+                ArTransData[length(ArTransData)-1,6] := Price1;
+              end;
+            end
+            else
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[3]+Num[1]) then
+                begin
+                  ArTransData[j,6] :=  FloatToStr(StrToFloatDef(ArTransData[j,6],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[3]+Num[1];
+                ArTransData[length(ArTransData)-1,6] := Price2;
+              end;
+            end;
+           end;
+          end;
+          //---------------------------------------------------------------//
+
+
+
+        //end;
+
+ //---------------------------- เลข 3 ตัว ---------------------------------------------------//
+
+
+
+        with NiceGrid3 do
+        begin
+  
+          //---------------------------3 ตัวบน ----------------------------//
+          //if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-')))and(Not foundChar(ValUp,'+')) then
+          if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (PlusPos=0) and (LobPos=0) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(txtToFloat(ArTransData[j,2])+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //---------------------------3 ตัวโต๊ด --------------------------//
+          //if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (foundChar(ValUp,'-')) and (LobPos = 1)  then
+          if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (PlusPos=0) and (LobPos = 1) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,3] :=  FloatToStr(txtToFloat(ArTransData[j,3])+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,3] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------------- 3 ตัวตรง-โต๊ด -----------------------//
+          //if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and(foundChar(ValUp,'-'))and(LobPos <> 1)  then
+          if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (PlusPos=0) and (LobPos > 1) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(txtToFloat(ArTransData[j,2])+StrToFloat(Price1));
+                  ArTransData[j,3] :=  FloatToStr(txtToFloat(ArTransData[j,3])+StrToFloat(Price2));
+
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+                ArTransData[length(ArTransData)-1,3] := Price2;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 3ตัวบน - ล่าง --------------------//
+          if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (PlusPos > 1) and (LobPos = 0) and (StarPos=0) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+              begin
+                ArTransData[j,2] :=  FloatToStr(txtToFloat(ArTransData[j,2])+StrToFloat(Price1));
+                ArTransData[j,4] :=  FloatToStr(txtToFloat(ArTransData[j,4])+StrToFloat(Price2));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,2] := Price1;
+              ArTransData[length(ArTransData)-1,4] := Price2;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //--------------------------- 3ตัว + ล่าง --------------------//
+          if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (PlusPos = 1) and (LobPos = 0) and (StarPos=0) then
+          begin
+            found := false;
+            if length(ArTransData) > 0 then
+            for j := 0 to length(ArTransData)-1 do
+            begin
+              if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+              begin
+                ArTransData[j,4] :=  FloatToStr(txtToFloat(ArTransData[j,4])+StrToFloat(Price2));
+                found := true;
+                break;
+              end;
+            end;
+
+            if Not found then
+            begin
+              setlength(ArTransData,length(ArTransData)+1,9);
+              ArTransData[length(ArTransData)-1,0] := CustID;
+              ArTransData[length(ArTransData)-1,1] := Num;
+              ArTransData[length(ArTransData)-1,4] := Price2;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+
+          //-------------------------- 3 ตัวบนคูณ -------------------------//
+          if (Length(Num)=3)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and(foundChar(ValUp,'*')) then
+          begin
+                SortNumTotal(CustID,Num,ValUp,True);
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- 4 ตัวบนคูณเป็น 3 ตัว -------------------------//
+          if (Length(Num)=4)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and (Num[4] in ['0'..'9'])and(foundChar(ValUp,'*')) then
+          begin
+            Sort4Num(Num,ValUp);
+
+            With NumsList do
+            for i := Items.Count-1 Downto 0 do
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Items[i].Caption) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(txtToFloat(ArTransData[j,2])+StrToFloat(Items[i].SubItems[0]));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Items[i].Caption;//Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- 5 ตัวบนคูณเป็น 3 ตัว -------------------------//
+          if (Length(Num)=5)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and (Num[4] in ['0'..'9'])and (Num[5] in ['0'..'9'])and(foundChar(ValUp,'*')) then
+          begin
+            Sort5Num(Num,ValUp);
+
+            for i := Items.Count-1 Downto 0 do
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Items[i].Caption) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(txtToFloat(ArTransData[j,2])+StrToFloat(Items[i].SubItems[0]));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Items[i].Caption;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+        end;
+
+
+
+ //---------------------------- เลข 4 ตัว ---------------------------------------------------//
+        with NiceGrid4 do
+        begin
+          //---------------------------4 ตัวบน ----------------------------//
+          if (Length(Num)=4)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-'))) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+
+          if ChkExtractTod.Checked then
+          begin
+            //---------------------------4 โต๊ด ----------------------------//
+            //if (Length(Num)=4)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos = 1) then // (foundChar(ValUp,'-')) then
+            if (Length(Num)=4)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9'])and (PlusPos=0) and (LobPos = 1) and (StarPos=0) then
+            begin
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                  begin
+                    ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,3] := Price1;
+                end;
+            end;
+            //---------------------------------------------------------------//
+
+            //---------------------------4 ตรง - โต๊ด --------------------//
+            //if (Length(Num)=4)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos > 1) then // and(foundChar(ValUp,'-')) then
+            if (Length(Num)=4)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9'])and (PlusPos=0) and (LobPos > 1) and (StarPos=0) then
+            begin
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                  begin
+                    ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                    ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price2));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,2] := Price1;
+                  ArTransData[length(ArTransData)-1,3] := Price2;
+                end;
+            end;
+            //---------------------------------------------------------------//
+
+          end
+          else
+          begin
+            //---------------------------4 โต๊ด ----------------------------//
+            //if (Length(Num)=4)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos = 1) then // (foundChar(ValUp,'-')) then
+            if (Length(Num)=4)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9'])and (PlusPos=0) and (LobPos = 1) and (StarPos=0) then
+            begin
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  //if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                  if  (ArTransData[j,0] = CustID) and IsNumTod(ArTransData[j,1],Num) then
+                  begin
+                    ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,3] := Price1;
+                end;
+            end;
+            //---------------------------------------------------------------//
+
+            //---------------------------4 ตรง - โต๊ด --------------------//
+            //if (Length(Num)=4)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos > 1) then // and(foundChar(ValUp,'-')) then
+            if (Length(Num)=4)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9'])and (PlusPos=0) and (LobPos > 1) and (StarPos=0) then
+            begin
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  //if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                  if  (ArTransData[j,0] = CustID) and IsNumTod(ArTransData[j,1],Num) then
+                  begin
+                    ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                    ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price2));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,2] := Price1;
+                  ArTransData[length(ArTransData)-1,3] := Price2;
+                end;
+            end;
+            //---------------------------------------------------------------//
+
+          end;
+
+        end;
+
+ //---------------------------- เลข 5 ตัว ---------------------------------------------------//
+        with NiceGrid5 do
+        begin
+          //---------------------------5 ตัวบน ----------------------------//
+          if (Length(Num)=5)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Num[5] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(Not(foundChar(ValUp,'-'))) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+        if ChkExtractTod.Checked then
+        begin
+          //---------------------------5 ตัวโต๊ด ----------------------------//
+          //if (Length(Num)=5)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Num[5] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos=1) then // (foundChar(ValUp,'-')) then
+          if (Length(Num)=5)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9']) and (Num[5] in ['0'..'9']) and (PlusPos=0) and (LobPos = 1) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,3] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //---------------------------5 ตัวตรง - โต๊ด --------------------//
+          //if (Length(Num)=5)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Num[5] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos > 1) then // and(foundChar(ValUp,'-')) then
+          if (Length(Num)=5)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9']) and (Num[5] in ['0'..'9']) and (PlusPos=0) and (LobPos > 1) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+                ArTransData[length(ArTransData)-1,3] := Price2;
+              end;
+          end;
+          //---------------------------------------------------------------//
+        end
+        else
+        begin
+
+          //---------------------------5 ตัวโต๊ด ----------------------------//
+          //if (Length(Num)=5)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Num[5] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos=1) then // (foundChar(ValUp,'-')) then
+          if (Length(Num)=5)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9']) and (Num[5] in ['0'..'9']) and (PlusPos=0) and (LobPos = 1) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                //if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                if  (ArTransData[j,0] = CustID) and IsNumTod(ArTransData[j,1], Num) then
+                begin
+                  ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,3] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //---------------------------5 ตัวตรง - โต๊ด --------------------//
+          //if (Length(Num)=5)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Num[5] in ['0'..'9'])and(Not(foundChar(ValUp,'*')))and(LobPos > 1) then // and(foundChar(ValUp,'-')) then
+          if (Length(Num)=5)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Num[4] in ['0'..'9']) and (Num[5] in ['0'..'9']) and (PlusPos=0) and (LobPos > 1) and (StarPos=0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                //if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                if  (ArTransData[j,0] = CustID) and IsNumTod(ArTransData[j,1], Num) then
+                begin
+                  ArTransData[j,2] :=  FloatToStr(StrToFloatDef(ArTransData[j,2],0)+StrToFloat(Price1));
+                  ArTransData[j,3] :=  FloatToStr(StrToFloatDef(ArTransData[j,3],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,2] := Price1;
+                ArTransData[length(ArTransData)-1,3] := Price2;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+
+        end;
+
+
+
+        end;
+      end
+      else   //---------------------------------------------------------------------------------------------------------------//
+      begin
+        Price1 := '0';
+        Price2 := '0';
+        StarPos := Pos('*',ValDwn);
+        LobPos  := Pos('-',ValDwn);
+        PlusPos := Pos('+',ValDwn);
+
+        if (Not (foundChar(ValDwn,'*'))) and (Not (foundChar(ValDwn,'-'))) then
+        begin
+            Price1 := ValDwn;
+            Price2 := '0';
+        end
+        else
+        if (foundChar(ValDwn,'*')) then
+        begin
+          if StarPos = 1 then
+          begin
+            Price1 := Copy(ValDwn,2,length(ValDwn)-1);
+            Price2 := Copy(ValDwn,2,length(ValDwn)-1);
+          end
+          else
+          if (StarPos > 1)and(StarPos < length(ValDwn)) then
+          begin
+            Price1 := Copy(ValDwn,1,StarPos-1);
+            Price2 := Copy(ValDwn,StarPos+1,length(ValDwn)-StarPos);
+          end
+          else
+          if (StarPos = length(ValDwn)) then
+          begin
+            Price1 := Copy(ValDwn,1,StarPos-1);
+            Price2 := Price1;
+          end;
+        end
+        else
+        if (foundChar(ValDwn,'-')) then
+        begin
+          if LobPos = 1 then
+          begin
+            Price1 := Copy(ValDwn,2,length(ValDwn)-1);
+            Price2 := '0';
+          end
+          else
+          if (LobPos >1)and(lobPos < length(ValDwn)) then
+          begin
+            Price1 := Copy(ValDwn,1,LobPos-1);
+            Price2 := Copy(ValDwn,LobPos+1,length(ValDwn)-LobPos);
+          end
+          else
+          if (lobPos = length(ValDwn)) then
+          begin
+            Price1 := Copy(ValDwn,1,LobPos-1);
+            Price2 := '0';
+          end;
+        end;
+        if (foundChar(ValDwn,'+')) then
+        begin
+          if PlusPos = 1 then
+          begin
+            Price1 := '0';
+            Price2 := Copy(ValDwn,2,length(ValDwn)-1);
+          end
+          else
+          if (PlusPos > 1)and(PlusPos < length(ValDwn)) then
+          begin
+            Price1 := Copy(ValDwn,1,PlusPos-1);
+            Price2 := Copy(ValDwn,PlusPos+1,length(ValDwn)-PlusPos);
+          end
+          else
+          if (PlusPos = length(ValDwn)) then
+          begin
+            Price1 := Copy(ValDwn,1,PlusPos-1);
+            Price2 := '0';
+          end;
+        end;
+
+ //---------------------------- เลข 1 ตัว ---------------------------------------------------//
+        with NiceGrid1 do
+        begin
+          //--------------------------- วิ่งล่าง ----------------------------//
+          if (Num[1] in ['0'..'9']) and (length(Num)=1) and (StarPos =0) and (LobPos = 0) then //and(Not(foundChar(ValDwn,'*')))and(Not(foundChar(ValDwn,'-'))) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,6] :=  FloatToStr(StrToFloatDef(ArTransData[j,6],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,6] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------------- ปักหน้าล่าง ---------------------------//
+          if (Num[1] in ['0'..'9'])and(length(Num)=2)and(Num[2] in ['-'])and(Not(foundChar(ValDwn,'*')))and(Not(foundChar(ValDwn,'-'))) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[1]) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[1];
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------------- ปักหลังล่าง -------------------------//
+          if (Num[1] in ['-'])and(length(Num)=2)and(Num[2] in  ['0'..'9'])and(Not(foundChar(ValDwn,'*')))and(Not(foundChar(ValDwn,'-'))) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[2]) then
+                begin
+                  ArTransData[j,8] :=  FloatToStr(StrToFloatDef(ArTransData[j,8],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[2];
+                ArTransData[length(ArTransData)-1,8] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+        end;
+
+
+ //---------------------------- เลข 2 ตัว ---------------------------------------------------//
+        with NiceGrid2 do
+        begin
+          //--------------------------- 2 ตัวล่าง ----------------------------//
+          if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (length(Num)=2) and (Not(foundChar(ValDwn,'*'))) and (Not(foundChar(ValDwn,'-'))) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวล่าง เลชคู่ -----------------//
+          if (length(Num)=1)and(Num[1] in ['.']) then
+          begin
+            for i := 0 to 9 do
+            begin
+              Num := IntToStr(i)+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //------------------- เลขชุด 2 ตัวล่าง เลขพี่น้อง -----------------//
+          if (length(Num)=2)and(Num[1] in ['.'])and(Num[2] in ['.']) then
+          begin
+
+            for i := 0 to 9 do
+            begin
+              if i = 9 then
+                Num := IntToStr(i)+'0'
+              else
+                Num := IntToStr(i)+IntToStr(i+1);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+
+            for i := 9 Downto 0 do
+            begin
+              if i = 0 then
+                Num := IntToStr(i)+'9'
+              else
+                Num := IntToStr(i)+IntToStr(i-1);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวล่าง รูดหน้า-----------------//
+          if (length(Num)=2)and(Num[1] in ['0'..'9'])and(Num[2] in ['/']) then
+          begin
+            for i := 0 to 9 do
+            begin
+              Num := String(Num[1])+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวล่าง รูดหลัง-----------------//
+          if (length(Num)=2)and(Num[1] in ['/'])and(Num[2] in ['0'..'9']) then
+          begin
+            for i := 0 to 9 do
+            begin
+              Num := IntToStr(i)+String(Num[2]);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //----------------------- เลขชุด 2 ตัวล่าง 19 ประตู----------------//
+          if (length(Num)=4)and(Num[1] in ['1'])and(Num[2] in ['9'])and(Num[3] in ['.'])and(Num[4] in ['0'..'9']) then
+          begin
+            sNum := Num;
+            for i := 0 to 9 do
+            begin
+              Num := String(sNum[4])+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+
+            for i := 0 to 9 do
+            begin
+              Num := IntToStr(i)+String(sNum[4]);
+
+              if intToStr(i) <> String(sNum[4]) then
+              begin
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                  begin
+                    ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,7] := Price1;
+                end;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+
+          //----------------------- เลขชุด 2 ตัวล่าง 20 ประตู----------------//
+          if (length(Num)=4)and(Num[1] in ['2'])and(Num[2] in ['0'])and(Num[3] in ['.'])and(Num[4] in ['0'..'9']) then
+          begin
+            sNum := Num;
+            for i := 0 to 9 do
+            begin
+              Num := String(sNum[4])+IntToStr(i);
+
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end;
+
+            for i := 0 to 9 do
+            begin
+              Num := IntToStr(i)+String(sNum[4]);
+                found := false;
+                if length(ArTransData) > 0 then
+                for j := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                  begin
+                    ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,7] := Price1;
+                end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- ชุดเลขวิน-----------------------//
+          if (FoundChar(Num,'*')) and (PlusPos = 0) and (StarPos = 0) then
+          begin
+            sNum := Copy(Num,1,length(Num)-1);
+            for i := 1 to length(sNum)-1 do
+            begin
+              for j := 1 to length(sNum)-i do
+              begin
+                Num := sNum[i]+sNum[i+j];
+
+                found := false;
+                if length(ArTransData) > 0 then
+                for k := 0 to length(ArTransData)-1 do
+                begin
+                  if  (ArTransData[k,0] = CustID)and(ArTransData[k,1] = Num) then
+                  begin
+                    ArTransData[k,7] :=  FloatToStr(StrToFloatDef(ArTransData[k,7],0)+StrToFloat(Price1));
+                    found := true;
+                    break;
+                  end;
+                end;
+
+                if Not found then
+                begin
+                  setlength(ArTransData,length(ArTransData)+1,9);
+                  ArTransData[length(ArTransData)-1,0] := CustID;
+                  ArTransData[length(ArTransData)-1,1] := Num;
+                  ArTransData[length(ArTransData)-1,7] := Price1;
+                end;
+              end;
+
+            end;
+            Num := sNum+'*';
+          end;
+          //----------------------------------------------------------//
+
+          //-------------------------- ชุดเลขวิน-กลับ -----------------------//
+          if (FoundChar(Num,'*')) and (PlusPos = 0) and (StarPos > 0) then
+          begin
+            TmpNum := Copy(Num,1,length(Num)-1);
+
+            for l := 0 to 1 do
+            begin
+              if l = 0 then
+                sNum := TmpNum
+              else
+                sNum := Alter(TmpNum);
+
+              for i := 1 to length(sNum)-1 do
+              begin
+                for j := 1 to length(sNum)-i do
+                begin
+                  Num := sNum[i]+sNum[i+j];
+
+                  found := false;
+                  if length(ArTransData) > 0 then
+                  for k := 0 to length(ArTransData)-1 do
+                  begin
+                    if  (ArTransData[k,0] = CustID)and(ArTransData[k,1] = Num) then
+                    begin
+                      ArTransData[k,7] :=  FloatToStr(StrToFloatDef(ArTransData[k,7],0)+StrToFloat(Price1));
+                      found := true;
+                      break;
+                    end;
+                  end;
+
+                  if Not found then
+                  begin
+                    setlength(ArTransData,length(ArTransData)+1,9);
+                    ArTransData[length(ArTransData)-1,0] := CustID;
+                    ArTransData[length(ArTransData)-1,1] := Num;
+                    ArTransData[length(ArTransData)-1,7] := Price1;
+                  end;
+                end;
+
+              end;
+
+            end;
+            Num := TmpNum+'*';
+          end;
+          //----------------------------------------------------------//
+
+          //--------------------------- 2 ตัวคูณล่าง--------------------------//
+          if (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (length(Num)=2) and ((foundChar(ValDwn,'*'))) and (Not(foundChar(ValDwn,'-'))) then
+          begin
+           for i := 1 to 2 do
+           begin
+            if i = 1 then
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,7] := Price1;
+              end;
+            end
+            else
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Num[2]+Num[1]) then
+                begin
+                  ArTransData[j,7] :=  FloatToStr(StrToFloatDef(ArTransData[j,7],0)+StrToFloat(Price2));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num[2]+Num[1];
+                ArTransData[length(ArTransData)-1,7] := Price2;
+              end;
+            end;
+           end;
+          end;
+          //---------------------------------------------------------------//
+
+        end;
+
+
+
+ //---------------------------- เลข 3 ตัว ---------------------------------------------------//
+        with NiceGrid3 do
+        begin
+          //------------------------- 3 ตัวล่าง 1 ตัว ---------------------//
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (LobPos = 0) and (PlusPos = 0) and (StarPos = 0) then
+          begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID) and (ArTransData[j,1] = Num) then
+                begin
+                  ArTransData[j,4] :=  FloatToStr(StrToFloatDef(ArTransData[j,4],0)+StrToFloat(Price1));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Num;
+                ArTransData[length(ArTransData)-1,4] := Price1;
+              end;
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- 3 ตัวล่างคูณ -------------------------//
+          if (Length(Num)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) and (Not foundChar(Num,'*')) and (StarPos > 0) then
+          begin
+                //SortNumCut(Num,ValDwn,false);
+                SortNumTotal(CustID,Num,ValDwn,false);
+
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- 4 ตัวบนคูณเป็น 3 ตัว -------------------------//
+          if (Length(Num)=4)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and (Num[4] in ['0'..'9']) and (foundChar(ValDwn,'*')) then
+          begin
+            //Showmessage(Num+'  '+ValDwn);
+            Sort4Num(Num,ValDwn);
+
+            for i := Items.Count-1 Downto 0 do
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Items[i].Caption) then
+                begin
+                  ArTransData[j,4] :=  FloatToStr(txtToFloat(ArTransData[j,4])+txtToFloat(Items[i].SubItems[0]));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Items[i].Caption;
+                ArTransData[length(ArTransData)-1,4] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+          //-------------------------- 5 ตัวบนคูณเป็น 3 ตัว -------------------------//
+          if (Length(Num)=5)and(Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9'])and (Num[4] in ['0'..'9'])and (Num[5] in ['0'..'9'])and(foundChar(ValDwn,'*')) then
+          begin
+            //Showmessage(Num+'  '+ValDwn);
+            Sort5Num(Num,ValDwn);
+
+            for i := Items.Count-1 Downto 0 do
+            begin
+              found := false;
+              if length(ArTransData) > 0 then
+              for j := 0 to length(ArTransData)-1 do
+              begin
+                if  (ArTransData[j,0] = CustID)and(ArTransData[j,1] = Items[i].Caption) then
+                begin
+                  ArTransData[j,4] :=  FloatToStr(txtToFloat(ArTransData[j,4])+txtToFloat(Items[i].SubItems[0]));
+                  found := true;
+                  break;
+                end;
+              end;
+
+              if Not found then
+              begin
+                setlength(ArTransData,length(ArTransData)+1,9);
+                ArTransData[length(ArTransData)-1,0] := CustID;
+                ArTransData[length(ArTransData)-1,1] := Items[i].Caption;
+                ArTransData[length(ArTransData)-1,4] := Price1;
+              end;
+            end;
+          end;
+          //---------------------------------------------------------------//
+
+
+        end;
+      end;
+    end;
+  end;
+end;
+
+
+function SumPrice(Numb,Pr: String; Teng: Boolean): Integer;
+Var Pa,Pb,SumPr: Integer;
+begin
+  SumPr := 0;
+  if (Pos('*',Pr) > 0) then
+  begin
+    if Pos('*',Pr) = Length(Pr) then
+    begin
+      Pa := StrToInt(Copy(Pr,1,Pos('*',Pr)-1));
+      Pb := 0;
+      if (CountNum(Numb) = 2) then
+        SumPr := Pa*2;
+      if (CountNum(Numb) > 2) then
+      begin
+        SumPr := Permutation(Numb)*Pa;
+      end;
+    end
+    else
+    if Pos('*',Pr) < Length(Pr) then
+    begin
+      Pa := StrToInt(Copy(Pr,1,Pos('*',Pr)-1));
+      Pb := StrToInt(Copy(Pr,Pos('*',Pr)+1,Length(Pr)-Pos('*',Pr)));
+
+      if (CountNum(Numb) = 2) then
+        SumPr := Pa+Pb;
+      if (CountNum(Numb) > 2) then
+      begin
+        SumPr := Pa + (Permutation(Numb)-1)*Pb;
+      end;
+    end;
+  end
+  else
+  if (Pos('-',Pr) > 0) then
+  begin
+    if (Pos('-',Pr) = 1) then
+    begin
+      Pa := 0;
+      Pb := StrToInt(Copy(Pr,Pos('-',Pr)+1,Length(Pr)-Pos('-',Pr))); //StrToInt(Copy(Pr,1,Pos('-',Pr)-1));
+
+      if Teng then
+        SumPr := Pa
+      else
+        SumPr := Pb;
+    end
+    else
+    if (Pos('-',Pr) < Length(Pr)) then
+    begin
+      Pa := StrToInt(Copy(Pr,1,Pos('-',Pr)-1));
+      Pb := StrToInt(Copy(Pr,Pos('-',Pr)+1,Length(Pr)-Pos('-',Pr)));
+
+      if Teng then
+        SumPr := Pa
+      else
+        SumPr := Pb;
+    end;
+  end;
+
+  Result := SumPr;
+end;
+
+
+procedure TfMain.RepTotalsCust;
+Var FoundCorctNum,foundCust,foundCustAr,FoundNumPay: Boolean;
+    Numb,Nums,TbNum,P1,P2,StrNumLmt: String;
+    i,j,k,C,CRow,Pa,Pb,Pab,CustNoInt: integer;
+    C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,CustNo,NetCust,CustNoIntToStr: String;
+    CDwn: Array of String;
+    QrDataRep,QrDataCust,QrCustComPay,QrLimitNum: TABSQuery;
+    Income,Commis,SumCom,Total,Win,Pay,Net: Array Of real;
+    footSum: Array of real;
+    SumCust: Array of Array of real;
+    SumNumCust: Array of Array of String;
+    CustID: real;
+    SellItem,ComItem,WinItem,PayItem,NetIncome,NetSumCom: real;
+    IsLmt1,IsLmt2,IsLmt3,IsLmt4,IsLmt5,IsLmt6,IsLmt7,FoundCustNumType: Boolean;
+    PayPc1,PayPc2,PayPc3,PayPc4,PayPc5,PayPc6,PayPc7: Real;
+    CustComPay: Array of Array of Array of Real;
+    GrpNum : TStringList;
+begin
+  Application.ProcessMessages;
+  if (LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='') then
+  begin
+    Showmessage('กรุณาป้อนเลขที่ออกในช่องด้านบน');
+    CustAllGrid.Clear;
+    CustAllGrid.RowCount := 0;
+    for i := 1 to 6 do
+      CustAllGrid.Columns[i].Footer := '0';
+    LotNum6.SetFocus;
+    Exit;
+  end;
+
+  setlength(CDwn,4);
+  if length(LotNum6.Text) >= 5 then
+    C5Up    := Copy(LotNum6.Text,length(LotNum6.Text)-4,5); // เลขที่ออก 5 ตัวตรง
+
+  if length(LotNum6.Text) >= 4 then
+    C4Up    := Copy(LotNum6.Text,length(LotNum6.Text)-3,4); // เลขที่ออก 4 ตัวตรง
+
+  if length(LotNum6.Text) >= 3 then
+    C3Up    := Copy(LotNum6.Text,length(LotNum6.Text)-2,3); // เลขที่ออก 3 ตัวตรง
+
+  C2Left  := C3UP[1]+C3UP[2];
+  C2Tang  := C3UP[1]+C3UP[3]; // เลขที่ออก 2 ตัวถ่าง
+  C2Up    := C3UP[2]+C3UP[3];
+  C2Dwn   := lotNum2.Text; // เลขที่ออก 2 ตัวล่าง
+  CDwn[0] := lotNum31.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 1
+  CDwn[1] := lotNum32.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 2
+  CDwn[2] := lotNum33.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 3
+  CDwn[3] := lotNum34.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 4
+  Pa := 0;
+  Pb := 0;
+
+
+  With Dm,CustListRep do
+  begin
+    QrCustComPay := TABSQuery.Create(nil);
+    QrCustComPay.DatabaseName := Database.DatabaseName;
+    QrCustComPay.Close;
+    QrCustComPay.SQL.Clear;
+    QrCustComPay.SQL.Add('Select DISTINCT CustNo from Data');
+    QrCustComPay.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrCustComPay.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+    QrCustComPay.Open;
+
+    if QrCustComPay.RecordCount > 0 then
+      Pbar.Visible := true;
+
+    Application.ProcessMessages;
+    QrDataRep := TABSQuery.Create(nil);
+    QrDataRep.DatabaseName := Database.DatabaseName;
+    QrDataRep.Close;
+    QrDataRep.SQL.Clear;
+    QrDataRep.SQL.Add('Select * from Data');
+    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+    QrDataRep.SQL.Add('ORDER BY CustNo DESC');
+    QrDataRep.Open;
+
+    if QrCustComPay.RecordCount > 0 then
+    begin
+      QrLimitNum := TABSQuery.Create(nil);
+      QrLimitNum.DatabaseName := Database.DatabaseName;
+      QrLimitNum.Close;
+      QrLimitNum.SQL.Clear;
+      QrLimitNum.SQL.Add('Select * from LimitNum');
+      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+      QrLimitNum.Open;
+
+      QrLimitNum.First;
+      StrNumLmt := '';
+      for i := 0 to QrLimitNum.RecordCount-1 do
+      begin
+        StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+        QrLimitNum.Next;
+      end;
+
+      QrCustComPay.First;
+      for i := 0 to QrCustComPay.RecordCount-1 do
+      begin
+        CustNo := QrCustComPay.fieldByName('CustNo').AsString;
+        CustNoInt := StrToInt(CustNo);
+        foundCust := TbCust.Locate('CustID',CustNo,[]);
+        if foundCust then
+        begin
+          if Length(CustComPay) < CustNoInt+1 then
+            SetLength(CustComPay,CustNoInt+1,2,20);
+
+          CustComPay[CustNoInt,0,0] := (TbCust.fieldByName('ComRnUp').AsFloat/100);
+          CustComPay[CustNoInt,0,1] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          CustComPay[CustNoInt,0,2] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          CustComPay[CustNoInt,0,3] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          CustComPay[CustNoInt,0,4] := (TbCust.fieldByName('ComRnDwn').AsFloat/100);
+          CustComPay[CustNoInt,0,5] := (TbCust.fieldByName('ComPosDwn').AsFloat/100);
+          CustComPay[CustNoInt,0,6] := (TbCust.fieldByName('ComPosDwn').AsFloat/100);
+          CustComPay[CustNoInt,0,7] := (TbCust.fieldByName('Com2Up').AsFloat/100);
+
+          CustComPay[CustNoInt,0,9]  := (TbCust.fieldByName('Com2Mee').AsFloat/100);
+          CustComPay[CustNoInt,0,10] := (TbCust.fieldByName('Com2Pos').AsFloat/100);
+          CustComPay[CustNoInt,0,11] := (TbCust.fieldByName('Com2Pos').AsFloat/100);
+          CustComPay[CustNoInt,0,12] := (TbCust.fieldByName('Com2Dwn').AsFloat/100);
+          CustComPay[CustNoInt,0,13] := (TbCust.fieldByName('Com3Up').AsFloat/100);
+          CustComPay[CustNoInt,0,14] := (TbCust.fieldByName('Com3Tod').AsFloat/100);
+          CustComPay[CustNoInt,0,15] := (TbCust.fieldByName('Com3Dwn').AsFloat/100);
+          CustComPay[CustNoInt,0,16] := (TbCust.fieldByName('Com4').AsFloat/100);
+          CustComPay[CustNoInt,0,17] := (TbCust.fieldByName('Com4Tod').AsFloat/100);
+          CustComPay[CustNoInt,0,18] := (TbCust.fieldByName('Com5').AsFloat/100);
+          CustComPay[CustNoInt,0,19] := (TbCust.fieldByName('Com5Tod').AsFloat/100);
+     //---------------------------------------------------------------------------------//
+          CustComPay[CustNoInt,1,0] := TbCust.fieldByName('PayRnUp').AsFloat;
+          CustComPay[CustNoInt,1,1] := TbCust.fieldByName('PayPosUp').AsFloat;
+          CustComPay[CustNoInt,1,2] := TbCust.fieldByName('PayPosUp').AsFloat;
+          CustComPay[CustNoInt,1,3] := TbCust.fieldByName('PayPosUp').AsFloat;
+          CustComPay[CustNoInt,1,4] := TbCust.fieldByName('PayRnDwn').AsFloat;
+          CustComPay[CustNoInt,1,5] := TbCust.fieldByName('PayPosDwn').AsFloat;
+          CustComPay[CustNoInt,1,6] := TbCust.fieldByName('PayPosDwn').AsFloat;
+          CustComPay[CustNoInt,1,7] := TbCust.fieldByName('Pay2Up').AsFloat;
+
+          CustComPay[CustNoInt,1,9]  := TbCust.fieldByName('Pay2Mee').AsFloat;
+          CustComPay[CustNoInt,1,10] := TbCust.fieldByName('Pay2Pos').AsFloat;
+          CustComPay[CustNoInt,1,11] := TbCust.fieldByName('Pay2Pos').AsFloat;
+          CustComPay[CustNoInt,1,12] := TbCust.fieldByName('Pay2Dwn').AsFloat;
+          CustComPay[CustNoInt,1,13] := TbCust.fieldByName('Pay3Up').AsFloat;
+          CustComPay[CustNoInt,1,14] := TbCust.fieldByName('Pay3Tod').AsFloat;
+          CustComPay[CustNoInt,1,15] := TbCust.fieldByName('Pay3Dwn').AsFloat;
+          CustComPay[CustNoInt,1,16] := TbCust.fieldByName('Pay4').AsFloat;
+          CustComPay[CustNoInt,1,17] := TbCust.fieldByName('Pay4Tod').AsFloat;
+          CustComPay[CustNoInt,1,18] := TbCust.fieldByName('Pay5').AsFloat;
+          CustComPay[CustNoInt,1,19] := TbCust.fieldByName('Pay5Tod').AsFloat;
+      //-----------------------------------------------------------------------------//
+        end;
+        QrCustComPay.Next;
+      end;
+    end;
+
+    Progressbar2.MaxValue := QrDataRep.RecordCount;
+    if QrDataRep.RecordCount > -1 then
+    begin
+      SetLength(Income,20);
+      SetLength(Commis,20);
+      SetLength(SumCom,20);
+      SetLength(Total,20);
+      SetLength(Win,20);
+      SetLength(Pay,20);
+      SetLength(Net,20);
+
+        for j := 0 to 19 do
+        begin
+          Income[j] := 0;
+          Commis[j] := 0;
+          SumCom[j] := 0;
+          Total[j]  := 0;
+          Win[j]    := 0;
+          Pay[j]    := 0;
+          Net[j]    := 0;
+        end;
+
+      Progressbar2.Progress := 0;
+      TbCust.Close;
+      TbCust.Open;
+
+      SetLength(SumCust,0,0);
+
+      QrDataRep.First;
+      for i := 0 to QrDataRep.RecordCount-1 do
+      begin
+        Progressbar2.Progress := Progressbar2.Progress +1;
+
+        SellItem := 0;
+        ComItem  := 0;
+        WinItem  := 0;
+        PayItem  := 0;
+
+        Numb   := QrDataRep.fieldByName('Num').AsString;
+        Nums   := GetNum(Numb);
+        P1     := QrDataRep.fieldByName('Up').AsString;
+        P2     := QrDataRep.fieldByName('Dwn').AsString;
+        CustNo := QrDataRep.fieldByName('CustNo').AsString;
+        CustNoInt := StrToInt(CustNo);
+       //----------------------------------------------------//
+        if StrToInt(CustNo) = CustNoInt then
+        begin
+
+          Commis[0] := CustComPay[CustNoInt,0,0];
+          Commis[1] := CustComPay[CustNoInt,0,1];
+          Commis[2] := CustComPay[CustNoInt,0,2];
+          Commis[3] := CustComPay[CustNoInt,0,3];
+          Commis[4] := CustComPay[CustNoInt,0,4];
+          Commis[5] := CustComPay[CustNoInt,0,5];
+          Commis[6] := CustComPay[CustNoInt,0,6];
+          Commis[7] := CustComPay[CustNoInt,0,7];
+
+          Commis[9]  := CustComPay[CustNoInt,0,9];
+          Commis[10] := CustComPay[CustNoInt,0,10];
+          Commis[11] := CustComPay[CustNoInt,0,11];
+          Commis[12] := CustComPay[CustNoInt,0,12];
+          Commis[13] := CustComPay[CustNoInt,0,13];
+          Commis[14] := CustComPay[CustNoInt,0,14];
+          Commis[15] := CustComPay[CustNoInt,0,15];
+          Commis[16] := CustComPay[CustNoInt,0,16];
+          Commis[17] := CustComPay[CustNoInt,0,17];
+          Commis[18] := CustComPay[CustNoInt,0,18];
+          Commis[19] := CustComPay[CustNoInt,0,19];
+     //------------------------------------------------------------//
+          Pay[0] := CustComPay[CustNoInt,1,0];
+          Pay[1] := CustComPay[CustNoInt,1,1];
+          Pay[2] := CustComPay[CustNoInt,1,2];
+          Pay[3] := CustComPay[CustNoInt,1,3];
+          Pay[4] := CustComPay[CustNoInt,1,4];
+          Pay[5] := CustComPay[CustNoInt,1,5];
+          Pay[6] := CustComPay[CustNoInt,1,6];
+          Pay[7] := CustComPay[CustNoInt,1,7];
+
+          Pay[9]  := CustComPay[CustNoInt,1,9];
+          Pay[10] := CustComPay[CustNoInt,1,10];
+          Pay[11] := CustComPay[CustNoInt,1,11];
+          Pay[12] := CustComPay[CustNoInt,1,12];
+          Pay[13] := CustComPay[CustNoInt,1,13];
+          Pay[14] := CustComPay[CustNoInt,1,14];
+          Pay[15] := CustComPay[CustNoInt,1,15];
+          Pay[16] := CustComPay[CustNoInt,1,16];
+          Pay[17] := CustComPay[CustNoInt,1,17];
+          Pay[18] := CustComPay[CustNoInt,1,18];
+          Pay[19] := CustComPay[CustNoInt,1,19];
+
+
+          {
+          Commis[0] := (TbCust.fieldByName('ComRnUp').AsFloat/100);
+          Commis[1] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          Commis[2] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          Commis[3] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          Commis[4] := (TbCust.fieldByName('ComRnDwn').AsFloat/100);
+          Commis[5] := (TbCust.fieldByName('ComPosDwn').AsFloat/100);
+          Commis[6] := (TbCust.fieldByName('ComPosDwn').AsFloat/100);
+          Commis[7] := (TbCust.fieldByName('Com2Up').AsFloat/100);
+
+          Commis[9] := (TbCust.fieldByName('Com2Mee').AsFloat/100);
+          Commis[10] := (TbCust.fieldByName('Com2Pos').AsFloat/100);
+          Commis[11] := (TbCust.fieldByName('Com2Pos').AsFloat/100);
+          Commis[12] := (TbCust.fieldByName('Com2Dwn').AsFloat/100);
+          Commis[13] := (TbCust.fieldByName('Com3Up').AsFloat/100);
+          Commis[14] := (TbCust.fieldByName('Com3Tod').AsFloat/100);
+          Commis[15] := (TbCust.fieldByName('Com3Dwn').AsFloat/100);
+          Commis[16] := (TbCust.fieldByName('Com4').AsFloat/100);
+          Commis[17] := (TbCust.fieldByName('Com4Tod').AsFloat/100);
+          Commis[18] := (TbCust.fieldByName('Com5').AsFloat/100);
+          Commis[19] := (TbCust.fieldByName('Com5Tod').AsFloat/100);
+      //-------------------------------------------------------------//
+          Pay[0] := TbCust.fieldByName('PayRnUp').AsFloat;
+          Pay[1] := TbCust.fieldByName('PayPosUp').AsFloat;
+          Pay[2] := TbCust.fieldByName('PayPosUp').AsFloat;
+          Pay[3] := TbCust.fieldByName('PayPosUp').AsFloat;
+          Pay[4] := TbCust.fieldByName('PayRnDwn').AsFloat;
+          Pay[5] := TbCust.fieldByName('PayPosDwn').AsFloat;
+          Pay[6] := TbCust.fieldByName('PayPosDwn').AsFloat;
+          Pay[7] := TbCust.fieldByName('Pay2Up').AsFloat;
+        
+          Pay[9] := TbCust.fieldByName('Pay2Mee').AsFloat;
+          Pay[10] := TbCust.fieldByName('Pay2Pos').AsFloat;
+          Pay[11] := TbCust.fieldByName('Pay2Pos').AsFloat;
+          Pay[12] := TbCust.fieldByName('Pay2Dwn').AsFloat;
+          Pay[13] := TbCust.fieldByName('Pay3Up').AsFloat;
+          Pay[14] := TbCust.fieldByName('Pay3Tod').AsFloat;
+          Pay[15] := TbCust.fieldByName('Pay3Dwn').AsFloat;
+          Pay[16] := TbCust.fieldByName('Pay4').AsFloat;
+          Pay[17] := TbCust.fieldByName('Pay4Tod').AsFloat;
+          Pay[18] := TbCust.fieldByName('Pay5').AsFloat;
+          Pay[19] := TbCust.fieldByName('Pay5Tod').AsFloat;
+          }
+
+      //-------------------------------------------------------------//
+          if IsLastStr(P1,'*') and (Length(Nums) >= 4) then // 1234=100*, 12345=20*
+          begin
+            GrpNum := TStringList.Create;
+            GrpNum.Text := PerMuTationStr(Numb);
+            Nums := GrpNum[0];
+            FoundNumPay := false;
+            for k := 0 to GrpNum.Count-1 do
+            begin
+              if GrpNum[k] = C3Up then
+              begin
+                FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),GrpNum[k]]),[]);
+                Nums := GrpNum[k];
+                Break;
+              end;
+            end;
+            GrpNum.Free;
+          end
+          else
+          begin
+            FoundNumPay := false;
+            if Pos(Nums,StrNumLmt) > 0 then
+              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Nums]),[]);
+          end;
+
+          if FoundNumPay then
+          begin
+            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
+            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
+            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
+            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
+            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
+            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
+            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+
+            PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat/100;
+            PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat/100;
+            PayPc3 := QrLimitNum.FieldByName('PayPcnt3').AsFloat/100;
+            PayPc4 := QrLimitNum.FieldByName('PayPcnt4').AsFloat/100;
+            PayPc5 := QrLimitNum.FieldByName('PayPcnt5').AsFloat/100;
+            PayPc6 := QrLimitNum.FieldByName('PayPcnt6').AsFloat/100;
+            PayPc7 := QrLimitNum.FieldByName('PayPcnt7').AsFloat/100;
+
+            if Length(Nums) = 1 then
+            begin
+              if IsLmt1 then
+                Pay[0] := Pay[0]*(PayPc1);
+              if IsLmt2 then
+                Pay[1] := Pay[1]*(PayPc2);
+              if IsLmt3 then
+                Pay[2] := Pay[2]*(PayPc3);
+              if IsLmt4 then
+                Pay[3] := Pay[3]*(PayPc4);
+              if IsLmt5 then
+                Pay[4] := Pay[4]*(PayPc5);
+              if IsLmt6 then
+                Pay[5] := Pay[5]*(PayPc6);
+              if IsLmt7 then
+                Pay[6] := Pay[6]*(PayPc7);
+            end;
+
+            if Length(Nums) = 2 then
+            begin
+              if IsLmt1 then
+                Pay[7] := Pay[7]*(PayPc1);
+              if IsLmt2 then
+                Pay[8] := Pay[8]*(PayPc2);
+              if IsLmt3 then
+                Pay[9] := Pay[9]*(PayPc3);
+              if IsLmt4 then
+                Pay[10] := Pay[10]*(PayPc4);
+              if IsLmt5 then
+                Pay[11] := Pay[11]*(PayPc5);
+              if IsLmt6 then
+                Pay[12] := Pay[12]*(PayPc6);
+            end;
+
+            if Length(Nums) = 3 then
+            begin
+              if IsLmt1 then
+                Pay[13] := Pay[13]*(PayPc1);
+              if IsLmt2 then
+                Pay[14] := Pay[14]*(PayPc2);
+              if IsLmt3 then
+                Pay[15] := Pay[15]*(PayPc3);
+            end;
+
+            if Length(Nums) = 4 then
+            begin
+              if IsLmt1 then
+                Pay[16] := Pay[16]*(PayPc1);
+              if IsLmt2 then
+                Pay[17] := Pay[17]*(PayPc2);
+            end;
+
+            if Length(Nums) = 5 then
+            begin
+              if IsLmt1 then
+                Pay[18] := Pay[18]*(PayPc1);
+              if IsLmt2 then
+                Pay[19] := Pay[19]*(PayPc2);
+            end;
+
+          end;
+
+          if (Length(SumCust) > 0) then
+          begin
+            foundCustAr := false;
+            for C := 0 to Length(SumCust)-1 do
+            begin
+              if CustNoInt = SumCust[C,0] then
+              begin
+                CRow := C;
+                foundCustAr := true;
+                Break
+              end
+            end;
+
+            if Not(foundCustAr) then
+            begin
+              SetLength(SumCust,Length(SumCust)+1,7);
+              SumCust[Length(SumCust)-1,0] := CustNoInt;
+              SumCust[Length(SumCust)-1,1] := 0;
+              SumCust[Length(SumCust)-1,2] := 0;
+              SumCust[Length(SumCust)-1,3] := 0;
+              SumCust[Length(SumCust)-1,4] := 0;
+              SumCust[Length(SumCust)-1,5] := 0;
+              SumCust[Length(SumCust)-1,6] := 0;
+              CRow := Length(SumCust)-1;
+            end;
+          end
+          else
+          begin
+            SetLength(SumCust,Length(SumCust)+1,7);
+            SumCust[Length(SumCust)-1,0] := CustNoInt;
+            SumCust[Length(SumCust)-1,1] := 0;
+            SumCust[Length(SumCust)-1,2] := 0;
+            SumCust[Length(SumCust)-1,3] := 0;
+            SumCust[Length(SumCust)-1,4] := 0;
+            SumCust[Length(SumCust)-1,5] := 0;
+            SumCust[Length(SumCust)-1,6] := 0;
+            CRow := Length(SumCust)-1;
+          end;
+
+   //-------------------------------------------------------------------------------------------------------------//
+          Nums := GetNum(Numb); //เอาเฉพาะตัวเลข
+          if (Length(Nums) = 1) then
+          begin
+            if ((P1 <> '') and (Length(Numb) = 1) and (Numb[1] in ['0'..'9'])) then  // 1, 2, 3  ลอยบน
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[0];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(Nums,C3Up) then //เวลาใส่อากิวเม้นท์ในฟังก์ชั่นให้ใส่จำนวนตัวเลขน้อยไว้เป็นตัวหน้า
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[0];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            if ((P1 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and Not(Numb[2] in ['0'..'9'])) then // 1-
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[1];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = C3Up[1]) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[1];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            if ((P1 <> '') and (Length(Numb) = 3) and Not(Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and Not(Numb[3] in ['0'..'9']) then // -1-
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[2];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ Round(ComItem);
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if Nums = C3Up[2] then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[2];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            if ((P1 <> '') and (Length(Numb) = 2) and Not(Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then  // -1
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[3];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if Nums = C3Up[3] then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[3];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            if ((P2 <> '') and (Length(Numb) = 1) and (Numb[1] in ['0'..'9'])) then  // 1, 2, 3  //ลอยล่าง
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[4];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums[1] In [C2Dwn[1],C2Dwn[2]]) then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[4];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            if ((P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) then // 1-
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[5];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if Nums = C2Dwn[1] then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[5];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+
+            if ((P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['-']) and (Numb[2] in ['0'..'9'])) then  // -1
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[6];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if Nums = C2Dwn[2] then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[6];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+          end;
+
+        //end;
+   //-------------------------------------------------------------------------------------------------------------//
+
+          if (Length(Nums) = 2) then
+          begin
+            //----------------------------------------
+            if ((P1 <> '') and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // 12, 28, 34
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[7];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if Nums = C2Up then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[7];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+            //----------------------------------------
+
+            //--------------2 ตัวบนกลับ---------------
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and
+               (Numb[2] in ['0'..'9'])) and Not(IsLastStr(P1,'*3') Or IsLastStr(P1,'*6')) then // 12=100*20
+            begin
+              SellItem  := SumPrice(Nums,P1,true);
+              ComItem   := SellItem * Commis[7];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(Nums,C2Up) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Up,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[7];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+            //--------------------------------------------------//
+
+            //-------2 ตัวบน, 2 ตัวหน้าบน, 2 ตัวถ่างบน----------//
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and
+               (Numb[2] in ['0'..'9'])) and (IsLastStr(P1,'*3') Or IsLastStr(P1,'*6')) then // 12=100*3, 24=20*6
+            begin
+              //SellItem  := SumPrice(Nums,P1,true);
+              SellItem := (StrToInt(Copy(P1,1,Pos('*',P1)-1))*2);
+              ComItem   := SellItem * Commis[7];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+
+              ComItem   := SellItem * Commis[10];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+
+              ComItem   := SellItem * Commis[11];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+
+              if (Nums=C2Up) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Up,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[7];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+
+              if (Nums=C2Left) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Left,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[10];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+
+              if (Nums=C2Tang) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Tang,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[11];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+
+
+
+            end;
+            //----------------------------------------
+
+
+            //----------------------------------------
+           {   //ยกเลิกใช้งาน 2 ตัวโต๊ด
+            if (P1 <> '') and (Pos('-',P1) > 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9']) then  // 12=100-20
+            begin
+
+              if IsNumTod(C2Up,Nums) then
+              begin
+                 //Win := TotalWin(C2Up,Nums,P1,'-');
+              end;
+
+            end;
+           }
+            //----------------------------------------
+            if ((P1 <> '') and (Pos('*',P1) = 0) and (Pos('-',P1) = 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['+']) then // 25+
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[9];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(Nums,C3Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[9];
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            //----------------------------------------
+            if ((P1 <> '') and (Pos('*',P1) = 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25-
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[10];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = C2Left) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[10];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            //----------------------------------------
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25- =100*50
+            begin
+              SellItem  := SumPrice(Nums,P1,true);
+              ComItem   := SellItem * Commis[10];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C2Left,Nums) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Left,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[10];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            //----------------------------------------
+            if ((P1 <> '') and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[11];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = C2Tang) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[11];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            //----------------------------------------
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 10*20
+            begin
+              SellItem  := SumPrice(Nums,P1,true);
+              ComItem   := SellItem * Commis[11];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C2Tang,Nums) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Tang,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[11];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            //----------------------------------------
+            if ((P2 <> '') and (Pos('*',P2) = 0) and (Pos('-',P2) = 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // ล่าง 12, 28, 34
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[12];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = C2Dwn) then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[12];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+            //----------------------------------------
+            if ((P2 <> '') and (Pos('*',P2) > 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // ล่าง 12=100*20
+            begin
+              SellItem  := SumPrice(Nums,P2,true);
+              ComItem   := SellItem * Commis[12];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C2Dwn,Nums) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Dwn,Nums,P2,'*'),0);
+                PayItem := WinItem * Pay[12];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+          //----------------------------------------
+
+          end;
+
+        //end;
+   //-------------------------------------------------------------------------------------------------------------//
+
+        if (Length(Nums) = 3) and (Length(Numb) = 3) then
+        begin
+
+          if (P1 <> '') then //and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then  //123 = 20
+          begin
+              SellItem  := TotalPr3(Nums,P1,true); //เก็บราคาเต็งทุกรูปแบบของเลข 3 ตัว
+              ComItem   := SellItem * Commis[13];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := TotalWin3(C3Up,Nums,P1,true);
+                PayItem := WinItem * Pay[13];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+          end;
+
+          //----------------------------------------
+
+          if (P1 <> '') and (Pos('-',P1) > 0) then // 123 = -20, 123 = 100-50  เอาเฉพาะราคาโต๊ด
+          begin
+              SellItem  := TotalPr3(Nums,P1,false);
+              ComItem   := SellItem * Commis[14];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := TotalWin3(C3Up,Nums,P1,false);
+                PayItem := WinItem * Pay[14];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+          end;
+          //----------------------------------------
+
+
+          if (P2 <> '') then // 3 ตัวล่าง
+          begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[15];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = CDwn[0])Or(Nums = CDwn[1])Or(Nums = CDwn[2])Or(Nums = CDwn[3]) then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[15];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+          end;
+          
+        end;
+
+   //-------------------------------------------------------------------------------------------------------------//
+       {
+        if (Length(Numb) = 4) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9']) and (Numb[3] in ['0'..'9']) and (Numb[4] in ['0'..'9']) then
+        begin
+          Nums := Numb;
+       }
+
+        if (Length(Nums) = 4) then
+        begin
+          if (P1 <> '') and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then //1234 = 100
+          begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[16];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = C4Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[16];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+
+          //----------------------------------------
+          if (P1 <> '') and (Pos('-',P1) > 0) then  //1234 = -100
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+              ComItem   := SellItem * Commis[17];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+                PayItem := WinItem * Pay[17];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+          
+          //----------------------------------------
+          if (P1 <> '') and (Pos('*',P1) > 0) then // 1234 = 100*
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,1,Length(P1)-1),0)*Permutation(Nums);
+              ComItem   := SellItem * Commis[13];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,1,Length(P1)-1),0);
+                PayItem := WinItem * Pay[13];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+            end;
+          //----------------------------------------
+        end;
+
+   //-------------------------------------------------------------------------------------------------------------//
+
+        if (Length(Nums) = 5) then
+        begin
+          if (P1 <> '') and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then  //12345 = 100
+          begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[18];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if (Nums = C5Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[18];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+          end;
+          //----------------------------------------
+          if (P1 <> '') and (Pos('-',P1) > 0) then  //12345 = -100
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+              ComItem   := SellItem * Commis[19];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+                PayItem := WinItem * Pay[19];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+          end;
+          //----------------------------------------
+          if (P1 <> '') and (Pos('*',P1) > 0) then  // 12345 = 100*
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,1,Length(P1)-1),0)*Permutation(Nums);
+              ComItem   := SellItem * Commis[13];
+              SumCust[CRow,1] := SumCust[CRow,1]+ SellItem;
+              SumCust[CRow,2] := SumCust[CRow,2]+ ComItem;
+              SumCust[CRow,3] := SumCust[CRow,3]+ (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,1,Length(P1)-1),0);
+                PayItem := WinItem * Pay[13];
+
+                SumCust[CRow,4] := SumCust[CRow,4]+ WinItem;
+                SumCust[CRow,5] := SumCust[CRow,5]+ PayItem;
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - (ComItem + PayItem));
+              end
+              else
+                SumCust[CRow,6] := SumCust[CRow,6]+ (SellItem - ComItem);
+          end;
+
+          //----------------------------------------
+        end;
+
+   //-------------------------------------------------------------------------------------------------------------//
+       end; //end foundcust
+        SellItem := 0;
+        ComItem  := 0;
+        WinItem  := 0;
+        QrDataRep.Next;
+      end; //for
+
+      //Progressbar2.Progress := 0;
+      //Pbar.Visible := false;
+
+      Setlength(footSum,6);
+      for i := 0 to 5 do
+        footSum[i] := 0;
+
+      Application.ProcessMessages;
+      CustAllGrid.BeginUpdate;
+      CustAllGrid.Clear;
+      CustAllGrid.RowCount := 0;
+
+      CustNoIntToStr := '';
+      for i := 0 to length(SumCust)-1 do
+      begin
+        if CustAllGrid.RowCount = 0 then
+          CustAllGrid.RowCount := 1
+        else
+          CustAllGrid.InsertRow(0);
+
+        if Length(FloatToStr(SumCust[i,0])) = 1 then
+          CustNoIntToStr := '000'+FloatToStr(SumCust[i,0])
+        else
+        if Length(FloatToStr(SumCust[i,0])) = 2 then
+          CustNoIntToStr := '00'+FloatToStr(SumCust[i,0])
+        else
+        if Length(FloatToStr(SumCust[i,0])) = 3 then
+          CustNoIntToStr := '0'+FloatToStr(SumCust[i,0]);
+
+
+        TbCust.Locate('CustID',CustNoIntToStr,[]);
+        for j := 1 to 6 do
+        begin
+          CustAllGrid[0,0] := TbCust.fieldByName('CustID').asString+' '+TbCust.fieldByName('FName').asString+' '+TbCust.fieldByName('LName').asString;
+
+        if SumCust[i,j] <> 0 then
+          CustAllGrid[j,0] := FormatFloat('###,###',SumCust[i,j])
+        else
+          CustAllGrid[j,0] := '-';
+        end;
+        if (SumCust[i,1] - (SumCust[i,2] + SumCust[i,5] )) <> 0 then
+          CustAllGrid[6,0] := FormatFloat('###,###',SumCust[i,1] - (SumCust[i,2] + SumCust[i,5] ))
+        else
+          CustAllGrid[6,0] := '-';
+
+
+        {
+        CustAllGrid[0,0] := TbCust.fieldByName('CustID').asString+' '+TbCust.fieldByName('FName').asString+' '+TbCust.fieldByName('LName').asString;
+        CustAllGrid[1,0] := FormatFloat('###,###',SumCust[i,1])
+        CustAllGrid[2,0] := FormatFloat('###,###',SumCust[i,2]);
+        CustAllGrid[3,0] := FormatFloat('###,###',SumCust[i,3]);
+        CustAllGrid[4,0] := FormatFloat('###,###',SumCust[i,4]);
+        CustAllGrid[5,0] := FormatFloat('###,###',SumCust[i,5]);
+        CustAllGrid[6,0] := FormatFloat('###,###',SumCust[i,1] - (SumCust[i,2] + SumCust[i,5] ));
+        }
+      end;
+      CustAllGrid.EndUpdate;
+
+      for i := 0 to Length(SumCust)-1 do
+      begin
+        footSum[0] := footSum[0] + SumCust[i,1];
+        footSum[1] := footSum[1] + SumCust[i,2];
+        footSum[2] := footSum[2] + SumCust[i,3];
+        footSum[3] := footSum[3] + SumCust[i,4];
+        footSum[4] := footSum[4] + SumCust[i,5];
+      end;
+      CustAllGrid.Columns[1].Footer := formatfloat('###,##0',footSum[0]);
+      CustAllGrid.Columns[2].Footer := formatfloat('###,##0',Round(footSum[1]));
+      CustAllGrid.Columns[3].Footer := formatfloat('###,##0',footSum[2]);
+      CustAllGrid.Columns[4].Footer := formatfloat('###,##0',footSum[3]);
+      CustAllGrid.Columns[5].Footer := formatfloat('###,##0',footSum[4]);
+      CustAllGrid.Columns[6].Footer := formatfloat('###,##0',(FootSum[0] - (FootSum[1] + FootSum[4])));
+
+      Pbar.Visible := false;
+      Progressbar2.Progress := 0;
+
+      Income := nil;
+      Commis := nil;
+      SumCom := nil;
+      Total  := nil;
+      Win    := nil;
+      Pay    := nil;
+      Net    := nil;
+      footSum := nil;
+      SumCust := nil;
+
+      CustComPay := nil;
+      QrDataRep.Free;
+      QrCustComPay.Free;
+    end; //record.count > 0
+  end; //dm
+end;
+
+
+procedure TfMain.DealerRepTotals;
+Var
+    QrDataRep,QrDealerComPay,QrLimitNum: TABSQuery;
+    TbDealer: TABSTable;
+    CDwn: Array of String;
+    footSum: Array of real;
+    Numb,Nums,TbNum,P1,P2,StrNumLmt: String;
+    i,j,Pa,Pb,Pab,CountDealer,CntPMu,DealerIDInt: integer;
+    Num3Up,Num3Tod,Num3Dwn,Num4,Num4Tod,Num5,Num5Tod,PayPc1,PayPc2,PayPc3,PayPc4,PayPc5,PayPc6,PayPc7: Extended;
+    Income,Commis,SumCom,Total,Win,Pay,TotalPay,Net: Array Of real;
+    FoundCorctNum,FoundDlId,Is3Tod,Is4Tod,Is5Tod,FoundNumPay,IsLmt1,IsLmt2,IsLmt3,IsLmt4,IsLmt5,IsLmt6,IsLmt7: Boolean;
+    C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,DealerID,SQLTxt: String;
+    RunUp,RunDwn,PosLUp,PosMUp,PosRUp,PosLDwn,PosRDwn,Num2Up,Num2Dwn,Num2Mee,Num2L,Num2Sp,PrPmu: Extended;
+    SumRunUp,SumRunDwn,SumPosLUp,SumPosMUp,SumPosRUp,SumPosLDwn,SumPosRDwn,SumNum2Up,SumNum2Dwn,SumNum2Mee,SumNum2L,SumNum2Sp: Extended;
+    SumNum3Up,SumNum3Tod,SumNum3Dwn,SumNum4,SumNum4Tod,SumNum5,SumNum5Tod: Extended;
+    DealerComPay: Array of Array of Array Of real;
+    SellItem,ComItem,WinItem,PayItem: real;
+begin
+  Application.ProcessMessages;
+  if (LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='') then
+  begin
+    Showmessage('กรุณาป้อนเลขที่ออกในช่องด้านบน');
+    TotalDealerGrid.Clear;
+    TotalDealerGrid.RowCount := 20;
+    for i := 0 to 5 do
+      TotalDealerGrid.Columns[i].Footer := '0';
+    LotNum6.SetFocus;
+    Exit;
+  end;
+
+  setlength(CDwn,4);
+  if length(LotNum6.Text) >= 5 then
+    C5Up    := Copy(LotNum6.Text,length(LotNum6.Text)-4,5); // เลขที่ออก 5 ตัวตรง
+
+  if length(LotNum6.Text) >= 4 then
+    C4Up    := Copy(LotNum6.Text,length(LotNum6.Text)-3,4); // เลขที่ออก 4 ตัวตรง
+
+  if length(LotNum6.Text) >= 3 then
+    C3Up    := Copy(LotNum6.Text,length(LotNum6.Text)-2,3); // เลขที่ออก 3 ตัวตรง
+
+  C2Left  := C3UP[1]+C3UP[2];
+  C2Tang  := C3UP[1]+C3UP[3]; // เลขที่ออก 2 ตัวถ่าง
+  C2Up    := C3UP[2]+C3UP[3];
+  C2Dwn   := lotNum2.Text; // เลขที่ออก 2 ตัวล่าง
+  CDwn[0] := lotNum31.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 1
+  CDwn[1] := lotNum32.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 2
+  CDwn[2] := lotNum33.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 3
+  CDwn[3] := lotNum34.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 4
+  Pa := 0;
+  Pb := 0;
+
+  With Dm,DealerList do
+  begin
+    TbDealer := TABSTable.Create(nil);
+    TbDealer.DatabaseName := Database.DatabaseName;
+    TbDealer.TableName := 'Dealer';
+    TbDealer.Close;
+    TbDealer.Open;
+
+    QrDealerComPay := TABSQuery.Create(nil);
+    QrDealerComPay.DatabaseName := Database.DatabaseName;
+    QrDealerComPay.Close;
+    QrDealerComPay.SQL.Clear;
+    QrDealerComPay.SQL.Add('Select DISTINCT DealerID from Cut');
+    QrDealerComPay.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+    QrDealerComPay.SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
+    if RdbRepByDealer.Checked then
+      QrDealerComPay.SQL.Add('and (DealerID = "'+Items[ItemIndex].Caption+'")');
+    QrDealerComPay.Open;
+
+    if QrDealerComPay.RecordCount > 0 then
+      Pbar.Visible := true;
+    Application.ProcessMessages;
+
+    QrDataRep := TABSQuery.Create(nil);
+    QrDataRep.DatabaseName := Database.DatabaseName;
+    QrDataRep.Close;
+    QrDataRep.SQL.Clear;
+    {
+    SQLTxt := 'Select Num,DealerID,Is3TTeng Tod3,Is4TTeng Tod4,Is5TTeng Tod5,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, ';
+    QrDataRep.SQL.Add(SQLTxt +'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, '+
+                              'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
+    }
+    SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ';
+    QrDataRep.SQL.Add(SQLTxt +' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, '+
+                              ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut');
+
+
+    //QrDataRep.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+    //QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+
+    if RdbRepByDealer.Checked then
+    begin
+      if SelCount = 0 then
+      begin
+        Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
+        QrDataRep.Free;
+        Exit;
+      end
+      else
+      begin
+        QrDataRep.SQL.Add('Where (DealerID = "'+Items[ItemIndex].Caption+'")');
+        QrDataRep.SQL.Add('and (LottoType = "'+edLotID.Text+'")');
+        QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+
+        //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5, CutDate ');
+        //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5');
+        QrDataRep.Open;
+        //Showmessage(IntToStr(QrDataRep.RecordCount));
+      end;
+    end
+    else
+    begin
+      //Showmessage('djfdkfd');
+      //QrDataRep.SQL.Add('Where (DealerID = 0004)');
+      //QrDataRep.SQL.Add('Where (DealerID <> "'+'0000'+'")');
+      QrDataRep.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+      QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+
+      //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5, CutDate ');
+      //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5');
+      QrDataRep.Open;
+      //Showmessage(IntToStr(QrDataRep.RecordCount));
+    end;
+    //TbDealer.Close;
+    //TbDealer.Open;
+
+
+    if QrDealerComPay.RecordCount > 0 then
+    begin
+      QrLimitNum := TABSQuery.Create(nil);
+      QrLimitNum.DatabaseName := Database.DatabaseName;
+      QrLimitNum.Close;
+      QrLimitNum.SQL.Clear;
+      QrLimitNum.SQL.Add('Select * from LimitNum');
+      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+      QrLimitNum.Open;
+
+      QrLimitNum.First;
+      StrNumLmt := '';
+      for i := 0 to QrLimitNum.RecordCount-1 do
+      begin
+        StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+        QrLimitNum.Next;
+      end;
+
+      {
+      Limit3.First;
+      StrNumLmt := '';
+      for i := 0 to Limit3.RecordCount-1 do
+      begin
+        StrNumLmt := StrNumLmt+ Limit3.fieldByName('Num').AsString+#13#10;
+        Limit3.Next;
+      end;
+      }
+
+      QrDealerComPay.First;
+      for i := 0 to QrDealerComPay.RecordCount-1 do
+      begin
+        DealerID    := QrDealerComPay.fieldByName('DealerID').AsString;
+        DealerIDInt := StrToInt(DealerID);
+        FoundDlId := TbDealer.Locate('Code',DealerID,[]);
+        if FoundDlId then
+        begin
+          if Length(DealerComPay) < DealerIDInt+1 then
+            SetLength(DealerComPay,DealerIDInt+1,2,20);
+
+          DealerComPay[DealerIDInt,0,0] := (TbDealer.fieldByName('ComRnUp').AsFloat/100);
+          DealerComPay[DealerIDInt,0,1] := (TbDealer.fieldByName('ComPosUp').AsFloat/100);
+          DealerComPay[DealerIDInt,0,2] := (TbDealer.fieldByName('ComPosUp').AsFloat/100);
+          DealerComPay[DealerIDInt,0,3] := (TbDealer.fieldByName('ComPosUp').AsFloat/100);
+          DealerComPay[DealerIDInt,0,4] := (TbDealer.fieldByName('ComRnDwn').AsFloat/100);
+          DealerComPay[DealerIDInt,0,5] := (TbDealer.fieldByName('ComPosDwn').AsFloat/100);
+          DealerComPay[DealerIDInt,0,6] := (TbDealer.fieldByName('ComPosDwn').AsFloat/100);
+          DealerComPay[DealerIDInt,0,7] := (TbDealer.fieldByName('Com2Up').AsFloat/100);
+
+          DealerComPay[DealerIDInt,0,9]  := (TbDealer.fieldByName('Com2Mee').AsFloat/100);
+          DealerComPay[DealerIDInt,0,10] := (TbDealer.fieldByName('Com2Pos').AsFloat/100);
+          DealerComPay[DealerIDInt,0,11] := (TbDealer.fieldByName('Com2Pos').AsFloat/100);
+          DealerComPay[DealerIDInt,0,12] := (TbDealer.fieldByName('Com2Dwn').AsFloat/100);
+          DealerComPay[DealerIDInt,0,13] := (TbDealer.fieldByName('Com3Up').AsFloat/100);
+          DealerComPay[DealerIDInt,0,14] := (TbDealer.fieldByName('Com3Tod').AsFloat/100);
+          DealerComPay[DealerIDInt,0,15] := (TbDealer.fieldByName('Com3Dwn').AsFloat/100);
+          DealerComPay[DealerIDInt,0,16] := (TbDealer.fieldByName('Com4').AsFloat/100);
+          DealerComPay[DealerIDInt,0,17] := (TbDealer.fieldByName('Com4Tod').AsFloat/100);
+          DealerComPay[DealerIDInt,0,18] := (TbDealer.fieldByName('Com5').AsFloat/100);
+          DealerComPay[DealerIDInt,0,19] := (TbDealer.fieldByName('Com5Tod').AsFloat/100);
+     //---------------------------------------------------------------------------------//
+          DealerComPay[DealerIDInt,1,0] := TbDealer.fieldByName('PayRnUp').AsFloat;
+          DealerComPay[DealerIDInt,1,1] := TbDealer.fieldByName('PayPosUp').AsFloat;
+          DealerComPay[DealerIDInt,1,2] := TbDealer.fieldByName('PayPosUp').AsFloat;
+          DealerComPay[DealerIDInt,1,3] := TbDealer.fieldByName('PayPosUp').AsFloat;
+          DealerComPay[DealerIDInt,1,4] := TbDealer.fieldByName('PayRnDwn').AsFloat;
+          DealerComPay[DealerIDInt,1,5] := TbDealer.fieldByName('PayPosDwn').AsFloat;
+          DealerComPay[DealerIDInt,1,6] := TbDealer.fieldByName('PayPosDwn').AsFloat;
+          DealerComPay[DealerIDInt,1,7] := TbDealer.fieldByName('Pay2Up').AsFloat;
+
+          DealerComPay[DealerIDInt,1,9]  := TbDealer.fieldByName('Pay2Mee').AsFloat;
+          DealerComPay[DealerIDInt,1,10] := TbDealer.fieldByName('Pay2Pos').AsFloat;
+          DealerComPay[DealerIDInt,1,11] := TbDealer.fieldByName('Pay2Pos').AsFloat;
+          DealerComPay[DealerIDInt,1,12] := TbDealer.fieldByName('Pay2Dwn').AsFloat;
+          DealerComPay[DealerIDInt,1,13] := TbDealer.fieldByName('Pay3Up').AsFloat;
+          DealerComPay[DealerIDInt,1,14] := TbDealer.fieldByName('Pay3Tod').AsFloat;
+          DealerComPay[DealerIDInt,1,15] := TbDealer.fieldByName('Pay3Dwn').AsFloat;
+          DealerComPay[DealerIDInt,1,16] := TbDealer.fieldByName('Pay4').AsFloat;
+          DealerComPay[DealerIDInt,1,17] := TbDealer.fieldByName('Pay4Tod').AsFloat;
+          DealerComPay[DealerIDInt,1,18] := TbDealer.fieldByName('Pay5').AsFloat;
+          DealerComPay[DealerIDInt,1,19] := TbDealer.fieldByName('Pay5Tod').AsFloat;
+      //-----------------------------------------------------------------------------//
+        end;
+        QrDealerComPay.Next;
+      end;
+    end;
+
+    Progressbar2.MaxValue := QrDataRep.RecordCount;
+    if QrDataRep.RecordCount > -1 then
+    //if QrDataRep.RecordCount > 0 then
+    begin
+      SetLength(Income,20);
+      SetLength(Commis,20);
+      SetLength(SumCom,20);
+      SetLength(Total,20);
+      SetLength(Win,20);
+      SetLength(Pay,20);
+      SetLength(TotalPay,20);
+      SetLength(Net,20);
+
+      for i := 0 to 19 do
+      begin
+        Income[i]  := 0;
+        Commis[i]  := 0;
+        SumCom[i]  := 0;
+        Total[i]   := 0;
+        Win[i]     := 0;
+        Pay[i]     := 0;
+        TotalPay[i]:= 0;
+        Net[i]     := 0;
+      end;
+
+      QrLimitNum := TABSQuery.Create(nil);
+      QrLimitNum.DatabaseName := Database.DatabaseName;
+      QrLimitNum.Close;
+      QrLimitNum.SQL.Clear;
+      QrLimitNum.SQL.Add('Select * from LimitNum');
+      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+      QrLimitNum.Open;
+
+      QrLimitNum.First;
+      StrNumLmt := '';
+      for i := 0 to QrLimitNum.RecordCount-1 do
+      begin
+        StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+        QrLimitNum.Next;
+      end;
+
+      {
+      Limit3.First;
+      StrNumLmt := '';
+      for i := 0 to Limit3.RecordCount-1 do
+      begin
+        StrNumLmt := StrNumLmt+ Limit3.fieldByName('Num').AsString+' ';
+        Limit3.Next;
+      end;
+      }
+
+      Progressbar2.Progress := 0;
+      //if QrDataRep.RecordCount > 0 then
+        //Pbar.Visible := true;
+      //TbDealer.Close;
+      //TbDealer.Open;
+      CountDealer := 0;
+
+      QrDataRep.First;
+      for i := 0 to QrDataRep.RecordCount-1 do
+      begin
+        Progressbar2.Progress := Progressbar2.Progress +1;
+
+        SellItem := 0;
+        ComItem  := 0;
+        WinItem  := 0;
+        PayItem  := 0;
+
+        Is3Tod    := QrDataRep.fieldByName('Tod3').AsBoolean;
+        Is4Tod    := QrDataRep.fieldByName('Tod4').AsBoolean;
+        Is5Tod    := QrDataRep.fieldByName('Tod5').AsBoolean;
+
+        Numb      := QrDataRep.fieldByName('Num').AsString;
+        RunUp     := QrDataRep.fieldByName('RU').AsFloat;
+        RunDwn    := QrDataRep.fieldByName('RD').AsFloat;
+        PosLUp    := QrDataRep.fieldByName('PU1').AsFloat;
+        PosMUp    := QrDataRep.fieldByName('PU2').AsFloat;
+        PosRUp    := QrDataRep.fieldByName('PU3').AsFloat;
+        PosLDwn   := QrDataRep.fieldByName('PD1').AsFloat;
+        PosRDwn   := QrDataRep.fieldByName('PD2').AsFloat;
+        Num2Up    := QrDataRep.fieldByName('N2U').AsFloat;
+        Num2Dwn   := QrDataRep.fieldByName('N2D').AsFloat;
+        Num2Mee   := QrDataRep.fieldByName('N2Me').AsFloat;
+        Num2L     := QrDataRep.fieldByName('N2L').AsFloat;
+        Num2Sp    := QrDataRep.fieldByName('N2R').AsFloat;
+        Num3Up    := QrDataRep.fieldByName('N3Up').AsFloat;
+        Num3Tod   := QrDataRep.fieldByName('N3Tod').AsFloat;
+        Num3Dwn   := QrDataRep.fieldByName('N3Dwn').AsFloat;
+        Num4      := QrDataRep.fieldByName('N4').AsFloat;
+        Num4Tod   := QrDataRep.fieldByName('N4T').AsFloat;
+        Num5      := QrDataRep.fieldByName('N5').AsFloat;
+        Num5Tod   := QrDataRep.fieldByName('N5T').AsFloat;
+        DealerID  := QrDataRep.fieldByName('DealerID').AsString;
+
+        if Is3Tod then
+        begin
+          CntPMu := Permutation(Numb);
+          PrPmu  := Round(Num3Tod/CntPMu);
+          if PrPmu < (Num3Tod/CntPMu) then
+            PrPmu := PrPmu+1;
+
+          Num3Tod := 0;
+        end;
+
+        if Is4Tod then
+        begin
+          CntPMu := Permutation(Numb);
+          PrPmu  := Round(Num4Tod/CntPMu);
+          if PrPmu < (Num4Tod/CntPMu) then
+            PrPmu := PrPmu+1;
+
+          Num4Tod := 0;
+        end;
+
+        if Is5Tod then
+        begin
+          CntPMu := Permutation(Numb);
+          PrPmu  := Round(Num5Tod/CntPMu);
+          if PrPmu < (Num5Tod/CntPMu) then
+            PrPmu := PrPmu+1;
+
+          Num5Tod := 0;
+        end;
+      //--------------------------------------------------------------//
+        //FoundDlId := TbDealer.Locate('Code',DealerID,[]);
+        //if FoundDlId then
+        //begin
+
+        DealerID    := QrDataRep.fieldByName('DealerID').AsString;
+        if StrToInt(DealerID) = DealerIDInt then
+        begin
+          Commis[0] := DealerComPay[DealerIDInt,0,0];
+          Commis[1] := DealerComPay[DealerIDInt,0,1];
+          Commis[2] := DealerComPay[DealerIDInt,0,2];
+          Commis[3] := DealerComPay[DealerIDInt,0,3];
+          Commis[4] := DealerComPay[DealerIDInt,0,4];
+          Commis[5] := DealerComPay[DealerIDInt,0,5];
+          Commis[6] := DealerComPay[DealerIDInt,0,6];
+          Commis[7] := DealerComPay[DealerIDInt,0,7];
+
+          Commis[9]  := DealerComPay[DealerIDInt,0,9];
+          Commis[10] := DealerComPay[DealerIDInt,0,10];
+          Commis[11] := DealerComPay[DealerIDInt,0,11];
+          Commis[12] := DealerComPay[DealerIDInt,0,12];
+          Commis[13] := DealerComPay[DealerIDInt,0,13];
+          Commis[14] := DealerComPay[DealerIDInt,0,14];
+          Commis[15] := DealerComPay[DealerIDInt,0,15];
+          Commis[16] := DealerComPay[DealerIDInt,0,16];
+          Commis[17] := DealerComPay[DealerIDInt,0,17];
+          Commis[18] := DealerComPay[DealerIDInt,0,18];
+          Commis[19] := DealerComPay[DealerIDInt,0,19];
+     //------------------------------------------------------------//
+          Pay[0] := DealerComPay[DealerIDInt,1,0];
+          Pay[1] := DealerComPay[DealerIDInt,1,1];
+          Pay[2] := DealerComPay[DealerIDInt,1,2];
+          Pay[3] := DealerComPay[DealerIDInt,1,3];
+          Pay[4] := DealerComPay[DealerIDInt,1,4];
+          Pay[5] := DealerComPay[DealerIDInt,1,5];
+          Pay[6] := DealerComPay[DealerIDInt,1,6];
+          Pay[7] := DealerComPay[DealerIDInt,1,7];
+
+          Pay[9]  := DealerComPay[DealerIDInt,1,9];
+          Pay[10] := DealerComPay[DealerIDInt,1,10];
+          Pay[11] := DealerComPay[DealerIDInt,1,11];
+          Pay[12] := DealerComPay[DealerIDInt,1,12];
+          Pay[13] := DealerComPay[DealerIDInt,1,13];
+          Pay[14] := DealerComPay[DealerIDInt,1,14];
+          Pay[15] := DealerComPay[DealerIDInt,1,15];
+          Pay[16] := DealerComPay[DealerIDInt,1,16];
+          Pay[17] := DealerComPay[DealerIDInt,1,17];
+          Pay[18] := DealerComPay[DealerIDInt,1,18];
+          Pay[19] := DealerComPay[DealerIDInt,1,19];
+
+          {
+          Commis[0] := (TbDealer.fieldByName('ComRnUp').AsFloat/100);
+          Commis[1] := (TbDealer.fieldByName('ComPosUp').AsFloat/100);
+          Commis[2] := (TbDealer.fieldByName('ComPosUp').AsFloat/100);
+          Commis[3] := (TbDealer.fieldByName('ComPosUp').AsFloat/100);
+          Commis[4] := (TbDealer.fieldByName('ComRnDwn').AsFloat/100);
+          Commis[5] := (TbDealer.fieldByName('ComPosDwn').AsFloat/100);
+          Commis[6] := (TbDealer.fieldByName('ComPosDwn').AsFloat/100);
+          Commis[7] := (TbDealer.fieldByName('Com2Up').AsFloat/100);
+
+          Commis[9] := (TbDealer.fieldByName('Com2Mee').AsFloat/100);
+          Commis[10] := (TbDealer.fieldByName('Com2Pos').AsFloat/100);
+          Commis[11] := (TbDealer.fieldByName('Com2Pos').AsFloat/100);
+          Commis[12] := (TbDealer.fieldByName('Com2Dwn').AsFloat/100);
+          Commis[13] := (TbDealer.fieldByName('Com3Up').AsFloat/100);
+          Commis[14] := (TbDealer.fieldByName('Com3Tod').AsFloat/100);
+          Commis[15] := (TbDealer.fieldByName('Com3Dwn').AsFloat/100);
+          Commis[16] := (TbDealer.fieldByName('Com4').AsFloat/100);
+          Commis[17] := (TbDealer.fieldByName('Com4Tod').AsFloat/100);
+          Commis[18] := (TbDealer.fieldByName('Com5').AsFloat/100);
+          Commis[19] := (TbDealer.fieldByName('Com5Tod').AsFloat/100);
+       //--------------------------------------------------------------//
+          Pay[0] := TbDealer.fieldByName('PayRnUp').AsFloat;
+          Pay[1] := TbDealer.fieldByName('PayPosUp').AsFloat;
+          Pay[2] := TbDealer.fieldByName('PayPosUp').AsFloat;
+          Pay[3] := TbDealer.fieldByName('PayPosUp').AsFloat;
+          Pay[4] := TbDealer.fieldByName('PayRnDwn').AsFloat;
+          Pay[5] := TbDealer.fieldByName('PayPosDwn').AsFloat;
+          Pay[6] := TbDealer.fieldByName('PayPosDwn').AsFloat;
+          Pay[7] := TbDealer.fieldByName('Pay2Up').AsFloat;
+
+          Pay[9] := TbDealer.fieldByName('Pay2Mee').AsFloat;
+          Pay[10] := TbDealer.fieldByName('Pay2Pos').AsFloat;
+          Pay[11] := TbDealer.fieldByName('Pay2Pos').AsFloat;
+          Pay[12] := TbDealer.fieldByName('Pay2Dwn').AsFloat;
+          Pay[13] := TbDealer.fieldByName('Pay3Up').AsFloat;
+          Pay[14] := TbDealer.fieldByName('Pay3Tod').AsFloat;
+          Pay[15] := TbDealer.fieldByName('Pay3Dwn').AsFloat;
+          Pay[16] := TbDealer.fieldByName('Pay4').AsFloat;
+          Pay[17] := TbDealer.fieldByName('Pay4Tod').AsFloat;
+          Pay[18] := TbDealer.fieldByName('Pay5').AsFloat;
+          Pay[19] := TbDealer.fieldByName('Pay5Tod').AsFloat;
+          }
+       //--------------------------------------------------------------//
+
+          FoundNumPay := false;
+          if Pos(Numb,StrNumLmt) > 0 then
+            FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Numb]),[]);
+
+          if FoundNumPay then
+          begin
+            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
+            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
+            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
+            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
+            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
+            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
+            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+
+            PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat;
+            PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat;
+            PayPc3 := QrLimitNum.FieldByName('PayPcnt3').AsFloat;
+            PayPc4 := QrLimitNum.FieldByName('PayPcnt4').AsFloat;
+            PayPc5 := QrLimitNum.FieldByName('PayPcnt5').AsFloat;
+            PayPc6 := QrLimitNum.FieldByName('PayPcnt6').AsFloat;
+            PayPc7 := QrLimitNum.FieldByName('PayPcnt7').AsFloat;
+
+            if Length(Numb) = 1 then
+            begin
+              if IsLmt1 then
+                Pay[0] := Pay[0]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[1] := Pay[1]*(PayPc2/100);
+              if IsLmt3 then
+                Pay[2] := Pay[2]*(PayPc3/100);
+              if IsLmt4 then
+                Pay[3] := Pay[3]*(PayPc4/100);
+              if IsLmt5 then
+                Pay[4] := Pay[4]*(PayPc5/100);
+              if IsLmt6 then
+                Pay[5] := Pay[5]*(PayPc6/100);
+              if IsLmt7 then
+                Pay[6] := Pay[6]*(PayPc7/100);
+            end;
+
+            if Length(Numb) = 2 then
+            begin
+              if IsLmt1 then
+                Pay[7] := Pay[7]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[8] := Pay[8]*(PayPc2/100);
+              if IsLmt3 then
+                Pay[9] := Pay[9]*(PayPc3/100);
+              if IsLmt4 then
+                Pay[10] := Pay[10]*(PayPc4/100);
+              if IsLmt5 then
+                Pay[11] := Pay[11]*(PayPc5/100);
+              if IsLmt6 then
+                Pay[12] := Pay[12]*(PayPc6/100);
+            end;
+
+            if Length(Numb) = 3 then
+            begin
+              if IsLmt1 then
+                Pay[13] := Pay[13]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[14] := Pay[14]*(PayPc2/100);
+              if IsLmt3 then
+                Pay[15] := Pay[15]*(PayPc3/100);
+            end;
+
+            if Length(Numb) = 4 then
+            begin
+              if IsLmt1 then
+                Pay[16] := Pay[16]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[17] := Pay[17]*(PayPc2/100);
+            end;
+
+            if Length(Numb) = 5 then
+            begin
+              if IsLmt1 then
+                Pay[18] := Pay[18]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[19] := Pay[19]*(PayPc2/100);
+            end;
+
+          end;
+
+       //-------------------------------------------------------------------------------------------------------------//
+
+          Nums := Numb;//เอาเฉพาะตัวเลข
+          if (Length(Nums) = 1) then
+          begin
+            if RunUP > 0 then
+            begin
+              SellItem  := RunUP;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[0];
+
+              Income[0] := Income[0] + SellItem;
+              SumCom[0] := SumCom[0] + ComItem;
+              Total[0]  := Total[0]  + (SellItem-ComItem);
+              if IsNumTod(Nums,C3Up) then
+              begin
+                WinItem := RunUP;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[0];
+
+                Win[0] := Win[0] + WinItem;
+                TotalPay[0]:= TotalPay[0]+(WinItem * Pay[0]);
+                Net[0] := Net[0] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[0] := Net[0] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if PosLUp > 0 then // 1-
+            begin
+              SellItem  := PosLUp;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[1];
+
+              Income[1] := Income[1] + SellItem;
+              SumCom[1] := SumCom[1] + ComItem;
+              Total[1]  := Total[1]  + (SellItem-ComItem);
+              if (Nums = C3Up[1]) then
+              begin
+                WinItem := PosLUp;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[1];
+
+                Win[1] := Win[1] + WinItem;
+                TotalPay[1]:= TotalPay[1]+(WinItem * Pay[1]);
+                Net[1] := Net[1] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[1] := Net[1] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if PosMUp > 0 then  // -1-
+            begin
+              SellItem  := PosMUp;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[2];
+
+              Income[2] := Income[2] + SellItem;
+              SumCom[2] := SumCom[2] + ComItem;
+              Total[2]  := Total[2]  + (SellItem-ComItem);
+              if Nums = C3Up[2] then
+              begin
+                WinItem := PosMUp;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[2];
+
+                Win[2] := Win[2] + WinItem;
+                TotalPay[2]:= TotalPay[2]+(WinItem * Pay[2]);
+                Net[2] := Net[2] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[2] := Net[2] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if PosRUp > 0 then // -1
+            begin
+              SellItem  := PosRUp;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[3];
+
+              Income[3] := Income[3] + SellItem;
+              SumCom[3] := SumCom[3] + ComItem;
+              Total[3]  := Total[3]  + (SellItem-ComItem);
+              if Nums = C3Up[3] then
+              begin
+                WinItem := PosRUp;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[3];
+
+                Win[3] := Win[3] + WinItem;
+                TotalPay[3]:= TotalPay[3]+(WinItem * Pay[3]);
+                Net[3] := Net[3] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[3] := Net[3] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if RunDwn > 0 then  // 1, 2, 3  //ลอยล่าง
+            begin
+              SellItem  := RunDwn;//StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[4];
+
+              Income[4] := Income[4] + SellItem;
+              SumCom[4] := SumCom[4] + ComItem;
+              Total[4]  := Total[4]  + (SellItem-ComItem);
+              if (Nums[1] In [C2Dwn[1],C2Dwn[2]]) then
+              begin
+                WinItem := RunDwn;//PosLDwn;//StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[4];
+
+                Win[4] := Win[4] + WinItem;
+                TotalPay[4]:= TotalPay[4]+(WinItem * Pay[4]);
+                Net[4] := Net[4] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[4] := Net[4] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if PosRDwn > 0 then  // 1-
+            begin
+              SellItem  := PosRDwn;//StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[5];
+
+              Income[5] := Income[5] + SellItem;
+              SumCom[5] := SumCom[5] + ComItem;
+              Total[5]  := Total[5]  + (SellItem-ComItem);
+              if Nums = C2Dwn[1] then
+              begin
+                WinItem := PosRDwn;//StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[5];
+
+                Win[5] := Win[5] + WinItem;
+                TotalPay[5]:= TotalPay[5]+(WinItem * Pay[5]);
+                Net[5] := Net[5] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[5] := Net[5] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if PosRDwn > 0 then  // -1
+            begin
+              SellItem  := PosRDwn;//StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[6];
+
+              Income[6] := Income[6] + SellItem;
+              SumCom[6] := SumCom[6] + ComItem;
+              Total[6]  := Total[6]  + (SellItem-ComItem);
+              if Nums = C2Dwn[2] then
+              begin
+                WinItem := PosRDwn;//StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[6];
+
+                Win[6] := Win[6] + WinItem;
+                TotalPay[5]:= TotalPay[5]+(WinItem * Pay[6]);
+                Net[6] := Net[6] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[6] := Net[6] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+          end;
+
+          //-------------------------------------------------------------------------------------------------------------//
+
+          if (Length(Nums) = 2) then
+          begin
+            //----------------------------------------------------------------------------------//
+
+            if Num2Up > 0 then  // 12, 28, 34
+            begin
+              SellItem  := Num2Up;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[7];
+
+              Income[7] := Income[7] + SellItem;
+              SumCom[7] := SumCom[7] + ComItem;
+              Total[7]  := Total[7]  + (SellItem-ComItem);
+              if Nums = C2Up then
+              begin
+                WinItem := Num2Up;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[7];
+
+                Win[7] := Win[7] + WinItem;
+                TotalPay[7]:= TotalPay[7]+(WinItem * Pay[7]);
+                Net[7] := Net[7] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[7] := Net[7] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if Num2Mee > 0 then
+            begin
+              SellItem  := Num2Mee;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[9];
+
+              Income[9] := Income[9] + SellItem;
+              SumCom[9] := SumCom[9] + ComItem;
+              Total[9]  := Total[9]  + (SellItem-ComItem);
+              if IsNumTod(Nums,C3Up) then
+              begin
+                WinItem := Num2Mee;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[9];
+
+                Win[9] := Win[9] + WinItem;
+                TotalPay[9]:= TotalPay[9]+(WinItem * Pay[9]);
+                Net[9] := Net[9] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[9] := Net[9] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if Num2L > 0 then //2ตัวหน้า
+            begin
+              SellItem  := Num2L;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[10];
+
+              Income[10] := Income[10] + SellItem;
+              SumCom[10] := SumCom[10] + ComItem;
+              Total[10]  := Total[10]  + (SellItem-ComItem);
+              if (Nums = C2Left) then
+              begin
+                WinItem := Num2L;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[10];
+
+                Win[10] := Win[10] + WinItem;
+                TotalPay[10]:= TotalPay[10]+(WinItem * Pay[10]);
+                Net[10] := Net[10] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[10] := Net[10] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if Num2Sp > 0 then //2ตัวถ่าง
+            begin
+              SellItem  := Num2Sp;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[11];
+
+              Income[11] := Income[11] + SellItem;
+              SumCom[11] := SumCom[11] + ComItem;
+              Total[11]  := Total[11]  + (SellItem-ComItem);
+              if (Nums = C2Tang) then
+              begin
+                WinItem := Num2Sp;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[11];
+
+                Win[11] := Win[11] + WinItem;
+                TotalPay[11]:= TotalPay[11]+(WinItem * Pay[11]);
+                Net[11] := Net[11] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[11] := Net[11] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if Num2Dwn > 0 then //2ตัวล่าง
+            begin
+              SellItem  := Num2Dwn;//StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[12];
+
+              Income[12] := Income[12] + SellItem;
+              SumCom[12] := SumCom[12] + ComItem;
+              Total[12]  := Total[12]  + (SellItem-ComItem);
+              if (Nums = C2Dwn) then
+              begin
+                WinItem := Num2Dwn;//StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[12];
+
+                Win[12] := Win[12] + WinItem;
+                TotalPay[12]:= TotalPay[12]+(WinItem * Pay[12]);
+                Net[12] := Net[12] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[12] := Net[12] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+          end;
+
+        //-------------------------------------------------------------------------------------------------------------//
+        if (Length(Nums) >= 3) then //ว่าว
+        begin
+          //----------------------------------------------------------------------------------//
+
+          if (Num3Up > 0) Or Is3Tod Or Is4Tod Or Is5Tod then  //3ตัวบน
+          begin
+              if Is3Tod Or Is4Tod Or Is5Tod then
+                SellItem  := Num3Up+(PrPmu*CntPmu) //TotalPr3(Nums,P1,true); //เก็บราคาเต็งทุกรูปแบบของเลข 3 ตัว
+              else
+                SellItem  := Num3Up;//TotalPr3(Nums,P1,true); //เก็บราคาเต็งทุกรูปแบบของเลข 3 ตัว
+
+              ComItem   := SellItem * Commis[13];
+
+              Income[13] := Income[13] + SellItem;
+              SumCom[13] := SumCom[13] + ComItem;
+              Total[13]  := Total[13]  + (SellItem-ComItem);
+
+              if (C3Up = Nums) Or ((Is3Tod Or Is4Tod Or Is5Tod) and IsNumTod(C3Up, Nums)) then
+              begin
+                if (C3Up = Nums) and (Is3Tod Or Is4Tod Or Is5Tod) then
+                  WinItem := Num3Up+PrPmu
+                else
+                if (C3Up <> Nums) and (Is3Tod Or Is4Tod Or Is5Tod) then
+                  WinItem := PrPmu //TotalWin3(C3Up,Nums,P1,true);
+                else
+                  WinItem := Num3Up;//TotalWin3(C3Up,Nums,P1,true);
+
+
+                PayItem := WinItem * Pay[13];
+
+                Win[13] := Win[13] + WinItem;
+                TotalPay[13]:= TotalPay[13]+(WinItem * Pay[13]);
+                Net[13] := Net[13] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[13] := Net[13] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if Num3Tod > 0 then //3ตัวโต๊ด
+          begin
+              SellItem  := Num3Tod;//TotalPr3(Nums,P1,false);
+              ComItem   := SellItem * Commis[14];
+
+              Income[14] := Income[14] + SellItem;
+              SumCom[14] := SumCom[14] + ComItem;
+              Total[14]  := Total[14]  + (SellItem-ComItem);
+              if IsNumTod(C3Up, Nums) then
+              begin
+                WinItem := Num3Tod;//TotalWin3(C3Up,Nums,P1,false);
+                PayItem := WinItem * Pay[14];
+
+                Win[14] := Win[14] + WinItem;
+                TotalPay[14]:= TotalPay[14]+(WinItem * Pay[14]);
+                Net[14] := Net[14] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[14] := Net[14] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if Num3Dwn > 0 then  // 3 ตัวล่าง
+          begin
+              SellItem  := Num3Dwn;//StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[15];
+
+              Income[15] := Income[15] + SellItem;
+              SumCom[15] := SumCom[15] + ComItem;
+              Total[15]  := Total[15]  + (SellItem-ComItem);
+
+              if (Nums = CDwn[0])Or(Nums = CDwn[1])Or(Nums = CDwn[2])Or(Nums = CDwn[3]) then
+              begin
+                WinItem := Num3Dwn;//StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[15];
+
+                Win[15] := Win[15] + WinItem;
+                TotalPay[15]:= TotalPay[15]+(WinItem * Pay[15]);
+                Net[15] := Net[15] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[15] := Net[15] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+        end;
+
+        //-------------------------------------------------------------------------------------------------------------//
+        if (Length(Nums) = 4) then
+        begin
+          //----------------------------------------------------------------------------------//
+
+          if Num4 > 0 then  //4 ตัวตรง
+          begin
+              SellItem  := Num4;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[16];
+
+              Income[16] := Income[16] + SellItem;
+              SumCom[16] := SumCom[16] + ComItem;
+              Total[16]  := Total[16]  + (SellItem-ComItem);
+              if (Nums = C4Up) then
+              begin
+                WinItem := Num4;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[16];
+
+                Win[16] := Win[16] + WinItem;
+                TotalPay[16]:= TotalPay[16]+(WinItem * Pay[16]);
+                Net[16] := Net[16] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[16] := Net[16] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if Num4Tod > 0 then  //1234 = -100
+          begin
+              SellItem  := Num4Tod;//StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+              ComItem   := SellItem * Commis[17];
+
+              Income[17] := Income[17] + SellItem;
+              SumCom[17] := SumCom[17] + ComItem;
+              Total[17]  := Total[17]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := Num4Tod;//StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+                PayItem := WinItem * Pay[17];
+
+                Win[17] := Win[17] + WinItem;
+                TotalPay[17]:= TotalPay[17]+(WinItem * Pay[17]);
+                Net[17] := Net[17] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[17] := Net[17] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+        end;
+
+        //-------------------------------------------------------------------------------------------------------------//
+        if (Length(Nums) = 5) then
+        begin
+          //----------------------------------------------------------------------------------//
+
+          if Num5 > 0 then  //12345 = 100
+          begin
+              SellItem  := Num5;//StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[18];
+
+              Income[18] := Income[18] + SellItem;
+              SumCom[18] := SumCom[18] + ComItem;
+              Total[18]  := Total[18]  + (SellItem-ComItem);
+              if (Nums = C5Up) then
+              begin
+                WinItem := Num5;//StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[18];
+
+                Win[18] := Win[18] + WinItem;
+                TotalPay[18]:= TotalPay[18]+(WinItem * Pay[18]);
+                Net[18] := Net[18] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[18] := Net[18] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if Num5Tod > 0 then  //12345 = -100
+          begin
+              SellItem  := Num5Tod;//StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+              ComItem   := SellItem * Commis[19];
+
+              Income[19] := Income[19] + SellItem;
+              SumCom[19] := SumCom[19] + ComItem;
+              Total[19]  := Total[19]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := Num5Tod;//StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+                PayItem := WinItem * Pay[19];
+
+                Win[19] := Win[19] + WinItem;
+                TotalPay[19]:= TotalPay[19]+(WinItem * Pay[19]);
+                Net[19] := Net[19] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[19] := Net[19] + (SellItem - ComItem);
+
+          end;
+          //----------------------------------------------------------------------------------//
+        end;
+
+       end; // foundcust
+
+        QrDataRep.Next;
+      end; //for
+      //-------------------------------------------------------------------------------------------------------------//
+
+
+      //Progressbar2.Progress := 0;
+      //Pbar.Visible := false;
+
+      Setlength(footSum,6);
+      for i := 0 to 5 do
+        footSum[i] := 0;
+
+      TotalDealerGrid.BeginUpdate;
+      for i := 0 to 19 do
+      begin
+        if income[i] <> 0 then
+          TotalDealerGrid[0,i] := formatfloat('###,###',-income[i])
+        else
+          TotalDealerGrid[0,i] := '-';
+
+        if Sumcom[i] <> 0 then
+          TotalDealerGrid[1,i] := formatfloat('###,###',Sumcom[i])
+        else
+          TotalDealerGrid[1,i] := '-';
+
+        if Total[i] <> 0 then
+          TotalDealerGrid[2,i] := formatfloat('###,###',-Total[i])
+        else
+          TotalDealerGrid[2,i] := '-';
+
+        if Win[i] <> 0 then
+          TotalDealerGrid[3,i] := formatfloat('###,###',Win[i])
+        else
+          TotalDealerGrid[3,i] := '-';
+
+        if TotalPay[i] <> 0 then
+          TotalDealerGrid[4,i] := formatfloat('###,###',TotalPay[i])
+        else
+          TotalDealerGrid[4,i] := '-';
+
+        if ((-Income[i])+Sumcom[i]+(TotalPay[i])) <> 0 then
+          TotalDealerGrid[5,i] := formatfloat('###,###',(-Income[i])+Sumcom[i]+(TotalPay[i]))
+        else
+          TotalDealerGrid[5,i] := '-';
+
+        footSum[0] := footSum[0] + (-Income[i]);
+        footSum[1] := footSum[1] + SumCom[i];
+        footSum[2] := footSum[2] + (-Total[i]);
+        footSum[3] := footSum[3] + Win[i];
+        footSum[4] := footSum[4] + TotalPay[i];
+        footSum[5] := footSum[5] + (-Income[i])+Sumcom[i]+(TotalPay[i]);
+
+      end;
+      TotalDealerGrid.EndUpdate;
+
+      TotalDealerGrid.Columns[0].Footer := formatfloat('###,##0',footSum[0]);
+      TotalDealerGrid.Columns[1].Footer := formatfloat('###,##0',footSum[1]);
+      TotalDealerGrid.Columns[2].Footer := formatfloat('###,##0',footSum[2]);
+      TotalDealerGrid.Columns[3].Footer := formatfloat('###,##0',footSum[3]);
+      TotalDealerGrid.Columns[4].Footer := formatfloat('###,##0',footSum[4]);
+      TotalDealerGrid.Columns[5].Footer := formatfloat('###,##0',footSum[5]);
+
+      Pbar.Visible := false;
+      Progressbar2.Progress := 0;
+
+      SetLength(Income,0);
+      SetLength(Commis,0);
+      SetLength(SumCom,0);
+      SetLength(Total,0);
+      SetLength(Win,0);
+      SetLength(Pay,0);
+      SetLength(Net,0);
+    end; //record.count > 0
+  end; //dm
+  TbDealer.Free;
+  QrDataRep.Free;
+end;
+
+procedure TfMain.RepTotals;
+Var FoundCorctNum,foundCust,FoundNumPay: Boolean;
+    Numb,Nums,TbNum,P1,P2,PrUp,PrLeft,PrTang: String;
+    i,j,k,Pa,Pb,Pab,CountCust,CustNoInt: integer;
+    C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,CustNo,StrNumLmt: String;
+    CDwn: Array of String;
+    QrDataRep,QrCustComPay,QrLimitNum: TABSQuery;
+    Income,Commis,SumCom,Total,Win,Pay,TotalPay,Net: Array Of real;
+    footSum: Array of real;
+    SellItem,ComItem,WinItem,PayItem: real;
+    IsLmt1,IsLmt2,IsLmt3,IsLmt4,IsLmt5,IsLmt6,IsLmt7: Boolean;
+    PayPc1,PayPc2,PayPc3,PayPc4,PayPc5,PayPc6,PayPc7: Real;
+    CustComPay: Array of Array of Array Of real;
+    GrpNum: TStringList;
+begin
+  Application.ProcessMessages;
+  if (LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='') then
+  begin
+    Showmessage('กรุณาป้อนเลขที่ออกในช่องด้านบน');
+    TotalGrid.Clear;
+    TotalGrid.RowCount := 20;
+    for i := 0 to 5 do
+      TotalGrid.Columns[i].Footer := '0';
+    LotNum6.SetFocus;
+    Exit;
+  end;
+
+  setlength(CDwn,4);
+  if length(LotNum6.Text) >= 5 then
+    C5Up    := Copy(LotNum6.Text,length(LotNum6.Text)-4,5); // เลขที่ออก 5 ตัวตรง
+
+  if length(LotNum6.Text) >= 4 then
+    C4Up    := Copy(LotNum6.Text,length(LotNum6.Text)-3,4); // เลขที่ออก 4 ตัวตรง
+
+  if length(LotNum6.Text) >= 3 then
+    C3Up    := Copy(LotNum6.Text,length(LotNum6.Text)-2,3); // เลขที่ออก 3 ตัวตรง
+
+  C2Left  := C3UP[1]+C3UP[2]; // เลขที่ออก 2 ตัวหน้าบน
+  C2Tang  := C3UP[1]+C3UP[3]; // เลขที่ออก 2 ตัวถ่างบน
+  C2Up    := C3UP[2]+C3UP[3]; // เลขที่ออก 2 ตัวบน
+  C2Dwn   := lotNum2.Text;  // เลขที่ออก 2 ตัวล่าง
+  CDwn[0] := lotNum31.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 1
+  CDwn[1] := lotNum32.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 2
+  CDwn[2] := lotNum33.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 3
+  CDwn[3] := lotNum34.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 4
+  Pa := 0;
+  Pb := 0;
+
+  With Dm,CustListRep do
+  begin
+    QrCustComPay := TABSQuery.Create(nil);
+    QrCustComPay.DatabaseName := Database.DatabaseName;
+    QrCustComPay.Close;
+    QrCustComPay.SQL.Clear;
+    QrCustComPay.SQL.Add('Select DISTINCT CustNo from Data');
+    QrCustComPay.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrCustComPay.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+    if RdbRepByCust.Checked then
+      QrCustComPay.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
+    QrCustComPay.Open;
+
+    if QrCustComPay.RecordCount > 0 then
+      Pbar.Visible := true;
+
+    Application.ProcessMessages;
+
+    QrDataRep := TABSQuery.Create(nil);
+    QrDataRep.DatabaseName := Database.DatabaseName;
+    QrDataRep.Close;
+    QrDataRep.SQL.Clear;
+    QrDataRep.SQL.Add('Select * from Data');
+    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+
+    if RdbRepByCust.Checked then
+    begin
+      if SelCount = 0 then
+      begin
+        Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+        QrDataRep.Free;
+        Exit;
+      end
+      else
+      begin
+        QrDataRep.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
+        QrDataRep.Open;
+      end;
+    end
+    else
+    begin
+      QrDataRep.Open;
+    end;
+
+    if QrCustComPay.RecordCount > 0 then
+    begin
+      QrLimitNum := TABSQuery.Create(nil);
+      QrLimitNum.DatabaseName := Database.DatabaseName;
+      QrLimitNum.Close;
+      QrLimitNum.SQL.Clear;
+      QrLimitNum.SQL.Add('Select * from LimitNum');
+      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+      QrLimitNum.Open;
+
+      QrLimitNum.First;
+      StrNumLmt := '';
+      for i := 0 to QrLimitNum.RecordCount-1 do
+      begin
+        StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+        QrLimitNum.Next;
+      end;
+
+      QrCustComPay.First;
+      for i := 0 to QrCustComPay.RecordCount-1 do
+      begin
+        Application.ProcessMessages;
+        CustNo    := QrCustComPay.fieldByName('CustNo').AsString;
+        CustNoInt := StrToInt(CustNo);
+        foundCust := TbCust.Locate('CustID',CustNo,[]);
+        if foundCust then
+        begin
+          if Length(CustComPay) < CustNoInt+1 then
+            SetLength(CustComPay,CustNoInt+1,2,20);
+
+          CustComPay[CustNoInt,0,0] := (TbCust.fieldByName('ComRnUp').AsFloat/100);
+          CustComPay[CustNoInt,0,1] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          CustComPay[CustNoInt,0,2] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          CustComPay[CustNoInt,0,3] := (TbCust.fieldByName('ComPosUp').AsFloat/100);
+          CustComPay[CustNoInt,0,4] := (TbCust.fieldByName('ComRnDwn').AsFloat/100);
+          CustComPay[CustNoInt,0,5] := (TbCust.fieldByName('ComPosDwn').AsFloat/100);
+          CustComPay[CustNoInt,0,6] := (TbCust.fieldByName('ComPosDwn').AsFloat/100);
+          CustComPay[CustNoInt,0,7] := (TbCust.fieldByName('Com2Up').AsFloat/100);
+
+          CustComPay[CustNoInt,0,9]  := (TbCust.fieldByName('Com2Mee').AsFloat/100);
+          CustComPay[CustNoInt,0,10] := (TbCust.fieldByName('Com2Pos').AsFloat/100);
+          CustComPay[CustNoInt,0,11] := (TbCust.fieldByName('Com2Pos').AsFloat/100);
+          CustComPay[CustNoInt,0,12] := (TbCust.fieldByName('Com2Dwn').AsFloat/100);
+          CustComPay[CustNoInt,0,13] := (TbCust.fieldByName('Com3Up').AsFloat/100);
+          CustComPay[CustNoInt,0,14] := (TbCust.fieldByName('Com3Tod').AsFloat/100);
+          CustComPay[CustNoInt,0,15] := (TbCust.fieldByName('Com3Dwn').AsFloat/100);
+          CustComPay[CustNoInt,0,16] := (TbCust.fieldByName('Com4').AsFloat/100);
+          CustComPay[CustNoInt,0,17] := (TbCust.fieldByName('Com4Tod').AsFloat/100);
+          CustComPay[CustNoInt,0,18] := (TbCust.fieldByName('Com5').AsFloat/100);
+          CustComPay[CustNoInt,0,19] := (TbCust.fieldByName('Com5Tod').AsFloat/100);
+     //---------------------------------------------------------------------------------//
+          CustComPay[CustNoInt,1,0] := TbCust.fieldByName('PayRnUp').AsFloat;
+          CustComPay[CustNoInt,1,1] := TbCust.fieldByName('PayPosUp').AsFloat;
+          CustComPay[CustNoInt,1,2] := TbCust.fieldByName('PayPosUp').AsFloat;
+          CustComPay[CustNoInt,1,3] := TbCust.fieldByName('PayPosUp').AsFloat;
+          CustComPay[CustNoInt,1,4] := TbCust.fieldByName('PayRnDwn').AsFloat;
+          CustComPay[CustNoInt,1,5] := TbCust.fieldByName('PayPosDwn').AsFloat;
+          CustComPay[CustNoInt,1,6] := TbCust.fieldByName('PayPosDwn').AsFloat;
+          CustComPay[CustNoInt,1,7] := TbCust.fieldByName('Pay2Up').AsFloat;
+
+          CustComPay[CustNoInt,1,9]  := TbCust.fieldByName('Pay2Mee').AsFloat;
+          CustComPay[CustNoInt,1,10] := TbCust.fieldByName('Pay2Pos').AsFloat;
+          CustComPay[CustNoInt,1,11] := TbCust.fieldByName('Pay2Pos').AsFloat;
+          CustComPay[CustNoInt,1,12] := TbCust.fieldByName('Pay2Dwn').AsFloat;
+          CustComPay[CustNoInt,1,13] := TbCust.fieldByName('Pay3Up').AsFloat;
+          CustComPay[CustNoInt,1,14] := TbCust.fieldByName('Pay3Tod').AsFloat;
+          CustComPay[CustNoInt,1,15] := TbCust.fieldByName('Pay3Dwn').AsFloat;
+          CustComPay[CustNoInt,1,16] := TbCust.fieldByName('Pay4').AsFloat;
+          CustComPay[CustNoInt,1,17] := TbCust.fieldByName('Pay4Tod').AsFloat;
+          CustComPay[CustNoInt,1,18] := TbCust.fieldByName('Pay5').AsFloat;
+          CustComPay[CustNoInt,1,19] := TbCust.fieldByName('Pay5Tod').AsFloat;
+      //-----------------------------------------------------------------------------//
+        end;
+        QrCustComPay.Next;
+      end;
+    end;
+
+    Progressbar2.MaxValue := QrDataRep.RecordCount;
+    if QrDataRep.RecordCount > 0 then
+    begin
+      SetLength(Income,20);
+      SetLength(Commis,20);
+      SetLength(SumCom,20);
+      SetLength(Total,20);
+      SetLength(Win,20);
+      SetLength(Pay,20);
+      SetLength(TotalPay,20);
+      SetLength(Net,20);
+
+      for j := 0 to 19 do
+      begin
+        Income[j]  := 0;
+        Commis[j]  := 0;
+        SumCom[j]  := 0;
+        Total[j]   := 0;
+        Win[j]     := 0;
+        Pay[j]     := 0;
+        TotalPay[j]:= 0;
+        Net[j]     := 0;
+      end;
+
+      Progressbar2.Progress := 0;
+      TbCust.Close;
+      TbCust.Open;
+      CountCust := 0;
+      QrDataRep.First;
+      for i := 0 to QrDataRep.RecordCount-1 do
+      begin
+        Progressbar2.Progress := Progressbar2.Progress +1;
+
+        SellItem := 0;
+        ComItem  := 0;
+        WinItem  := 0;
+        PayItem  := 0;
+
+        Numb   := QrDataRep.fieldByName('Num').AsString;
+        Nums := GetNum(Numb);
+        P1     := QrDataRep.fieldByName('Up').AsString;
+        P2     := QrDataRep.fieldByName('Dwn').AsString;
+        CustNo := QrDataRep.fieldByName('CustNo').AsString;
+        CustNoInt := StrToInt(CustNo);
+     //----------------------------------------------------//
+        if StrToInt(CustNo) = CustNoInt then
+        begin
+          Commis[0] := CustComPay[CustNoInt,0,0];
+          Commis[1] := CustComPay[CustNoInt,0,1];
+          Commis[2] := CustComPay[CustNoInt,0,2];
+          Commis[3] := CustComPay[CustNoInt,0,3];
+          Commis[4] := CustComPay[CustNoInt,0,4];
+          Commis[5] := CustComPay[CustNoInt,0,5];
+          Commis[6] := CustComPay[CustNoInt,0,6];
+          Commis[7] := CustComPay[CustNoInt,0,7];
+
+          Commis[9]  := CustComPay[CustNoInt,0,9];
+          Commis[10] := CustComPay[CustNoInt,0,10];
+          Commis[11] := CustComPay[CustNoInt,0,11];
+          Commis[12] := CustComPay[CustNoInt,0,12];
+          Commis[13] := CustComPay[CustNoInt,0,13];
+          Commis[14] := CustComPay[CustNoInt,0,14];
+          Commis[15] := CustComPay[CustNoInt,0,15];
+          Commis[16] := CustComPay[CustNoInt,0,16];
+          Commis[17] := CustComPay[CustNoInt,0,17];
+          Commis[18] := CustComPay[CustNoInt,0,18];
+          Commis[19] := CustComPay[CustNoInt,0,19];
+     //------------------------------------------------------------//
+          Pay[0] := CustComPay[CustNoInt,1,0];
+          Pay[1] := CustComPay[CustNoInt,1,1];
+          Pay[2] := CustComPay[CustNoInt,1,2];
+          Pay[3] := CustComPay[CustNoInt,1,3];
+          Pay[4] := CustComPay[CustNoInt,1,4];
+          Pay[5] := CustComPay[CustNoInt,1,5];
+          Pay[6] := CustComPay[CustNoInt,1,6];
+          Pay[7] := CustComPay[CustNoInt,1,7];
+
+          Pay[9]  := CustComPay[CustNoInt,1,9];
+          Pay[10] := CustComPay[CustNoInt,1,10];
+          Pay[11] := CustComPay[CustNoInt,1,11];
+          Pay[12] := CustComPay[CustNoInt,1,12];
+          Pay[13] := CustComPay[CustNoInt,1,13];
+          Pay[14] := CustComPay[CustNoInt,1,14];
+          Pay[15] := CustComPay[CustNoInt,1,15];
+          Pay[16] := CustComPay[CustNoInt,1,16];
+          Pay[17] := CustComPay[CustNoInt,1,17];
+          Pay[18] := CustComPay[CustNoInt,1,18];
+          Pay[19] := CustComPay[CustNoInt,1,19];
+      //------------------------------------------------------------//
+          if IsLastStr(P1,'*') and (Length(Nums) >= 4) then //1234=100*, 12345=20*
+          begin
+            GrpNum := TStringList.Create;
+            GrpNum.Text := PerMuTationStr(Numb);
+            Nums := GrpNum[0];
+            FoundNumPay := false;
+            for k := 0 to GrpNum.Count-1 do
+            begin
+              if GrpNum[k] = C3Up then
+              begin
+                FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),GrpNum[k]]),[]);
+                Nums := GrpNum[k];
+                Break;
+              end;
+            end;
+            GrpNum.Free;
+          end
+          else
+          begin
+            FoundNumPay := false;
+            if Pos(Nums,StrNumLmt) > 0 then
+              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Nums]),[]);
+          end;
+
+          if FoundNumPay then
+          begin
+            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
+            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
+            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
+            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
+            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
+            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
+            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+
+            PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat;
+            PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat;
+            PayPc3 := QrLimitNum.FieldByName('PayPcnt3').AsFloat;
+            PayPc4 := QrLimitNum.FieldByName('PayPcnt4').AsFloat;
+            PayPc5 := QrLimitNum.FieldByName('PayPcnt5').AsFloat;
+            PayPc6 := QrLimitNum.FieldByName('PayPcnt6').AsFloat;
+            PayPc7 := QrLimitNum.FieldByName('PayPcnt7').AsFloat;
+
+            //Showmessage(Nums);
+            if Length(Nums) = 1 then
+            begin
+              if IsLmt1 then
+                Pay[0] := Pay[0]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[1] := Pay[1]*(PayPc2/100);
+              if IsLmt3 then
+                Pay[2] := Pay[2]*(PayPc3/100);
+              if IsLmt4 then
+                Pay[3] := Pay[3]*(PayPc4/100);
+              if IsLmt5 then
+                Pay[4] := Pay[4]*(PayPc5/100);
+              if IsLmt6 then
+                Pay[5] := Pay[5]*(PayPc6/100);
+              if IsLmt7 then
+                Pay[6] := Pay[6]*(PayPc7/100);
+            end;
+
+            if Length(Nums) = 2 then
+            begin
+              if IsLmt1 then
+                Pay[7] := Pay[7]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[8] := Pay[8]*(PayPc2/100);
+              if IsLmt3 then
+                Pay[9] := Pay[9]*(PayPc3/100);
+              if IsLmt4 then
+                Pay[10] := Pay[10]*(PayPc4/100);
+              if IsLmt5 then
+                Pay[11] := Pay[11]*(PayPc5/100);
+              if IsLmt6 then
+                Pay[12] := Pay[12]*(PayPc6/100);
+            end;
+
+            if (Length(Nums) = 3) Or IsLastStr(P1,'*') then
+            begin
+              if IsLmt1 then
+                Pay[13] := Pay[13]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[14] := Pay[14]*(PayPc2/100);
+              if IsLmt3 then
+                Pay[15] := Pay[15]*(PayPc3/100);
+            end;
+
+            if (Length(Nums) = 4) and Not(IsLastStr(P1,'*')) then
+            begin
+              if IsLmt1 then
+                Pay[16] := Pay[16]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[17] := Pay[17]*(PayPc2/100);
+            end;
+
+            if (Length(Nums) = 5) and Not(IsLastStr(P1,'*')) then
+            begin
+              if IsLmt1 then
+                Pay[18] := Pay[18]*(PayPc1/100);
+              if IsLmt2 then
+                Pay[19] := Pay[19]*(PayPc2/100);
+            end;
+
+          end;
+
+       //---------------------------------------------------------------------------------------------//
+          Nums := GetNum(Numb); //เอาเฉพาะตัวเลขเช่น 25+ --> 25, 1-2 --> 12
+          if (Length(Nums) = 1) then
+          begin
+            //----------------------------------------------------------------------------------//
+            if ((P1 <> '') and (Length(Numb) = 1) and (Numb[1] in ['0'..'9'])) then  // 1, 2, 3  ลอยบน
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[0];
+
+              Income[0] := Income[0] + SellItem;
+              SumCom[0] := SumCom[0] + ComItem;
+              Total[0]  := Total[0]  + (SellItem-ComItem);
+              if IsNumTod(Nums,C3Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[0];
+
+                Win[0] := Win[0] + WinItem;
+                TotalPay[0]:= TotalPay[0]+(WinItem * Pay[0]);
+                Net[0] := Net[0] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[0] := Net[0] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P1 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and Not(Numb[2] in ['0'..'9'])) then // 1-
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[1];
+
+              Income[1] := Income[1] + SellItem;
+              SumCom[1] := SumCom[1] + ComItem;
+              Total[1]  := Total[1]  + (SellItem-ComItem);
+              if (Nums = C3Up[1]) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[1];
+
+                Win[1] := Win[1] + WinItem;
+                TotalPay[1]:= TotalPay[1]+(WinItem * Pay[1]);
+                Net[1] := Net[1] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[1] := Net[1] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P1 <> '') and (Length(Numb) = 3) and Not(Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and Not(Numb[3] in ['0'..'9']) then // -1-
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[2];
+
+              Income[2] := Income[2] + SellItem;
+              SumCom[2] := SumCom[2] + ComItem;
+              Total[2]  := Total[2]  + (SellItem-ComItem);
+              if Nums = C3Up[2] then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[2];
+
+                Win[2] := Win[2] + WinItem;
+                TotalPay[2]:= TotalPay[2]+(WinItem * Pay[2]);
+                Net[2] := Net[2] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[2] := Net[2] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P1 <> '') and (Length(Numb) = 2) and Not(Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then  // -1
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[3];
+
+              Income[3] := Income[3] + SellItem;
+              SumCom[3] := SumCom[3] + ComItem;
+              Total[3]  := Total[3]  + (SellItem-ComItem);
+              if Nums = C3Up[3] then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[3];
+
+                Win[3] := Win[3] + WinItem;
+                TotalPay[3]:= TotalPay[3]+(WinItem * Pay[3]);
+                Net[3] := Net[3] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[3] := Net[3] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P2 <> '') and (Length(Numb) = 1) and (Numb[1] in ['0'..'9'])) then  // 1, 2, 3  //ลอยล่าง
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[4];
+
+              Income[4] := Income[4] + SellItem;
+              SumCom[4] := SumCom[4] + ComItem;
+              Total[4]  := Total[4]  + (SellItem-ComItem);
+              if (Nums[1] In [C2Dwn[1],C2Dwn[2]]) then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[4];
+
+                Win[4] := Win[4] + WinItem;
+                TotalPay[4]:= TotalPay[4]+(WinItem * Pay[4]);
+                Net[4] := Net[4] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[4] := Net[4] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) then // 1-
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[5];
+
+              Income[5] := Income[5] + SellItem;
+              SumCom[5] := SumCom[5] + ComItem;
+              Total[5]  := Total[5]  + (SellItem-ComItem);
+              if Nums = C2Dwn[1] then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[5];
+
+                Win[5] := Win[5] + WinItem;
+                TotalPay[5]:= TotalPay[5]+(WinItem * Pay[5]);
+                Net[5] := Net[5] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[5] := Net[5] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['-']) and (Numb[2] in ['0'..'9'])) then  // -1
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[6];
+
+              Income[6] := Income[6] + SellItem;
+              SumCom[6] := SumCom[6] + ComItem;
+              Total[6]  := Total[6]  + (SellItem-ComItem);
+              if Nums = C2Dwn[2] then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[6];
+
+                Win[6] := Win[6] + WinItem;
+                TotalPay[5]:= TotalPay[5]+(WinItem * Pay[6]);
+                Net[6] := Net[6] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[6] := Net[6] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+          end;
+
+          //-------------------------------------------------------------------------------------------------------------//
+
+          if (Length(Nums) = 2) then
+          begin
+            //----------------------------------------------------------------------------------//
+            if ((GetNum(P1) = P1) and (P1 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // 12=100, 28=200, 34=500
+            begin
+              //Showmessage('1 '+Numb+'=[ '+P1+' ] [ '+P2+' ]');
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[7];
+
+              Income[7] := Income[7] + SellItem;
+              SumCom[7] := SumCom[7] + ComItem;
+              Total[7]  := Total[7]  + (SellItem-ComItem);
+              if Nums = C2Up then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[7];
+
+                Win[7] := Win[7] + WinItem;
+                TotalPay[7]:= TotalPay[7]+(WinItem * Pay[7]);
+                Net[7] := Net[7] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[7] := Net[7] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            //--2 ตัวบนกลับ
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and
+               (Numb[2] in ['0'..'9'])) and Not(IsLastStr(P1,'*3') Or IsLastStr(P1,'*6')) then // 12=100*20
+            begin
+              //Showmessage('2 '+Numb+'=[ '+P1+' ] [ '+P2+' ]');
+              SellItem  := SumPrice(Nums,P1,true);
+              ComItem   := SellItem * Commis[7];
+
+              Income[7] := Income[7] + SellItem;
+              SumCom[7] := SumCom[7] + ComItem;
+              Total[7]  := Total[7]  + (SellItem-ComItem);
+              if IsNumTod(Nums,C2Up) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Up,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[7];
+
+                Win[7] := Win[7] + WinItem;
+                TotalPay[7]:= TotalPay[7]+(WinItem * Pay[7]);
+                Net[7] := Net[7] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[7] := Net[7] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            //--2 ตัวบน, 2 ตัวหน้าบน, 2 ตัวถ่างบน----//
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and
+               (Numb[2] in ['0'..'9'])) and (IsLastStr(P1,'*3') Or IsLastStr(P1,'*6')) then // 12=100*3, 45=200*6
+            begin
+              SellItem := (StrToInt(Copy(P1,1,Pos('*',P1)-1))*2);
+
+              ComItem   := SellItem * Commis[7];
+              Income[7] := Income[7] + SellItem;
+              SumCom[7] := SumCom[7] + ComItem;
+              Total[7]  := Total[7]  + (SellItem-ComItem);
+
+              ComItem   := SellItem * Commis[10];
+              Income[10] := Income[10] + SellItem;
+              SumCom[10] := SumCom[10] + ComItem;
+              Total[10]  := Total[10]  + (SellItem-ComItem);
+
+              ComItem   := SellItem * Commis[11];
+              Income[11] := Income[11] + SellItem;
+              SumCom[11] := SumCom[11] + ComItem;
+              Total[11]  := Total[11]  + (SellItem-ComItem);
+
+              if (Nums = C2Up) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Up,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[7];
+                Win[7] := Win[7] + WinItem;
+                TotalPay[7]:= TotalPay[7]+(WinItem * Pay[7]);
+                Net[7] := Net[7] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[7]  := Net[7]  + (SellItem - ComItem);
+
+              if (Nums = C2Left) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Left,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[10];
+                Win[10] := Win[10] + WinItem;
+                TotalPay[10]:= TotalPay[10]+(WinItem * Pay[10]);
+                Net[10] := Net[10] + (SellItem - (ComItem + PayItem));
+              end
+              else Net[10] := Net[10] + (SellItem - ComItem);
+
+              if (Nums = C2Tang) then
+              begin
+                Showmessage('Tang '+Nums+' '+P1);
+                WinItem := StrToFloatDef(TotalWin(C2Tang,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[11];
+                Win[11] := Win[11] + WinItem;
+                TotalPay[11]:= TotalPay[11]+(WinItem * Pay[11]);
+                Net[11] := Net[11] + (SellItem - (ComItem + PayItem));
+              end
+              else Net[11] := Net[11] + (SellItem - ComItem);
+            end;
+
+            //----------------------------------------------------------------------------------//
+
+            //if ((P1 <> '') and (Pos('*',P1) = 0) and (Pos('-',P1) = 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['+']) then // 25+
+            if ((GetNum(P1) = P1) and (P1 <> '') and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['+']) then // 25+
+            begin
+              //Showmessage('3 '+Numb+'=[ '+P1+' ] [ '+P2+' ]');
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[9];
+
+              Income[9] := Income[9] + SellItem;
+              SumCom[9] := SumCom[9] + ComItem;
+              Total[9]  := Total[9]  + (SellItem-ComItem);
+              if IsNumTod(Nums,C3Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[9];
+
+                Win[9] := Win[9] + WinItem;
+                TotalPay[9]:= TotalPay[9]+(WinItem * Pay[9]);
+                Net[9] := Net[9] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[9] := Net[9] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            //if ((P1 <> '') and (Pos('*',P1) = 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25- =100
+            if ((GetNum(P1) = P1) and (P1 <> '') and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25-
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[10];
+
+              Income[10] := Income[10] + SellItem;
+              SumCom[10] := SumCom[10] + ComItem;
+              Total[10]  := Total[10]  + (SellItem-ComItem);
+              if (Nums = C2Left) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[10];
+
+                Win[10] := Win[10] + WinItem;
+                TotalPay[10]:= TotalPay[10]+(WinItem * Pay[10]);
+                Net[10] := Net[10] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[10] := Net[10] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25- =100*50
+            begin
+              SellItem  := SumPrice(Nums,P1,true);
+              ComItem   := SellItem * Commis[10];
+
+              Income[10] := Income[10] + SellItem;
+              SumCom[10] := SumCom[10] + ComItem;
+              Total[10]  := Total[10]  + (SellItem-ComItem);
+              if IsNumTod(C2Left,Nums) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Left,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[10];
+
+                Win[10] := Win[10] + WinItem;
+                TotalPay[10]:= TotalPay[10]+(WinItem * Pay[10]);
+                Net[10] := Net[10] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[10] := Net[10] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            //if ((P1 <> '') and (Pos('*',P1) = 0)  and (Pos('-',P1) = 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 100
+            if ((GetNum(P1) = P1) and (P1 <> '') and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 100
+            begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[11];
+
+              Income[11] := Income[11] + SellItem;
+              SumCom[11] := SumCom[11] + ComItem;
+              Total[11]  := Total[11]  + (SellItem-ComItem);
+              if (Nums = C2Tang) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[11];
+
+                Win[11] := Win[11] + WinItem;
+                TotalPay[11]:= TotalPay[11]+(WinItem * Pay[11]);
+                Net[11] := Net[11] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[11] := Net[11] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P1 <> '') and (Pos('*',P1) > 0) and (Length(Numb) = 3) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 10*20
+            begin
+              SellItem  := SumPrice(Nums,P1,true);
+              ComItem   := SellItem * Commis[11];
+
+              Income[11] := Income[11] + SellItem;
+              SumCom[11] := SumCom[11] + ComItem;
+              Total[11]  := Total[11]  + (SellItem-ComItem);
+              if IsNumTod(C2Tang,Nums) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Tang,Nums,P1,'*'),0);
+                PayItem := WinItem * Pay[11];
+
+                Win[11] := Win[11] + WinItem;
+                TotalPay[11]:= TotalPay[11]+(WinItem * Pay[11]);
+                Net[11] := Net[11] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[11] := Net[11] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            //if ((P2 <> '') and (Pos('*',P2) = 0) and (Pos('-',P2) = 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // ล่าง 12, 28, 34 = 100
+            if ((GetNum(P2) = P2) and (P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // ล่าง 12, 28, 34 = 100 ล่าง
+            begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[12];
+
+              Income[12] := Income[12] + SellItem;
+              SumCom[12] := SumCom[12] + ComItem;
+              Total[12]  := Total[12]  + (SellItem-ComItem);
+              if (Nums = C2Dwn) then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[12];
+
+                Win[12] := Win[12] + WinItem;
+                TotalPay[12]:= TotalPay[12]+(WinItem * Pay[12]);
+                Net[12] := Net[12] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[12] := Net[12] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+            if ((P2 <> '') and (Pos('*',P2) > 0)  and (Pos('-',P2) = 0) and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) then // ล่าง 12=100*20
+            begin
+              SellItem  := SumPrice(Nums,P2,true);
+              ComItem   := SellItem * Commis[12];
+
+              Income[12] := Income[12] + SellItem;
+              SumCom[12] := SumCom[12] + ComItem;
+              Total[12]  := Total[12]  + (SellItem-ComItem);
+              if IsNumTod(C2Dwn,Nums) then
+              begin
+                WinItem := StrToFloatDef(TotalWin(C2Dwn,Nums,P2,'*'),0);
+                PayItem := WinItem * Pay[12];
+
+                Win[12] := Win[12] + WinItem;
+                TotalPay[12]:= TotalPay[12]+(WinItem * Pay[12]);
+                Net[12] := Net[12] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[12] := Net[12] + (SellItem - ComItem);
+            end;
+            //----------------------------------------------------------------------------------//
+
+          end;
+
+        //-------------------------------------------------------------------------------------------------------------//
+        if (Length(Nums) = 3) and (Length(Numb) = 3) then
+        begin
+          //----------------------------------------------------------------------------------//
+            //ว่าว
+          if (P1 <> '') then //and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then  //123 = 20 , 123=100*20
+          begin
+              //SellItem  := TotalPr3(Nums,P1,true); //เก็บราคาเต็งทุกรูปแบบของเลข 3 ตัว
+              if (GetNum(P1) = P1) then
+                SellItem  := TxtToFloat(P1);
+
+              if (Pos('*',P1) = Length(P1)) then
+                SellItem  := TxtToFloat(LeftPr(P1))*Permutation(Nums);
+
+              if (Pos('*',P1) > 1) and (Pos('*',P1) < Length(P1)) then
+                SellItem  := TxtToFloat(LeftPr(P1))+(TxtToFloat(RightPr(P1))*(Permutation(Nums)-1));
+
+              if (Pos('-',P1) > 1) and (Pos('-',P1) < Length(P1)) then
+                SellItem  := TxtToFloat(LeftPr(P1));
+
+              ComItem   := SellItem * Commis[13];
+
+              Income[13] := Income[13] + SellItem;
+              SumCom[13] := SumCom[13] + ComItem;
+              Total[13]  := Total[13]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := TotalWin3(C3Up,Nums,P1,true);
+                PayItem := WinItem * Pay[13];
+
+                Win[13] := Win[13] + WinItem;
+                TotalPay[13]:= TotalPay[13]+(WinItem * Pay[13]);
+                Net[13] := Net[13] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[13] := Net[13] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if ((P1 <> '') and (Pos('-',P1) >= 1) and (Pos('-',P1) < Length(P1))) then // 123 = -20, 123 = 100-50  เอาเฉพาะราคาโต๊ด
+          begin
+              //SellItem  := TotalPr3(Nums,P1,false);
+              SellItem  := TxtToFloat(RightPr(P1));
+              ComItem   := SellItem * Commis[14];
+
+              Income[14] := Income[14] + SellItem;
+              SumCom[14] := SumCom[14] + ComItem;
+              Total[14]  := Total[14]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := TotalWin3(C3Up,Nums,P1,false);
+                PayItem := WinItem * Pay[14];
+
+                Win[14] := Win[14] + WinItem;
+                TotalPay[14]:= TotalPay[14]+(WinItem * Pay[14]);
+                Net[14] := Net[14] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[14] := Net[14] + (SellItem - ComItem);
+          end;
+
+          //----------------------------------------------------------------------------------//
+
+          if ((P2 <> '') and (GetNum(P2) = P2)) then // 3 ตัวล่าง
+          begin
+              SellItem  := StrToFloatDef(P2,0);
+              ComItem   := SellItem * Commis[15];
+
+              Income[15] := Income[15] + SellItem;
+              SumCom[15] := SumCom[15] + ComItem;
+              Total[15]  := Total[15]  + (SellItem-ComItem);
+
+              if (Nums = CDwn[0])Or(Nums = CDwn[1])Or(Nums = CDwn[2])Or(Nums = CDwn[3]) then
+              begin
+                WinItem := StrToFloatDef(P2,0);
+                PayItem := WinItem * Pay[15];
+
+                Win[15] := Win[15] + WinItem;
+                TotalPay[15]:= TotalPay[15]+(WinItem * Pay[15]);
+                Net[15] := Net[15] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[15] := Net[15] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+        end;
+
+        //-------------------------------------------------------------------------------------------------------------//
+        if (Length(Nums) = 4) then
+        begin
+          //----------------------------------------------------------------------------------//
+
+          if (P1 <> '') and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then //1234 = 100
+          begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[16];
+
+              Income[16] := Income[16] + SellItem;
+              SumCom[16] := SumCom[16] + ComItem;
+              Total[16]  := Total[16]  + (SellItem-ComItem);
+              if (Nums = C4Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[16];
+
+                Win[16] := Win[16] + WinItem;
+                TotalPay[16]:= TotalPay[16]+(WinItem * Pay[16]);
+                Net[16] := Net[16] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[16] := Net[16] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if (P1 <> '') and (Pos('-',P1) > 0) then  //1234 = -100
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+              ComItem   := SellItem * Commis[17];
+
+              Income[17] := Income[17] + SellItem;
+              SumCom[17] := SumCom[17] + ComItem;
+              Total[17]  := Total[17]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+                PayItem := WinItem * Pay[17];
+
+                Win[17] := Win[17] + WinItem;
+                TotalPay[17]:= TotalPay[17]+(WinItem * Pay[17]);
+                Net[17] := Net[17] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[17] := Net[17] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+
+          if (P1 <> '') and (Pos('*',P1) > 0) and IsLastStr(P1,'*') then // 1234 = 100*
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,1,Length(P1)-1),0)*Permutation(Nums);
+              ComItem   := SellItem * Commis[13];
+
+              Income[13] := Income[13] + SellItem;
+              SumCom[13] := SumCom[13] + ComItem;
+              Total[13]  := Total[13]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                //Showmessage(Nums);
+                WinItem := StrToFloatDef(Copy(P1,1,Length(P1)-1),0);
+                PayItem := WinItem * Pay[13];
+
+                Win[13] := Win[13] + WinItem;
+                TotalPay[13]:= TotalPay[13]+(WinItem * Pay[13]);
+                Net[13] := Net[13] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[13] := Net[13] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+
+        end;
+
+        //-------------------------------------------------------------------------------------------------------------//
+        if (Length(Nums) = 5) then
+        begin
+          //----------------------------------------------------------------------------------//
+
+          if (P1 <> '') and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then  //12345 = 100
+          begin
+              SellItem  := StrToFloatDef(P1,0);
+              ComItem   := SellItem * Commis[18];
+
+              Income[18] := Income[18] + SellItem;
+              SumCom[18] := SumCom[18] + ComItem;
+              Total[18]  := Total[18]  + (SellItem-ComItem);
+              if (Nums = C5Up) then
+              begin
+                WinItem := StrToFloatDef(P1,0);
+                PayItem := WinItem * Pay[18];
+
+                Win[18] := Win[18] + WinItem;
+                TotalPay[18]:= TotalPay[18]+(WinItem * Pay[18]);
+                Net[18] := Net[18] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[18] := Net[18] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if (P1 <> '') and (Pos('-',P1) > 0) then  //12345 = -100
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+              ComItem   := SellItem * Commis[19];
+
+              Income[19] := Income[19] + SellItem;
+              SumCom[19] := SumCom[19] + ComItem;
+              Total[19]  := Total[19]  + (SellItem-ComItem);
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,Pos('-',P1)+1,Length(P1)-Pos('-',P1)),0);
+                PayItem := WinItem * Pay[19];
+
+                Win[19] := Win[19] + WinItem;
+                TotalPay[19]:= TotalPay[19]+(WinItem * Pay[19]);
+                Net[19] := Net[19] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[19] := Net[19] + (SellItem - ComItem);
+
+          end;
+          //----------------------------------------------------------------------------------//
+
+          if (P1 <> '') and (Pos('*',P1) > 0) and IsLastStr(P1,'*') then  // 12345 = 100*
+          begin
+              SellItem  := StrToFloatDef(Copy(P1,1,Length(P1)-1),0)*Permutation(Nums);
+              ComItem   := SellItem * Commis[13];
+
+              Income[13] := Income[13] + SellItem;
+              SumCom[13] := SumCom[13] + ComItem;
+              Total[13]  := Total[13]  + (SellItem-ComItem);
+
+              if IsNumTod(C3Up,Nums) then
+              begin
+                WinItem := StrToFloatDef(Copy(P1,1,Length(P1)-1),0);
+                PayItem := WinItem * Pay[13];
+
+                Win[13] := Win[13] + WinItem;
+                TotalPay[13]:= TotalPay[13]+(WinItem * Pay[13]);
+                Net[13] := Net[13] + (SellItem - (ComItem + PayItem));
+              end
+              else
+                Net[13] := Net[13] + (SellItem - ComItem);
+          end;
+          //----------------------------------------------------------------------------------//
+        end;
+
+       end; // foundcust
+
+       SellItem := 0;
+       ComItem  := 0;
+       WinItem  := 0;
+       PayItem  := 0;
+
+        QrDataRep.Next;
+      end; //for
+      //-------------------------------------------------------------------------------------------------------------//
+
+      //Progressbar2.Progress := 0;
+      //Pbar.Visible := false;
+
+      Setlength(footSum,6);
+      for i := 0 to 5 do
+        footSum[i] := 0;
+
+      TotalGrid.RowCount := 20;
+      Application.ProcessMessages;
+      TotalGrid.BeginUpdate;
+      for i := 0 to 19 do
+      begin
+        if income[i] <> 0 then
+          TotalGrid[0,i] := formatfloat('###,###',income[i])
+        else
+          TotalGrid[0,i] := '-';
+
+        if Sumcom[i] <> 0 then
+          TotalGrid[1,i] := formatfloat('###,###',-Sumcom[i])
+        else
+          TotalGrid[1,i] := '-';
+
+        if Total[i] <> 0 then
+          TotalGrid[2,i] := formatfloat('###,###',Total[i])
+        else
+          TotalGrid[2,i] := '-';
+
+        if Win[i] <> 0 then
+          TotalGrid[3,i] := formatfloat('###,###',Win[i])
+        else
+          TotalGrid[3,i] := '-';
+
+        if TotalPay[i] <> 0 then
+          TotalGrid[4,i] := formatfloat('###,###',-TotalPay[i])
+        else
+          TotalGrid[4,i] := '-';
+
+        if (Income[i]+(-Sumcom[i])+(-TotalPay[i])) <> 0 then
+          TotalGrid[5,i] := formatfloat('###,###',Income[i]+(-Sumcom[i])+(-TotalPay[i]))
+        else
+          TotalGrid[5,i] := '-';
+
+        footSum[0] := footSum[0] + Income[i];
+        footSum[1] := footSum[1] + (-SumCom[i]);
+        footSum[2] := footSum[2] + Total[i];
+        footSum[3] := footSum[3] + Win[i];
+        footSum[4] := footSum[4] + (-TotalPay[i]);
+        footSum[5] := footSum[5] + Income[i]+(-Sumcom[i])+(-TotalPay[i]);
+      end;
+
+      TotalGrid.Columns[0].Footer := formatfloat('###,##0',footSum[0]);
+      TotalGrid.Columns[1].Footer := formatfloat('###,##0',footSum[1]);
+      TotalGrid.Columns[2].Footer := formatfloat('###,##0',footSum[2]);
+      TotalGrid.Columns[3].Footer := formatfloat('###,##0',footSum[3]);
+      TotalGrid.Columns[4].Footer := formatfloat('###,##0',footSum[4]);
+      TotalGrid.Columns[5].Footer := formatfloat('###,##0',footSum[5]);
+
+      TotalGrid.EndUpdate;
+    end; //record.count > 0
+    Pbar.Visible := false;
+    Progressbar2.Progress := 0;
+  end; //dm
+  Income := nil;
+  Commis := nil;
+  SumCom := nil;
+  Total  := nil;
+  Win    := nil;
+  Pay    := nil;
+  Net    := nil;
+  TotalPay:= nil;
+  footSum := nil;
+
+  CustComPay := nil;
+  QrDataRep.Free;
+  QrCustComPay.Free;
+end;
+
+
+procedure TfMain.RepTotal;
+Var i,j,k,l,m, FoundNum: integer;
+    Sum3Up,Sum3Tod,Sum3Dwn,Sum4,Sum4Tod,Sum5,Sum5Tod,SumMoney,SumCom : Real;
+    sum2up,sum2Tod,Sum2Mee,Sum2Lft,sum2Rth,Sum2Dwn: Real;
+    sum1up,sum1Lft,Sum1Mid,Sum1Rth,sum1Dwn,Sum1DLft,Sum1DRth: Real;
+    QrDataRep: TABSQuery;
+    CutNum: String;
+    found,FoundLmt,isTod: Boolean;
+    Limited: Array of Boolean;
+    Num5,Num4,Num3,Num2,Num1: TNumber;
+    SumByNum: Array of Array of real;
+    C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num: String;
+    CDwn: Array of String;
+    footSum: Array of real;
+begin
+  TotalGrid.Clear;
+  for i := 0 to 5 do
+    TotalGrid.Columns[i].Footer := '0.00';
+
+  if (LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='') then
+  begin
+    Showmessage('กรุณาป้อนเลขที่ออกในช่องด้านบน');
+    LotNum6.SetFocus;
+    Exit;
+  end;
+
+  setlength(CDwn,4);
+  if length(LotNum6.Text) >= 5 then
+    C5Up    := Copy(LotNum6.Text,length(LotNum6.Text)-4,5);
+
+  if length(LotNum6.Text) >= 4 then
+    C4Up    := Copy(LotNum6.Text,length(LotNum6.Text)-3,4);
+
+  if length(LotNum6.Text) >= 3 then
+    C3Up    := Copy(LotNum6.Text,length(LotNum6.Text)-2,3); // เลขที่ออก 3 ตัวตรง
+
+  C2Left  := Copy(LotNum6.Text,length(LotNum6.Text)-2,2);  // เลขที่ออก 2 ตัวหน้า
+  C2Tang  := C3UP[1]+C3UP[3]; // เลขที่ออก 2 ตัวถ่าง
+  C2Up    := Copy(LotNum6.Text,length(LotNum6.Text)-1,2); // เลขที่ออก 2 ตัวบน
+  C2Dwn   := lotNum2.Text; // เลขที่ออก 2 ตัวล่าง
+  CDwn[0] := lotNum31.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 1
+  CDwn[1] := lotNum32.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 2
+  CDwn[2] := lotNum33.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 3
+  CDwn[3] := lotNum34.Text; // เลขที่ออก 3 ตัวล่าง ชุดที่ 4
+
+  With Dm,CustListRep do
+  begin
+
+    Application.ProcessMessages;
+    QrDataRep := TABSQuery.Create(nil);
+    QrDataRep.DatabaseName := Database.DatabaseName;
+    QrDataRep.Close;
+    QrDataRep.SQL.Clear;
+    QrDataRep.SQL.Add('Select * from Data');
+    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+
+    if RdbRepByCust.Checked then
+    begin
+      if SelCount > 0 then
+        QrDataRep.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")')
+      else
+      begin
+        Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+        QrDataRep.Free;
+        Exit;
+      end;
+    end;
+    QrDataRep.Open;
+    Pbar.Visible := true;
+
+    if QrDataRep.RecordCount = 0 then
+    begin
+      QrDataRep.Free;
+      Pbar.Visible := false;
+      Exit;
+    end
+    else
+    begin
+      Application.ProcessMessages;
+      Setlength(ArData,4,QrDataRep.RecordCount);
+      for i := 0 to 3 do
+        for j := 0 to QrDataRep.RecordCount-1 do
+          ArData[i,j] := '';
+
+      QrDataRep.First;
+      for i := 0 to QrDataRep.RecordCount-1 do
+      begin
+        ArData[0,i] := QrDataRep.fieldByName('Num').AsString;
+        ArData[1,i] := QrDataRep.fieldByName('Up').AsString;
+        ArData[2,i] := QrDataRep.fieldByName('Dwn').AsString;
+        ArData[3,i] := QrDataRep.fieldByName('CustNo').AsString;
+        QrDataRep.Next;
+      end;
+    end;
+
+    setlength(ArTransData,0,9);
+    QrDataRep.Last;
+
+    for i := QrDataRep.RecordCount-1 Downto 0 do
+    begin
+      TransTotal(ArData[0,i], ArData[1,i], ArData[2,i], ArData[3,i]);
+    end;
+
+   
+
+    Setlength(SumByNum,20,5);
+    for i := 0 to 19 do
+      for j := 0 to 4 do
+        SumByNum[i,j] := 0;
+
+
+
+    Progressbar2.MinValue := 0;
+    Progressbar2.MaxValue := length(ArTransData)-1;
+
+
+    TbCust.Close;
+    TbCust.Open;
+    for i := 0 to length(ArTransData)-1 do
+    begin
+      Progressbar2.Progress := Progressbar2.Progress +1;
+      Num := Trim(ArtransData[i,1]);
+      TbCust.Locate('CustID',ArtransData[i,0],[]);
+
+      if length(Num)=1 then
+      begin
+        SumByNum[0,0]  := SumByNum[0,0]  + StrToFloatDef(arTransData[i,2],0);
+        SumByNum[1,0]  := SumByNum[1,0]  + StrToFloatDef(arTransData[i,3],0);
+        SumByNum[2,0]  := SumByNum[2,0]  + StrToFloatDef(arTransData[i,4],0);
+        SumByNum[3,0]  := SumByNum[3,0]  + StrToFloatDef(arTransData[i,5],0);
+        SumByNum[4,0]  := SumByNum[4,0]  + StrToFloatDef(arTransData[i,6],0);
+        SumByNum[5,0]  := SumByNum[5,0]  + StrToFloatDef(arTransData[i,7],0);
+        SumByNum[6,0]  := SumByNum[6,0]  + StrToFloatDef(arTransData[i,8],0);
+
+        SumByNum[0,1]  := SumByNum[0,1]  + (StrToFloatDef(arTransData[i,2],0)*(TbCust.fieldByName('ComRnUp').AsFloat/100));
+        SumByNum[1,1]  := SumByNum[1,1]  + (StrToFloatDef(arTransData[i,3],0)*(TbCust.fieldByName('ComPosUp').AsFloat/100));
+        SumByNum[2,1]  := SumByNum[2,1]  + (StrToFloatDef(arTransData[i,4],0)*(TbCust.fieldByName('ComPosUp').AsFloat/100));
+        SumByNum[3,1]  := SumByNum[3,1]  + (StrToFloatDef(arTransData[i,5],0)*(TbCust.fieldByName('ComPosUp').AsFloat/100));
+        SumByNum[4,1]  := SumByNum[4,1]  + (StrToFloatDef(arTransData[i,6],0)*(TbCust.fieldByName('ComRnDwn').AsFloat/100));
+        SumByNum[5,1]  := SumByNum[5,1]  + (StrToFloatDef(arTransData[i,7],0)*(TbCust.fieldByName('ComPosDwn').AsFloat/100));
+        SumByNum[6,1]  := SumByNum[6,1]  + (StrToFloatDef(arTransData[i,8],0)*(TbCust.fieldByName('ComPosDwn').AsFloat/100));
+
+        if C3UP <> '' then
+        if (Num[1] In [C3Up[1],C3Up[2],C3Up[3]]) then //ถูกวิ่งบน
+        begin
+          SumByNum[0,2] := SumByNum[0,2] + StrToFloatDef(arTransData[i,2],0);
+          SumByNum[0,3] := SumByNum[0,3] + (StrToFloatDef(arTransData[i,2],0)*TbCust.fieldByName('PayRnUp').AsFloat);
+        end;
+       
+        if C3UP <> '' then
+        if (Num[1] = C3Up[1]) then //ถูกหน้าบน
+        begin
+          SumByNum[1,2] := SumByNum[1,2] + StrToFloatDef(arTransData[i,3],0);
+          SumByNum[1,3] := SumByNum[1,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('PayPosUp').AsFloat);
+        end;
+       
+        if C3UP <> '' then
+        if (Num[1] = C3Up[2]) then //ถูกกลางบน
+        begin
+          SumByNum[2,2] := SumByNum[2,2] + StrToFloatDef(arTransData[i,4],0);
+          SumByNum[2,3] := SumByNum[2,3] + (StrToFloatDef(arTransData[i,4],0)*TbCust.fieldByName('PayPosUp').AsFloat);
+        end;
+
+        if C3UP <> '' then
+        if (Num[1] = C3Up[3]) then //ถูกหลังบน
+        begin
+          SumByNum[3,2] := SumByNum[3,2] + StrToFloatDef(arTransData[i,5],0);
+          SumByNum[3,3] := SumByNum[3,3] + (StrToFloatDef(arTransData[i,5],0)*TbCust.fieldByName('PayPosUp').AsFloat);
+        end;
+
+
+        if C2Dwn <> '' then
+        if (Num[1] in [C2Dwn[1],C2Dwn[2]]) then //ถูกวิ่งล่าง
+        begin
+          SumByNum[4,2] := SumByNum[4,2] + StrToFloatDef(arTransData[i,6],0);
+          SumByNum[4,3] := SumByNum[4,3] + (StrToFloatDef(arTransData[i,6],0)*TbCust.fieldByName('PayRnDwn').AsFloat);
+        end;
+        
+        if C2Dwn <> '' then
+        if (Num[1] = C2Dwn[1]) then //ถูกซ้ายล่าง
+        begin
+          SumByNum[5,2] := SumByNum[5,2] + StrToFloatDef(arTransData[i,7],0);
+          SumByNum[5,3] := SumByNum[5,3] + (StrToFloatDef(arTransData[i,7],0)*TbCust.fieldByName('PayPosDwn').AsFloat);
+        end;
+
+        if C2Dwn <> '' then
+        if (Num[1] = C2Dwn[2]) then //ถูกขวาล่าง
+        begin
+          SumByNum[6,2] := SumByNum[6,2] + StrToFloatDef(arTransData[i,8],0);
+          SumByNum[6,3] := SumByNum[6,3] + (StrToFloatDef(arTransData[i,8],0)*TbCust.fieldByName('PayPosDwn').AsFloat);
+        end;
+
+      end;
+
+
+      if length(Num)=2 then
+      begin
+        SumByNum[7,0]   := SumByNum[7,0]   + StrToFloatDef(arTransData[i,2],0);
+        SumByNum[8,0]   := SumByNum[8,0]   + StrToFloatDef(arTransData[i,3],0);
+        SumByNum[9,0]   := SumByNum[9,0]   + StrToFloatDef(arTransData[i,4],0);
+        SumByNum[10,0]  := SumByNum[10,0]  + StrToFloatDef(arTransData[i,5],0);
+        SumByNum[11,0]  := SumByNum[11,0]  + StrToFloatDef(arTransData[i,6],0);
+        SumByNum[12,0]  := SumByNum[12,0]  + StrToFloatDef(arTransData[i,7],0);
+
+        SumByNum[7,1]   := SumByNum[7,1]   + (StrToFloatDef(arTransData[i,2],0)*(TbCust.fieldByName('Com2Up').AsFloat/100));
+        SumByNum[8,1]   := SumByNum[8,1]   + (StrToFloatDef(arTransData[i,3],0)*(TbCust.fieldByName('Com2Tod').AsFloat/100));
+        SumByNum[9,1]   := SumByNum[9,1]   + (StrToFloatDef(arTransData[i,4],0)*(TbCust.fieldByName('Com2Mee').AsFloat/100));
+        SumByNum[10,1]  := SumByNum[10,1]  + (StrToFloatDef(arTransData[i,5],0)*(TbCust.fieldByName('Com2Pos').AsFloat/100));
+        SumByNum[11,1]  := SumByNum[11,1]  + (StrToFloatDef(arTransData[i,6],0)*(TbCust.fieldByName('Com2Pos').AsFloat/100));
+        SumByNum[12,1]  := SumByNum[12,1]  + (StrToFloatDef(arTransData[i,7],0)*(TbCust.fieldByName('Com2Dwn').AsFloat/100));
+
+        if (Num = C2UP) then //ถูก2ตัวบน
+        begin
+          SumByNum[7,2]  := SumByNum[7,2] + StrToFloatDef(arTransData[i,2],0);
+          SumByNum[7,3]  := SumByNum[7,3] + (StrToFloatDef(arTransData[i,2],0)*TbCust.fieldByName('Pay2Up').AsFloat);
+        end;
+
+        if C2UP <> '' then
+        if ([Num[1],Num[2]] = [C2UP[1],C2Up[2]]) then //ถูก2ตัวโต๊ด
+        begin
+          SumByNum[8,2]  := SumByNum[8,2]  + StrToFloatDef(arTransData[i,3],0);
+          SumByNum[8,3]  := SumByNum[8,3]  + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay2Tod').AsFloat);
+        end;
+
+     {
+        if C3UP <> '' then
+        if ([Num[1],Num[2]]*[C3Up[1],C3Up[2],C3Up[3]])=[Num[1],Num[2]] then //ถูก 2 ตัวมี  เอา 2 ค่ามาอินเตอร์เซ็คกัน
+        begin
+          SumByNum[9,2]  := SumByNum[9,2]  + StrToFloatDef(arTransData[i,4],0);
+          SumByNum[9,3]  := SumByNum[9,3] + (StrToFloatDef(arTransData[i,4],0)*TbCust.fieldByName('Pay2Mee').AsFloat);
+        end;
+      }
+
+        if C3UP <> '' then  //ถูก 2 ตัวมี
+        begin
+            istod := false;
+            C3UpTemp := C3Up;
+            foundNum := 0;
+            for l := 1 to 2 do
+            begin
+              for m := 1 to 3 do
+              begin
+                if Num[l] = C3UpTemp[m] then
+                begin
+                  Istod := true;
+                  C3UPTemp[m] := '-';
+                  break;
+                end
+                else istod := false;
+
+              end;
+            end;
+
+            for l := 1 to 3 do
+            begin
+              if C3UPTemp[l] <> '-' then
+                inc(foundNum);
+            end;
+
+            if FoundNum = 1 then
+            begin
+              SumByNum[9,2] := SumByNum[9,2] + StrToFloatDef(arTransData[i,4],0);
+              SumByNum[9,3] := SumByNum[9,3] + (StrToFloatDef(arTransData[i,4],0)*TbCust.fieldByName('Pay2Mee').AsFloat);
+            end;
+        end; 
+
+
+        if (Num = C2Left) then //ถูก2ตัวหน้า
+        begin
+          SumByNum[10,2] := SumByNum[10,2] + StrToFloatDef(arTransData[i,5],0);
+          SumByNum[10,3] := SumByNum[10,3] + (StrToFloatDef(arTransData[i,5],0)*TbCust.fieldByName('Pay2Pos').AsFloat);
+        end;
+
+      {  if (Num = C2UP) then //ถูก2ตัวหลัง
+        begin
+          SumByNum[11,2] := SumByNum[11,2] + StrToFloatDef(arTransData[i,6],0);
+          SumByNum[11,3] := SumByNum[11,3] + (StrToFloatDef(arTransData[i,6],0)*TbCust.fieldByName('Pay2Pos').AsFloat);
+        end;
+      }
+
+        if (Num = C2Tang) then //ถูกคู่ถ่าง
+        begin
+          SumByNum[11,2] := SumByNum[11,2] + StrToFloatDef(arTransData[i,6],0);
+          SumByNum[11,3] := SumByNum[11,3] + (StrToFloatDef(arTransData[i,6],0)*TbCust.fieldByName('Pay2Pos').AsFloat);
+        end;
+
+
+        if (Num = C2Dwn) then //ถูก2ตัวล่าง
+        begin
+          SumByNum[12,2] := SumByNum[12,2] + StrToFloatDef(arTransData[i,7],0);
+          SumByNum[12,3] := SumByNum[12,3] + (StrToFloatDef(arTransData[i,7],0)*TbCust.fieldByName('Pay2Dwn').AsFloat);
+        end;
+
+      end;
+
+      if length(Num)=3 then
+      begin
+        SumByNum[13,0]  := SumByNum[13,0]  + StrToFloatDef(arTransData[i,2],0);
+        SumByNum[14,0]  := SumByNum[14,0]  + StrToFloatDef(arTransData[i,3],0);
+        SumByNum[15,0]  := SumByNum[15,0]  + StrToFloatDef(arTransData[i,4],0);
+
+        SumByNum[13,1]  := SumByNum[13,1]  + (StrToFloatDef(arTransData[i,2],0)*(TbCust.fieldByName('Com3Up').AsFloat/100));
+        SumByNum[14,1]  := SumByNum[14,1]  + (StrToFloatDef(arTransData[i,3],0)*(TbCust.fieldByName('Com3Tod').AsFloat/100));
+        SumByNum[15,1]  := SumByNum[15,1]  + (StrToFloatDef(arTransData[i,4],0)*(TbCust.fieldByName('Com3Dwn').AsFloat/100));
+
+        if (Num = C3UP) then //ถูก3ตัวบน
+        begin
+          SumByNum[13,2] := SumByNum[13,2] + StrToFloatDef(arTransData[i,2],0);
+          SumByNum[13,3] := SumByNum[13,3] + (StrToFloatDef(arTransData[i,2],0)*TbCust.fieldByName('Pay3Up').AsFloat);
+        end;
+
+     {   
+        if StrToFloatDef(arTransData[i,3],0) > 0 then
+        begin
+          if C3UP <> '' then
+          if ([Num[1],Num[2],Num[3]] = [C3UP[1],C3Up[2],C3Up[3]]) then //ถูก3โต๊ด
+          begin
+            SumByNum[14,2] := SumByNum[14,2] + StrToFloatDef(arTransData[i,3],0);
+            SumByNum[14,3] := SumByNum[14,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay3Tod').AsFloat);
+          end;
+        end;
+     }
+
+        //if StrToFloatDef(arTransData[i,3],0) > 0 then  //ถูก 3 ตัวโต๊ด
+        //begin
+        if C3UP <> '' then
+        begin
+            istod := false;
+            C3UpTemp := C3Up;
+            for l := 1 to 3 do
+            begin
+              for m := 1 to 3 do
+              begin
+                if Num[l] = C3UpTemp[m] then
+                begin
+                  Istod := true;
+                  C3UPTemp[m] := '-';
+                  break;
+                end
+                else istod := false;
+              end;
+            end;
+
+            if C3UpTemp = '---' then
+            begin
+              SumByNum[14,2] := SumByNum[14,2] + StrToFloatDef(arTransData[i,3],0);
+              SumByNum[14,3] := SumByNum[14,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay3Tod').AsFloat);
+            end;
+        end;
+        //end;
+
+        if (Num = CDwn[0])or(Num = CDwn[1])or(Num = CDwn[2])or(Num = CDwn[3]) then //ถูก3ล่าง
+        begin
+          SumByNum[15,2] := SumByNum[15,2] + StrToFloatDef(arTransData[i,4],0);
+          SumByNum[15,3] := SumByNum[15,3] + (StrToFloatDef(arTransData[i,4],0)*TbCust.fieldByName('Pay3Dwn').AsFloat);
+        end;
+      end;
+
+      //Showmessage(Num+' '+C3Up);
+      if length(Num)=4 then
+      begin
+        SumByNum[16,0]  := SumByNum[16,0]  + StrToFloatDef(arTransData[i,2],0);
+        SumByNum[17,0]  := SumByNum[17,0]  + StrToFloatDef(arTransData[i,3],0);
+
+        SumByNum[16,1]  := SumByNum[16,1]  + (StrToFloatDef(arTransData[i,2],0)*(TbCust.fieldByName('Com4').AsFloat/100));
+        SumByNum[17,1]  := SumByNum[17,1]  + (StrToFloatDef(arTransData[i,3],0)*(TbCust.fieldByName('Com4Tod').AsFloat/100));
+
+        if (Num = C4UP) then //ถูก4ตัวบน
+        begin
+          SumByNum[16,2] := SumByNum[16,2] + StrToFloatDef(arTransData[i,2],0);
+          SumByNum[16,3] := SumByNum[16,3] + (StrToFloatDef(arTransData[i,2],0)*TbCust.fieldByName('Pay4').AsFloat);
+        end;
+     {
+        if C3UP <> '' then
+        if ([Num[1],Num[2],Num[3],Num[4]]*[C3UP[1],C3UP[2],C3UP[3]])=[C3UP[1],C3UP[2],C3UP[3]] then //ถูก3ใน4ตัว
+        begin
+          SumByNum[17,2] := SumByNum[17,2] + StrToFloatDef(arTransData[i,3],0);
+          SumByNum[17,3] := SumByNum[17,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay4Tod').AsFloat);
+        end;
+      }
+
+        if C3UP <> '' then //ถูก 3 ใน 4 ตัว
+        begin
+            {
+            istod := false;
+            C3UpTemp := C3Up;
+            for l := 1 to 4 do
+            begin
+              for m := 1 to 3 do
+              begin
+                if Num[l] = C3UpTemp[m] then
+                begin
+                  Istod := true;
+                  C3UPTemp[m] := '-';
+                  break;
+                end
+                else istod := false;
+
+              end;
+            end;
+            }
+            
+            //if C3UpTemp = '---' then
+            //if IsNumTod(Num,C3Up) then
+            //Showmessage(Num+' '+C3Up);
+            if IsNumTod(C3Up,Num) then //กำหนด argument ให้เลขความยาวน้อยอยู่หน้า
+            begin
+              //Showmessage('ถูก');
+              SumByNum[17,2] := SumByNum[17,2] + StrToFloatDef(arTransData[i,3],0);
+              SumByNum[17,3] := SumByNum[17,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay4Tod').AsFloat);
+            end;
+        end;
+
+      end;
+
+      if length(Num)=5 then
+      begin
+        SumByNum[18,0]  := SumByNum[18,0]  + StrToFloatDef(arTransData[i,2],0);
+        SumByNum[19,0]  := SumByNum[19,0]  + StrToFloatDef(arTransData[i,3],0);
+
+        SumByNum[18,1]  := SumByNum[18,1]  + (StrToFloatDef(arTransData[i,2],0)*(TbCust.fieldByName('Com5').AsFloat/100));
+        SumByNum[19,1]  := SumByNum[19,1]  + (StrToFloatDef(arTransData[i,3],0)*(TbCust.fieldByName('Com5Tod').AsFloat/100));
+
+        if (Num = C5UP) then //ถูก3ตัวบน
+        begin
+          SumByNum[18,2] := SumByNum[18,2] + StrToFloatDef(arTransData[i,2],0);
+          SumByNum[18,3] := SumByNum[18,3] + (StrToFloatDef(arTransData[i,2],0)*TbCust.fieldByName('Pay5').AsFloat);
+        end;
+
+     {
+        if C3UP <> '' then
+        if ([Num[1],Num[2],Num[3],Num[4],Num[5]]*[C3UP[1],C3UP[2],C3UP[3]])=[C3UP[1],C3UP[2],C3UP[3]] then //ถูก3ใน5ตัว
+        begin
+          SumByNum[19,2] := SumByNum[19,2] + StrToFloatDef(arTransData[i,3],0);
+          SumByNum[19,3] := SumByNum[19,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay5Tod').AsFloat);
+        end;
+      }
+
+        if C3UP <> '' then //ถูก 3 ใน 5 ตัว
+        begin
+            istod := false;
+            C3UpTemp := C3Up;
+            for l := 1 to 5 do
+            begin
+              for m := 1 to 3 do
+              begin
+                if Num[l] = C3UpTemp[m] then
+                begin
+                  Istod := true;
+                  C3UPTemp[m] := '-';
+                  break;
+                end
+                else istod := false;
+
+              end;
+            end;
+
+            //if C3UpTemp = '---' then
+            if IsNumTod(C3Up,Num) then //กำหนด argument ให้เลขความยาวน้อยอยู่หน้า
+            begin
+              SumByNum[19,2] := SumByNum[19,2] + StrToFloatDef(arTransData[i,3],0);
+              SumByNum[19,3] := SumByNum[19,3] + (StrToFloatDef(arTransData[i,3],0)*TbCust.fieldByName('Pay5Tod').AsFloat);
+            end;
+        end;
+
+      end;
+
+
+    end;
+    Progressbar2.Progress := 0;
+    Pbar.Visible := false;
+
+ {
+    Setlength(footSum,5);
+    for i := 0 to 4 do
+      footSum[i] := 0;
+
+    TotalGrid.BeginUpdate;
+    for i := 0 to 19 do
+    begin
+      TotalGrid[0,i] := formatfloat('###,##0.00',SumByNum[i,0]);
+      TotalGrid[1,i] := formatfloat('###,##0.00',SumByNum[i,1]);
+      TotalGrid[2,i] := formatfloat('###,##0.00',SumByNum[i,2]);
+      TotalGrid[3,i] := formatfloat('###,##0.00',SumByNum[i,3]);
+      TotalGrid[4,i] := formatfloat('###,##0.00',SumByNum[i,0]-(SumByNum[i,1]+SumByNum[i,3]));
+      footSum[0] := footSum[0] + SumByNum[i,0];
+      footSum[1] := footSum[1] + SumByNum[i,1];                               //+SumByNum[i,2]
+      footSum[2] := footSum[2] + SumByNum[i,2];
+      footSum[3] := footSum[3] + SumByNum[i,3];
+      footSum[4] := footSum[4] + (SumByNum[i,0]-(SumByNum[i,1]+SumByNum[i,3]));
+    end;
+    for i := 0 to 4 do
+      TotalGrid.Columns[i].Footer := formatfloat('###,##0.00',footSum[i]);
+
+    TotalGrid.EndUpdate;
+ }
+
+    Setlength(footSum,6);
+    for i := 0 to 5 do
+      footSum[i] := 0;
+
+    TotalGrid.BeginUpdate;
+    for i := 0 to 19 do
+    begin
+      //TotalGrid[0,i] := formatfloat('###,##0.00',SumByNum[i,0]);
+      //TotalGrid[1,i] := formatfloat('###,##0.00',SumByNum[i,1]);
+      //TotalGrid[2,i] := formatfloat('###,##0.00',SumByNum[i,0]-SumByNum[i,1]);
+      //TotalGrid[3,i] := formatfloat('###,##0.00',SumByNum[i,2]);
+      //TotalGrid[4,i] := formatfloat('###,##0.00',SumByNum[i,3]);
+      //TotalGrid[5,i] := formatfloat('###,##0.00',SumByNum[i,0]-(SumByNum[i,1]+SumByNum[i,3]));
+
+      TotalGrid[0,i] := formatfloat('###,##0',SumByNum[i,0]);
+      TotalGrid[1,i] := formatfloat('###,##0',SumByNum[i,1]);
+      TotalGrid[2,i] := formatfloat('###,##0',SumByNum[i,0]-SumByNum[i,1]);
+      TotalGrid[3,i] := formatfloat('###,##0',SumByNum[i,2]);
+      TotalGrid[4,i] := formatfloat('###,##0',SumByNum[i,3]);
+      TotalGrid[5,i] := formatfloat('###,##0',SumByNum[i,0]-(SumByNum[i,1]+SumByNum[i,3]));
+
+      footSum[0] := footSum[0] + SumByNum[i,0];
+      footSum[1] := footSum[1] + SumByNum[i,1];
+      footSum[2] := footSum[2] + (SumByNum[i,0]-SumByNum[i,1]);
+      footSum[3] := footSum[3] + SumByNum[i,2];
+      footSum[4] := footSum[4] + SumByNum[i,3];
+      footSum[5] := footSum[5] + (SumByNum[i,0]-(SumByNum[i,1]+SumByNum[i,3]));
+    end;
+    for i := 0 to 5 do
+      TotalGrid.Columns[i].Footer := formatfloat('###,##0',footSum[i]);
+
+    TotalGrid.EndUpdate;
+  
+  end;
+end;
+
+
+procedure TfMain.RdbRepAllClick(Sender: TObject);
+begin
+  if MainPageControl.TabIndex = 2 then
+  begin
+    CustListRep.Enabled := false;
+    BtnFindByNumtRepClick(Sender);
+  end;
+end;
+
+procedure TfMain.RdbRepByCustClick(Sender: TObject);
+Var i: Integer;
+begin
+  if MainPageControl.TabIndex = 2 then
+  begin
+    if CustListRep.Items.Count > 0 then
+    begin
+      CustListRep.Enabled := true;
+      CustListRep.SetFocus;
+      CustListRep.ItemIndex := 0;
+      BtnFindByNumtRepClick(Sender);
+    end;
+  end;
+end;
+
+procedure TfMain.CustListRepDblClick(Sender: TObject);
+begin
+  With CustListRep do
+  begin
+    if Selcount > 0 then
+    begin
+      Panel16.Caption := Items[itemindex].Caption+' '+ Items[Itemindex].SubItems[0];
+      BtnFindByNumtRepClick(Sender);
+    end;
+  end;
+
+end;
+
+procedure TfMain.FindCustAllRepBtnClick(Sender: TObject);
+begin
+  if MainPageControl.TabIndex = 2 then
+    RepTotalsCust;
+end;
+
+procedure TfMain.BtnFindByNumtRepClick(Sender: TObject);
+begin
+  with CustListRep do
+  begin
+    Application.ProcessMessages;
+    if (RdbRepAll.Checked) or (RdbRepByCust.Checked) then
+    begin
+      try
+        if RdbRepByCust.Checked then
+          Panel16.Caption := Items[itemindex].Caption+' '+ Items[Itemindex].SubItems[0]
+        else
+          Panel16.Caption := 'ยอดรับรวม';
+
+        if MainPageControl.TabIndex = 2 then
+          RepTotals;
+
+        if ChkRepPrint.Checked then
+          BtnPrintRepByCustClick(Sender);
+      except
+        if (RdbRepByCust.Checked) then
+          Showmessage('กรุณาเลือกลูกค้าที่ต้องการรายงาน');
+      end;
+    end
+    else
+      Showmessage('กรุณาเลือกหัวข้อที่ต้องการรายงาน');
+  end;
+  
+end;
+
+procedure TfMain.TabCustAllRepShow(Sender: TObject);
+begin
+  FindCustAllRepBtnClick(Sender);
+end;
+
+procedure TfMain.BtnPrintRepByCustClick(Sender: TObject);
+begin
+  with ComboLotType do
+  begin
+    frmPrintPrev.Date := DatePick.Date;// Dm.ADOCorrectDatehuad.value;
+    if RdbRepAll.Checked then
+      frmPrintPrev.RenderGrids(TotalGrid,Items[itemindex],' [ยอดทั้งหมด]')
+    else
+    begin
+      if (Panel16.Caption <> '') then
+        frmPrintPrev.RenderGrids(TotalGrid,Items[itemindex],'['+Panel16.Caption+']')
+      else
+      begin
+        Showmessage('กรุณากดค้นข้อมูลที่ต้องการรายงานใหม่');
+        exit;
+      end;
+    end;
+    frmPrintPrev.Showmodal;
+  end;
+end;
+
+procedure TfMain.ReportBtnMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := ReportBtn.ClientToScreen(Point(0,ReportBtn.Height));
+  PopupMenu1.Popup(P.x,P.y);
+end;
+
+procedure TfMain.N9Click(Sender: TObject);
+begin
+  MainPageControl.TabIndex := 2;
+  RepPageControl.TabIndex := 0;
+end;
+
+procedure TfMain.N10Click(Sender: TObject);
+begin
+  MainPageControl.TabIndex := 2;
+  RepPageControl.TabIndex := 1;
+end;
+
+procedure TfMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := false;
+  if MessageDlg('ต้องการออกจากโปรแกรมใช่หรือไม่? ',mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    CanClose := true;
+  end;
+end;
+
+procedure TfMain.N4Click(Sender: TObject);
+begin
+   with frmDealerList do
+   begin
+      if Showmodal = mrOk then
+      begin
+
+      end;
+   end;
+end;
+
+procedure TfMain.BtnPrintRepAllClick(Sender: TObject);
+begin
+  with ComboLotType do
+  begin
+    frmPrintAllPrev.Date := DatePick.Date;
+    frmPrintAllPrev.RenderGrids(CustAllGrid,Items[itemindex],'');
+    frmPrintAllPrev.Showmodal;
+  end;
+end;
+
+procedure TfMain.XLSExportBtnClick(Sender: TObject);
+Var
+   i,j,GCnt1,GCnt2,GCnt3,GCnt4,GCnt5,Col,Row,Lastrow: Integer;
+   before,after: String;
+   SerialInfo: TSerialInfo;
+begin
+  with Dm,fRegis do
+  begin
+    if not Regis then
+    begin
+      EdCode.Text := GetHardwareID;
+      edKey.Clear;
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;
+
+      if Showmodal = mrOk then
+      begin
+        UpdateSerialNo(edKey.Text);
+        UpdateLastDate(Date);
+        UpdateLastRun(Date);
+        UpDateRPD(1);
+        AppKey := EdKey.text;
+
+        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
+        Regis := true;
+        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+        exit;
+      end
+      else exit;
+    end;
+  end;
+
+  GCnt1 := CutGrid1.RowCount;
+  GCnt2 := CutGrid2.RowCount;
+  GCnt3 := CutGrid3.RowCount;
+  GCnt4 := CutGrid4.RowCount;
+  GCnt5 := CutGrid5.RowCount;
+
+  SaveXLSDialog.InitialDir := edExportFolder.Text;
+  Case RdgSell.ItemIndex of
+    0: SaveXLSDialog.FileName := GetComputerName+'_'+'ยอดขาย'+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now);
+    1: SaveXLSDialog.FileName := GetComputerName+'_'+'ยอดเหลือ'+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now);
+    2: SaveXLSDialog.FileName := GetComputerName+'_'+'เกินอั้น'+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now);
+    3: begin
+          if Rdb1.Checked then
+            SaveXLSDialog.FileName := GetComputerName+'_'+'ตีออกทั้งหมด'+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now);
+          if Rdb2.Checked then
+          begin
+            before := CbCutList.Items[CbCutList.Itemindex];
+            after  := StringReplace(before, '/', '-',[rfReplaceAll, rfIgnoreCase]);
+            before := after;
+            after  := StringReplace(before, ':', '-',[rfReplaceAll, rfIgnoreCase]);
+            before := after;
+            after  := StringReplace(before, ' ', '_',[rfReplaceAll, rfIgnoreCase]);
+            SaveXLSDialog.FileName := GetComputerName+'_'+'ตีออก'+'_'+after;
+          end;
+       end;
+  end;
+  
+  if SaveXLSDialog.Execute then
+  begin
+    if FileExists(SaveXLSDialog.FileName) then
+    begin
+      if MessageDlg('ไฟล์ '+SaveXLSDialog.FileName+' มีอยู่แล้วต้องการเขียนทับหรือไม่?',mtConfirmation,[mbYes,mbNo],0) = IdNo then
+        exit
+      else
+        XLS.Filename := SaveXLSDialog.FileName;
+    end
+    else
+    begin
+        XLS.Filename := SaveXLSDialog.FileName;
+    end
+  end
+  else exit;
+
+
+  XLS.Clear;
+  //XLS.Codepage := 874;
+
+  // Add format #0
+   with XLS.Formats.Add do begin
+    FontIndex := XLS.Fonts.AddIndex;
+    XLS.Fonts[FontIndex].Name := 'Courier new';
+    XLS.Fonts[FontIndex].Size := 12;
+    XLS.Fonts[FontIndex].Color := xcRed;
+    HorizAlignment := chaCenter;
+  end;
+
+  // Add format #1
+  with XLS.Formats.Add do begin
+    FontIndex := XLS.Fonts.AddIndex;
+    XLS.Fonts[FontIndex].AssignTFont(Font);
+    BorderTopColor := xcBlue;
+    BorderTopStyle := cbsThin;
+  end;
+
+  // Add format #2
+  with XLS.Formats.Add do begin
+    FillPatternForeColor := xcLilac;
+    HorizAlignment := chaCenter;
+  end;
+
+  // Add format #3
+  with XLS.Formats.Add do begin
+    //BorderTopColor := xcBlue;
+    //BorderBottomColor := xcBlue;
+    //BorderTopStyle := cbsThin;
+    //BorderBottomStyle := cbsThin;
+  end;
+
+  with XLS.Formats.Add do begin
+    NumberFormat := '#,##0.00);[Red](#,##0.00)';
+  end;
+
+ LastRow := 0;
+ Row := 0;
+ if CutGrid1.RowCount > 0 then
+ begin
+
+  XLS.Sheets[0].WriteString(0,0,3,'Num1');
+  XLS.Sheets[0].WriteString(1,0,3,'RunUp');
+  XLS.Sheets[0].WriteString(2,0,3,'LeftUp');
+  XLS.Sheets[0].WriteString(3,0,3,'MidleUp');
+  XLS.Sheets[0].WriteString(4,0,3,'RightUp');
+  XLS.Sheets[0].WriteString(5,0,3,'RunDown');
+  XLS.Sheets[0].WriteString(6,0,3,'LeftDown');
+  XLS.Sheets[0].WriteString(7,0,3,'RightDown');
+  
+  for Col := 0 to CutGrid1.ColCount - 2 do
+  begin
+   for Row := 0 To GCnt1 -1 do
+   begin
+      if Col = 0 then
+         XLS.Sheets[0].WriteString(0,Row+1,1,CutGrid1[0,Row])
+      else
+         XLS.Sheets[0].WriteNumber(Col,Row+1,4,txtToFloat(CutGrid1[Col,Row]));
+   end;
+  end;
+  LastRow := Row+1;
+ end;
+
+ if CutGrid2.RowCount > 0 then
+ begin
+  XLS.Sheets[0].WriteString(0,Lastrow,3,'Num2');
+  XLS.Sheets[0].WriteString(1,Lastrow,3,'2 Up');
+  XLS.Sheets[0].WriteString(2,Lastrow,3,'2 Tod');
+  XLS.Sheets[0].WriteString(3,Lastrow,3,'2 Mee');
+  XLS.Sheets[0].WriteString(4,Lastrow,3,'2 LeftUp');
+  XLS.Sheets[0].WriteString(5,Lastrow,3,'2 RightUp');
+  XLS.Sheets[0].WriteString(6,Lastrow,3,'2 Down');
+
+  for Col := 0 to CutGrid2.ColCount - 2 do
+  begin
+   for Row := Lastrow To LastRow + GCnt2 - 1 do
+   begin
+      if Col = 0 then
+         XLS.Sheets[0].WriteString(0,Row+1,1,CutGrid2[0,Row-Lastrow])
+      else
+         XLS.Sheets[0].WriteNumber(Col,Row+1,4,txtToFloat(CutGrid2[Col,Row-Lastrow]));
+   end;
+  end;
+  LastRow := Row+1;
+ end;
+
+ if CutGrid3.RowCount > 0 then
+ begin
+  XLS.Sheets[0].WriteString(0,Lastrow,3,'Num3');
+  XLS.Sheets[0].WriteString(1,Lastrow,3,'3 Up');
+  XLS.Sheets[0].WriteString(2,Lastrow,3,'3 Tod');
+  XLS.Sheets[0].WriteString(3,Lastrow,3,'3 Down');
+  
+  for Col := 0 to CutGrid3.ColCount - 2 do
+  begin
+   for Row := Lastrow To Lastrow + GCnt3 - 1 do
+   begin
+      if Col = 0 then
+         XLS.Sheets[0].WriteString(0,Row+1,1,CutGrid3[0,Row-Lastrow])
+      else
+         XLS.Sheets[0].WriteNumber(Col,Row+1,4,txtToFloat(CutGrid3[Col,Row-Lastrow]));
+   end;
+  end;
+  LastRow := Row+1;
+ end;
+
+ if CutGrid4.RowCount > 0 then
+ begin
+  XLS.Sheets[0].WriteString(0,Lastrow,3,'Num4');
+  XLS.Sheets[0].WriteString(1,Lastrow,3,'4 Up');
+  XLS.Sheets[0].WriteString(2,Lastrow,3,'4/3 Tod');
+  
+  for Col := 0 to CutGrid4.ColCount - 2 do
+  begin
+   for Row := Lastrow To Lastrow+(GCnt4-1) do
+   begin
+      if Col = 0 then
+         XLS.Sheets[0].WriteString(0,Row+1,1,CutGrid4[0,Row-Lastrow])
+      else
+         XLS.Sheets[0].WriteNumber(Col,Row+1,4,txtToFloat(CutGrid4[Col,Row-Lastrow]));
+   end;
+  end;
+  LastRow := Row+1;
+ end;
+
+ if CutGrid5.RowCount > 0 then
+ begin
+  XLS.Sheets[0].WriteString(0,Lastrow,3,'Num5');
+  XLS.Sheets[0].WriteString(1,Lastrow,3,'5 Up');
+  XLS.Sheets[0].WriteString(2,Lastrow,3,'5/3 Tod');
+  
+  for Col := 0 to CutGrid5.ColCount - 2 do
+  begin
+   for Row := Lastrow To Lastrow+(GCnt5-1) do
+   begin
+      if Col = 0 then
+         XLS.Sheets[0].WriteString(0,Row+1,1,CutGrid5[0,Row-Lastrow])
+      else
+         XLS.Sheets[0].WriteNumber(Col,Row+1,4,txtToFloat(CutGrid5[Col,Row-Lastrow]));
+   end;
+  end;
+ end;
+ try
+  XLS.Write;
+  Showmessage('ข้อมูลได้ส่งออกไปยังไฟล์ '+SaveXLSDialog.FileName+' เรียบร้อยแล้ว');
+ except
+  Showmessage('เกิดปัญหาในการส่งออก ไม่สามารถส่งออกไปยังๆล์ '+SaveXLSDialog.FileName+' ได้');
+ end
+end;
+
+procedure TfMain.MuteBtnClick(Sender: TObject);
+begin
+  SoundOn := Not SoundOn;
+end;
+
+procedure TfMain.SoundBtnClick(Sender: TObject);
+begin
+  SoundOn := Not SoundOn;
+end;
+
+procedure TfMain.BtnKeepCutClick(Sender: TObject);
+Var
+  SumSale,aa,maxSale,MinSale,aCom,aPay: Currency;
+  a,g,CutOut,OnHand,d,DifPay,f,bb,Pay,Keep,Kp,dfp,OH: Extended;
+  RCount,aCol,i,j,MaxRow,Cut,CountPay,Min: Integer;
+  Grid: TNiceGrid;
+begin
+    with Dm.Lotto do
+    begin
+      Locate('ID',StrToInt(edLotID.Text),[]);
+      Case CbNumType.ItemIndex of
+        0: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComRnUp').AsFloat;   aPay := fieldByName('PayRnUp').AsFloat;   aCol := 1; Grid := CutGrid1; MaxRow := 10; end;
+        1: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComPos').AsFloat;    aPay := fieldByName('PayPos').AsFloat;    aCol := 2; Grid := CutGrid1; MaxRow := 10; end;
+        2: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComPos').AsFloat;    aPay := fieldByName('PayPos').AsFloat;    aCol := 3; Grid := CutGrid1; MaxRow := 10; end;
+        3: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComPos').AsFloat;    aPay := fieldByName('PayPos').AsFloat;    aCol := 4; Grid := CutGrid1; MaxRow := 10; end;
+        4: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComRnDwn').AsFloat;  aPay := fieldByName('PayRnDwn').AsFloat;  aCol := 5; Grid := CutGrid1; MaxRow := 10; end;
+        5: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComDwnPos').AsFloat; aPay := fieldByName('PayDwnPos').AsFloat; aCol := 6; Grid := CutGrid1; MaxRow := 10; end;
+        6: begin RCount := CutGrid1.RowCount; aCom := fieldByName('ComDwnPos').AsFloat; aPay := fieldByName('PayDwnPos').AsFloat; aCol := 7; Grid := CutGrid1; MaxRow := 10; end;
+        7: begin RCount := CutGrid2.RowCount; aCom := fieldByName('Com2Up').AsFloat;    aPay := fieldByName('Pay2Up').AsFloat;    aCol := 1; Grid := CutGrid2; MaxRow := 100; end;
+        8: begin RCount := CutGrid2.RowCount; aCom := fieldByName('Com2Tod').AsFloat;   aPay := fieldByName('Pay2Tod').AsFloat;   aCol := 2; Grid := CutGrid2; MaxRow := 100; end;
+        9: begin RCount := CutGrid2.RowCount; aCom := fieldByName('Com2Mee').AsFloat;   aPay := fieldByName('Pay2Mee').AsFloat;   aCol := 3; Grid := CutGrid2; MaxRow := 100; end;
+       10: begin RCount := CutGrid2.RowCount; aCom := fieldByName('Com2Left').AsFloat;  aPay := fieldByName('Pay2Left').AsFloat;  aCol := 4; Grid := CutGrid2; MaxRow := 100; end;
+       11: begin RCount := CutGrid2.RowCount; aCom := fieldByName('Com2Rigth').AsFloat; aPay := fieldByName('Pay2Right').AsFloat; aCol := 5; Grid := CutGrid2; MaxRow := 100; end;
+       12: begin RCount := CutGrid2.RowCount; aCom := fieldByName('Com2Dwn').AsFloat;   aPay := fieldByName('Pay2Dwn').AsFloat;   aCol := 6; Grid := CutGrid2; MaxRow := 100; end;
+       13: begin RCount := CutGrid3.RowCount; aCom := fieldByName('Com3Up').AsFloat;    aPay := fieldByName('Pay3Up').AsFloat;    aCol := 1; Grid := CutGrid3; MaxRow := 1000; end;
+       14: begin RCount := CutGrid3.RowCount; aCom := fieldByName('Com3Tod').AsFloat;   aPay := fieldByName('Pay3Tod').AsFloat;   aCol := 2; Grid := CutGrid3; MaxRow := 1000; end;
+       15: begin RCount := CutGrid3.RowCount; aCom := fieldByName('Com3Dwn').AsFloat;   aPay := fieldByName('Pay3Dwn').AsFloat;   aCol := 3; Grid := CutGrid3; MaxRow := 1000; end;
+       16: begin RCount := CutGrid4.RowCount; aCom := fieldByName('Com4').AsFloat;      aPay := fieldByName('Pay4').AsFloat;      aCol := 1; Grid := CutGrid4; MaxRow := 10000; end;
+       17: begin RCount := CutGrid4.RowCount; aCom := fieldByName('Com4Tod').AsFloat;   aPay := fieldByName('Pay4Tod').AsFloat;   aCol := 2; Grid := CutGrid4; MaxRow := 10000; end;
+       18: begin RCount := CutGrid5.RowCount; aCom := fieldByName('Com5').AsFloat;      aPay := fieldByName('Pay5').AsFloat;      aCol := 1; Grid := CutGrid5; MaxRow := 100000; end;
+       19: begin RCount := CutGrid5.RowCount; aCom := fieldByName('Com5Tod').AsFloat;   aPay := fieldByName('Pay5Tod').AsFloat;;  aCol := 2; Grid := CutGrid5; MaxRow := 100000; end;
+      end;
+    end;
+    MinSale := 1000000000;
+    maxSale := 0;
+    SumSale := 0;
+
+    for i := 0 to RCount-1 do
+    begin
+      if txtToFloat(Grid[aCol,i]) > maxSale then
+        MaxSale := txtToFloat(Grid[aCol,i]);
+
+      if txtToFloat(Grid[aCol,i]) < MinSale then
+        MinSale := txtToFloat(Grid[aCol,i]);
+
+      SumSale := SumSale+txtToFloat(Grid[aCol,i]);
+    end;
+
+    if SumSale = 0 then
+    begin Showmessage('ยังไม่มียอดให้ทำการคำนวณ'); exit; end;
+
+    if RCount < MaxRow then
+    begin
+      Minsale := 0;
+      Min := 1;
+    end
+    else
+      Min := Round(Minsale);
+
+    CutOut := 1000000000;
+    Pay := 0;
+    Pbar.Visible := true;
+    if SpecCut.Value > 0 then
+    begin
+      Progressbar2.MaxValue := RCount;
+
+      if SpecCut.Value <= maxsale then
+        Pay := SpecCut.Value * apay
+      else
+        Pay := MaxSale * apay;
+      Keep := 0;
+      OnHand := 0;
+      for j := 0 to RCount-1 do
+      begin
+        if SpecCut.Value <= txtToFloat(Grid[aCol,j]) then
+          OnHand := OnHand + SpecCut.Value
+        else
+          OnHand := OnHand + txtToFloat(Grid[aCol,j]);
+
+        ProgressBar2.Progress := ProgressBar2.Progress+1;
+      end;
+
+      Keep := OnHand - OnHand*(aCom/100);// - (MinSale*apay);
+      DifPay := (Pay-Keep);// - (MinSale*apay);
+
+      Progressbar2.Progress := 0;
+      Pbar.Visible := false;
+      
+      CountPay := 0;
+      for j := 0 to RCount-1 do
+      begin
+        if txtToFloat(Grid[aCol,j]) <= SpecCut.Value then
+        begin
+          if (txtToFloat(Grid[aCol,j])*apay) > (Keep)  then
+            Inc(CountPay);
+        end
+        else
+          if (SpecCut.Value*apay) > (Keep)  then
+            Inc(CountPay);
+
+      end;
+
+      with fShowCut do
+      begin
+        Label24.Caption := CbNumType.Items[CbNumType.itemindex];
+        Label1.Caption  := 'ตัดเก็บประตูละไม่เกิน';
+        if SpecCut.Value <= MaxSale then
+          Label8.Caption  := formatfloat('###,##0',SpecCut.Value)
+        else
+          Label8.Caption  := formatfloat('###,##0',MaxSale);
+
+        Label9.Caption  := formatfloat('###,##0',Round(MinSale));
+        Label10.Caption := formatfloat('###,##0',Round(OnHand));
+        Label11.Caption := formatfloat('###,##0',Round(Keep));
+        Label12.Caption := formatfloat('###,##0',Round(Keep-(MinSale*apay)));
+        Label13.Caption := formatfloat('###,##0',Round(DifPay));
+        Label14.Caption := formatfloat('###,##0',Round(CountPay));
+        edSaveCut.text  := formatfloat('###,##0',Cut);
+        if Showmodal = mrOk then
+        begin
+          //jjljljljlkjljljkjl
+
+        end;
+      end;
+      exit;
+    end
+    else
+    begin
+    Progressbar2.MaxValue := Round(maxsale);
+    for i := Round(MinSale) to Round(maxsale) do
+    begin
+      Application.ProcessMessages;
+
+      Pay := i * apay;
+      Keep := 0;
+      OnHand := 0;
+      for j := 0 to RCount-1 do
+      begin
+        if i <= txtToFloat(Grid[aCol,j]) then
+          OnHand := OnHand + i
+        else
+          OnHand := OnHand + txtToFloat(Grid[aCol,j]);
+      end;
+
+      Keep := OnHand - OnHand*(aCom/100);// - (MinSale*apay);
+      DifPay := (Pay-Keep);
+
+      if (DifPay - Keep) < CutOut then
+      begin
+        CutOut := (DifPay - Keep);
+
+        Cut := i;
+        Kp := Keep;
+        DfP:= DifPay;
+        OH := OnHand;
+      end;
+
+      if ((DifPay - Keep) > CutOut) then
+        break;
+
+      Progressbar2.Progress := Progressbar2.Progress+1;
+    end;
+    Progressbar2.Progress := 0;
+    Pbar.Visible := false;
+
+    CountPay := 0;
+    for j := 0 to RCount-1 do
+    begin
+      if txtToFloat(Grid[aCol,j]) <= Cut then
+      begin
+        if (txtToFloat(Grid[aCol,j])*apay) > (Keep)  then
+          Inc(CountPay);
+      end
+      else
+        if (Cut*apay) > (Keep)  then
+          Inc(CountPay);
+
+    end;
+
+    if (Cut > 0) then
+    begin
+      with fShowCut do
+      begin
+        Label24.Caption := CbNumType.Items[CbNumType.itemindex];
+        Label1.Caption  := 'แนะนำให้เก็บไว้ประตูละ';
+        Label8.Caption  := formatfloat('###,##0',Cut);
+        Label9.Caption  := formatfloat('###,##0',Round(MinSale));
+        Label10.Caption := formatfloat('###,##0',Round(OH));
+        Label11.Caption := formatfloat('###,##0',Round(Kp));
+        Label12.Caption := formatfloat('###,##0',Round(Kp-(MinSale*apay)));
+        Label13.Caption := formatfloat('###,##0',Round(DfP));
+        Label14.Caption := formatfloat('###,##0',Round(CountPay));
+        edSaveCut.text  := formatfloat('###,##0',Cut);
+
+        if Showmodal = mrOk then
+        begin
+          //dfdsfsdfsfsdfdsfsdf
+
+        end;
+      end;
+    end
+    else
+      Showmessage('ไม่แนะนำให้ตัดเก็บ ณ ยอดปัจจุบัน');
+   end;
+end;
+
+procedure TfMain.SeSkinSpeedButton2Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+   BrowseFolder.Title := 'เลือกโฟลเดอร์ที่ท่านต้องการส่งข้อมูลไป';
+   BrowseFolder.Path := edExportFolder.Text;
+   if BrowseFolder.Execute then
+   begin
+      edExportFolder.Text := BrowseFolder.Path;
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+        if ChkHost.Checked then
+          IniFile.WriteString('DB','SavePath',edExportFolder.Text)
+        else
+          IniFile.WriteString('DB','ExportPath',edExportFolder.Text);
+
+      IniFile.Free;
+   end;
+end;
+
+procedure TfMain.SeSkinSpeedButton4Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+   BrowseFolder.Title := 'เลือกโฟลเดอร์ข้อมูลที่ท่านต้องการนำเข้า';
+   BrowseFolder.Path := edImportFolder.Text;
+   if BrowseFolder.Execute then
+   begin
+      edImportFolder.Text := BrowseFolder.Path;
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+        if ChkHost.Checked then
+          IniFile.WriteString('DB','ImportPath',edImportFolder.Text)
+        else
+          IniFile.WriteString('DB','OpenPath',edImportFolder.Text);
+
+      IniFile.Free;
+   end;
+
+end;
+
+procedure TfMain.SeSkinSpeedButton3Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+      edExportFolder.Clear;
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      IniFile.WriteString('DB','ExportPath','');
+      IniFile.Free;
+end;
+
+procedure TfMain.SeSkinSpeedButton5Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+      edImportFolder.Clear;
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      IniFile.WriteString('DB','ImportPath','');
+      IniFile.Free;
+end;
+
+procedure TfMain.DelImportFileBtnClick(Sender: TObject);
+begin
+  With fFileList do
+  begin
+    edDir.Text := edImportFolder.Text+'\';;
+    if ShowModal = mrOk then
+  end;
+end;
+
+procedure TfMain.Btn_RefreshCutClick(Sender: TObject);
+Var i, j: integer;
+    NGridCut : TNiceGrid;
+    CutCol, CutRow, SumCutNum, TotalNum : integer;
+    QrCuted, QrLotType,QrLimitNum: TABSQuery;
+    TbSpecNum: TABSTable;
+    foundCut, foundLmt: Boolean;
+    RmAndCut, LTypeLimit : Extended;
+    LimitNum, Price, FormatNum, Numbr,StrNumLmt,StrNumCut: String;
+    Rray_TotalNum: array of Extended;
+begin
+  with Dm do
+  begin
+    QrLimitNum := TABSQuery.Create(nil);
+    QrLimitNum.DatabaseName := Database.DatabaseName;
+    QrLimitNum.Close;
+    QrLimitNum.SQL.Clear;
+    QrLimitNum.SQL.Add('Select * from LimitNum');
+    QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+    QrLimitNum.Open;
+
+    QrLimitNum.First;
+    StrNumLmt := '';
+    for i := 0 to QrLimitNum.RecordCount-1 do
+    begin
+      StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+      QrLimitNum.Next;
+    end;
+
+    {
+    StrNumLmt := '';
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      StrNumLmt := StrNumLmt+Limit3.fieldByName('Num').AsString+#13#10;
+      Limit3.Next;
+    end;
+    }
+
+    QrLotType := TABSQuery.Create(nil);
+    QrLotType.DatabaseName := Database.DatabaseName;
+    QrLotType.Close;
+    QrLotType.SQL.Clear;
+    QrlotType.SQL.Add('Select * from Lotto Where ID = :LID');
+    QrlotType.ParamByName('LID').Value := StrToInt(EdLotID.Text);
+    QrlotType.Open;
+
+    Case ComboCutType.ItemIndex of
+       0: LTypeLimit := QrlotType.fieldByName('LimitRnUp').AsFloat;
+       1: LTypeLimit := QrlotType.fieldByName('LimitPos').AsFloat;
+       2: LTypeLimit := QrlotType.fieldByName('LimitPos').AsFloat;
+       3: LTypeLimit := QrlotType.fieldByName('LimitPos').AsFloat;
+       4: LTypeLimit := QrlotType.fieldByName('LimitRnDwn').AsFloat;
+       5: LTypeLimit := QrlotType.fieldByName('LimitPosDwn').AsFloat;
+       6: LTypeLimit := QrlotType.fieldByName('LimitPosDwn').AsFloat;
+       7: LTypeLimit := QrlotType.fieldByName('Limit2Up').AsFloat;
+       8: LTypeLimit := QrlotType.fieldByName('Limit2Tod').AsFloat;
+       9: LTypeLimit := QrlotType.fieldByName('Limit2Mee').AsFloat;
+      10: LTypeLimit := QrlotType.fieldByName('Limit2Pos').AsFloat;
+      11: LTypeLimit := QrlotType.fieldByName('Limit2Pos').AsFloat;
+      12: LTypeLimit := QrlotType.fieldByName('Limit2Dwn').AsFloat;
+      13: LTypeLimit := QrlotType.fieldByName('Limit3Up').AsFloat;
+      14: LTypeLimit := QrlotType.fieldByName('Limit3Tod').AsFloat;
+      15: LTypeLimit := QrlotType.fieldByName('Limit3Dwn').AsFloat;
+      16: LTypeLimit := QrlotType.fieldByName('Limit4').AsFloat;
+      17: LTypeLimit := QrlotType.fieldByName('Limit4Tod').AsFloat;
+      18: LTypeLimit := QrlotType.fieldByName('Limit5').AsFloat;
+      19: LTypeLimit := QrlotType.fieldByName('Limit5Tod').AsFloat;
+    end;
+
+    QrCuted := TABSQuery.Create(nil);
+    QrCuted.DatabaseName := Database.DatabaseName;
+    QrCuted.Close;
+    QrCuted.SQL.Clear;
+    QrCuted.SQL.Add('Select Num,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, '+
+                      'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, '+
+                      'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
+    QrCuted.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+    QrCuted.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+    QrCuted.SQL.Add('Group By Num');
+    QrCuted.Open;
+
+    QrCuted.First;
+    StrNumCut := '';
+    for i := 0 to QrCuted.RecordCount-1 do
+    begin
+      StrNumCut := StrNumCut+ QrCuted.fieldByName('Num').AsString+#13#10;
+      QrCuted.Next;
+    end;
+
+    Case ComboCutType.ItemIndex of
+       0: begin TotalNum := 10;   FormatNum := '0';   end;
+       1: begin TotalNum := 10;   FormatNum := '0';   end;
+       2: begin TotalNum := 10;   FormatNum := '0';   end;
+       3: begin TotalNum := 10;   FormatNum := '0';   end;
+       4: begin TotalNum := 10;   FormatNum := '0';   end;
+       5: begin TotalNum := 10;   FormatNum := '0';   end;
+       6: begin TotalNum := 10;   FormatNum := '0';   end;
+       7: begin TotalNum := 100;  FormatNum := '00';  end;
+       8: begin TotalNum := 100;  FormatNum := '00';  end;
+       9: begin TotalNum := 100;  FormatNum := '00';  end;
+      10: begin TotalNum := 100;  FormatNum := '00';  end;
+      11: begin TotalNum := 100;  FormatNum := '00';  end;
+      12: begin TotalNum := 100;  FormatNum := '00';  end;
+      13: begin TotalNum := 1000; FormatNum := '000'; end;
+      14: begin TotalNum := 1000; FormatNum := '000'; end;
+      15: begin TotalNum := 1000; FormatNum := '000'; end;
+    end;
+  end;
+
+  if (ChkAllNum.Checked) and (ComboCutType.ItemIndex in [0..15]) then
+  begin
+    setlength(Rray_TotalNum,TotalNum);
+    for i := 0 to TotalNum-1 do
+    begin
+      Rray_TotalNum[i] := 0;
+    end;
+  end;
+
+  SumCutNum := 0;
+  if (ChkSumCust.Checked and ChkSumBook.Checked)or(ChkTotal.Checked) then
+  begin
+    Case ComboCutType.ItemIndex of
+      0: begin NGridCut := NiceGrid1; CutCol := 1; CutRow := 0; LimitNum := 'Limit1'; Price := 'Price1'; end;
+      1: begin NGridCut := NiceGrid1; CutCol := 2; CutRow := 1; LimitNum := 'Limit2'; Price := 'Price2'; end;
+      2: begin NGridCut := NiceGrid1; CutCol := 3; CutRow := 1; LimitNum := 'Limit3'; Price := 'Price3'; end;
+      3: begin NGridCut := NiceGrid1; CutCol := 4; CutRow := 1; LimitNum := 'Limit4'; Price := 'Price4'; end;
+      4: begin NGridCut := NiceGrid1; CutCol := 5; CutRow := 2; LimitNum := 'Limit5'; Price := 'Price5'; end;
+      5: begin NGridCut := NiceGrid1; CutCol := 6; CutRow := 3; LimitNum := 'Limit6'; Price := 'Price6'; end;
+      6: begin NGridCut := NiceGrid1; CutCol := 7; CutRow := 3; LimitNum := 'Limit7'; Price := 'Price7'; end;
+      7: begin NGridCut := NiceGrid2; CutCol := 1; CutRow := 4; LimitNum := 'Limit1'; Price := 'Price1'; end;
+      8: begin NGridCut := NiceGrid2; CutCol := 2; CutRow := 5; LimitNum := 'Limit2'; Price := 'Price2'; end;
+      9: begin NGridCut := NiceGrid2; CutCol := 3; CutRow := 6; LimitNum := 'Limit3'; Price := 'Price3'; end;
+     10: begin NGridCut := NiceGrid2; CutCol := 4; CutRow := 7; LimitNum := 'Limit4'; Price := 'Price4'; end;
+     11: begin NGridCut := NiceGrid2; CutCol := 5; CutRow := 7; LimitNum := 'Limit5'; Price := 'Price5'; end;
+     12: begin NGridCut := NiceGrid2; CutCol := 6; CutRow := 8; LimitNum := 'Limit6'; Price := 'Price6'; end;
+     13: begin NGridCut := NiceGrid3; CutCol := 1; CutRow := 9; LimitNum := 'Limit1'; Price := 'Price1'; end;
+     14: begin NGridCut := NiceGrid3; CutCol := 2; CutRow := 10; LimitNum := 'Limit2'; Price := 'Price2'; end;
+     15: begin NGridCut := NiceGrid3; CutCol := 3; CutRow := 11; LimitNum := 'Limit3'; Price := 'Price3'; end;
+     16: begin NGridCut := NiceGrid4; CutCol := 1; CutRow := 12; LimitNum := 'Limit1'; Price := 'Price1'; end;
+     17: begin NGridCut := NiceGrid4; CutCol := 2; CutRow := 13; LimitNum := 'Limit2'; Price := 'Price2'; end;
+     18: begin NGridCut := NiceGrid5; CutCol := 1; CutRow := 14; LimitNum := 'Limit1'; Price := 'Price1'; end;
+     19: begin NGridCut := NiceGrid5; CutCol := 2; CutRow := 15; LimitNum := 'Limit2'; Price := 'Price2'; end;
+    end;
+
+    TabLotTypeShow(Sender);
+
+    With CutListNum,Dm do
+    begin
+      //TbLocateNum.Close;
+      //TbLocateNum.Open;
+      Items.BeginUpdate;
+      Items.Clear;
+      For i := 0 to NGridCut.RowCount-1 do
+      begin
+        Numbr := NGridCut[0,i];
+        //found := QrCuted.Locate('Num',Numbr,[]);
+        foundCut := false;
+        if (Pos(Numbr,StrNumCut) > 0) then
+          foundCut := QrCuted.Locate('Num',Numbr,[]);
+
+        foundLmt := false;
+        if (Pos(Numbr,StrNumLmt) > 0) then
+          //foundLmt  := TbLocateNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Numbr]),[]);
+          foundLmt  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Numbr]),[]);
+
+        Case ComboCutType.ItemIndex of
+           0:  SumCutNum := QrCuted.fieldByName('RU').AsInteger;
+           1:  SumCutNum := QrCuted.fieldByName('PU1').AsInteger;
+           2:  SumCutNum := QrCuted.fieldByName('PU2').AsInteger;
+           3:  SumCutNum := QrCuted.fieldByName('PU3').AsInteger;
+           4:  SumCutNum := QrCuted.fieldByName('RD').AsInteger;
+           5:  SumCutNum := QrCuted.fieldByName('PD1').AsInteger;
+           6:  SumCutNum := QrCuted.fieldByName('PD2').AsInteger;
+           7:  SumCutNum := QrCuted.fieldByName('N2U').AsInteger;
+           8:  SumCutNum := QrCuted.fieldByName('N2T').AsInteger;
+           9:  SumCutNum := QrCuted.fieldByName('N2ME').AsInteger;
+          10:  SumCutNum := QrCuted.fieldByName('N2L').AsInteger;
+          11:  SumCutNum := QrCuted.fieldByName('N2R').AsInteger;
+          12:  SumCutNum := QrCuted.fieldByName('N2D').AsInteger;
+          13:  SumCutNum := QrCuted.fieldByName('N3Up').AsInteger;
+          14:  SumCutNum := QrCuted.fieldByName('N3Tod').AsInteger;
+          15:  SumCutNum := QrCuted.fieldByName('N3Dwn').AsInteger;
+          16:  SumCutNum := QrCuted.fieldByName('N4').AsInteger;
+          17:  SumCutNum := QrCuted.fieldByName('N4T').AsInteger;
+          18:  SumCutNum := QrCuted.fieldByName('N5').AsInteger;
+          19:  SumCutNum := QrCuted.fieldByName('N5T').AsInteger;
+        end;
+
+        //if foundLmt and (TbLocateNum.FieldByName(LimitNum).AsBoolean) then //จำที่อั้นเฉพาะเลข
+        if foundLmt and (QrLimitNum.FieldByName(LimitNum).AsBoolean) then //จำที่อั้นเฉพาะเลข
+        begin
+          if foundCut then //จำนวนที่ตัดไปก่อนแล้ว
+          begin
+            //RmAndCut := (TxtToFloat(NGridCut[CutCol,i]) - SumCutNum - TbLocateNum.FieldByName(Price).AsFloat);
+            RmAndCut := (TxtToFloat(NGridCut[CutCol,i]) - SumCutNum - QrLimitNum.FieldByName(Price).AsFloat);
+          end
+          else
+          begin
+            //RmAndCut := (TxtToFloat(NGridCut[CutCol,i]) - TbLocateNum.FieldByName(Price).AsFloat);
+            RmAndCut := (TxtToFloat(NGridCut[CutCol,i]) - QrLimitNum.FieldByName(Price).AsFloat);
+          end;
+        end
+        else
+        begin
+          if foundCut then
+          begin
+            RmAndCut := (TxtToFloat(NGridCut[CutCol,i]) - SumCutNum  -LTypeLimit);
+          end
+          else
+          begin
+            RmAndCut := TxtToFloat(NGridCut[CutCol,i])  -LTypeLimit ;
+          end;
+        end;
+
+        if (ChkAllNum.Checked) and (RmAndCut > 0) and (ComboCutType.ItemIndex in [0..15]) then //ถ้าหากติ๊ก รวมทั้งเลบที่ไม่เกินอั้น
+        begin
+          Rray_TotalNum[StrToInt(Numbr)] := RmAndCut; //เก็บจำนวนเงินที่เกินอั้นไว้ในอาเรย์
+        end
+        else
+        begin
+          if RmAndCut > 0 then
+          begin
+            if ChkSpecNum.Checked then
+            begin
+              if foundLmt then
+              begin
+                if edFindSel.Text <> '' then
+                begin
+                  if CbPerOrTHB.ItemIndex = 1 then
+                  begin
+
+                    if RmAndCut > 1 then
+                    begin
+                      if (StrToFloat(edFindSel.Text) > 0) then
+                      begin
+                        with CutlistNum.Items.Add do
+                        begin
+                          try
+                            Caption := Numbr;
+                            if StrToFloat(edFindSel.Text) <= 100 then
+                              SubItems.Add(formatfloat('#,##0',Trunc(RmAndCut*(StrToFloat(edFindSel.Text)/100))))
+                            else
+                              SubItems.Add(formatfloat('#,##0',RmAndCut))
+                          except
+
+                          end;
+                        end;
+                      end;
+                    end
+
+                  end
+                  else
+                  begin
+
+                    if RmAndCut > StrToFloat(edFindSel.Text) then
+                    begin
+                      if (StrToFloat(edFindSel.Text) > 0) then
+                      begin
+                        with CutlistNum.Items.Add do
+                        begin
+                          try
+                            Caption := Numbr;
+                            SubItems.Add(formatfloat('#,##0',StrToFloat(edFindSel.Text)))
+                          except
+
+                          end;
+                        end;
+                      end;
+                    end
+                    else
+                    begin
+                      with CutlistNum.Items.Add do
+                      begin
+                        try
+                          Caption := Numbr;
+                          SubItems.Add(formatfloat('#,##0',RmAndCut));
+                        except
+
+                        end;
+                      end;
+                    end;
+
+                  end;//else ChkPerOrTHB
+
+                end
+                else
+                begin
+                  with CutlistNum.Items.Add do
+                  begin
+                    try
+                      Caption := Numbr;
+                      SubItems.Add(formatfloat('#,##0',RmAndCut));
+                    except
+
+                    end;
+                  end;
+                end;
+              end;
+            end
+            else
+            begin
+              if edFindSel.Text <> '' then
+              begin
+                if CbPerOrTHB.ItemIndex = 1 then
+                begin
+
+                  if RmAndCut > 1 then
+                  begin
+                    if (StrToFloat(edFindSel.Text) > 0) then
+                    begin
+                      with CutlistNum.Items.Add do
+                      begin
+                        try
+                          Caption := Numbr;
+                          if StrToFloat(edFindSel.Text) <= 100 then
+                            SubItems.Add(formatfloat('#,##0',Trunc(RmAndCut*(StrToFloat(edFindSel.Text)/100))))
+                          else
+                            SubItems.Add(formatfloat('#,##0',RmAndCut))
+                        except
+
+                        end;
+                      end;
+                    end;
+                  end
+
+                end
+                else
+                begin
+
+                  if RmAndCut > StrToFloat(edFindSel.Text) then
+                  begin
+                    if (StrToFloat(edFindSel.Text) > 0) then
+                    begin
+                      with CutlistNum.Items.Add do
+                      begin
+                        try
+                          Caption := Numbr;
+                          SubItems.Add(formatfloat('#,##0',StrToFloat(edFindSel.Text)))
+                        except
+
+                        end;
+                      end;
+                    end;
+                  end
+                  else
+                  begin
+                    with CutlistNum.Items.Add do
+                    begin
+                      try
+                        Caption := Numbr;
+                        SubItems.Add(formatfloat('#,##0',RmAndCut));
+                      except
+
+                      end;
+                    end;
+                  end;
+
+                end;//else ChkPerOrTHB
+
+              end
+              else
+              begin
+
+                with CutlistNum.Items.Add do
+                begin
+                  try
+                    Caption := Numbr;
+                    SubItems.Add(formatfloat('#,##0',RmAndCut));
+                  except
+
+                  end;
+                end;
+
+              end;
+            end;
+          end;
+        end;
+      end;
+
+      if (ChkAllNum.Checked) and (ComboCutType.ItemIndex in [0..15]) then
+      begin
+        for i := 0 to Length(Rray_TotalNum)-1 do //เอาจากอาเรีย์มาแสดงใน CutListNum
+        begin
+          with CutlistNum.Items.Add do
+          begin
+            Caption := formatFloat(FormatNum,i);
+            SubItems.Add(formatfloat('#,##0',Rray_TotalNum[i]));
+          end;
+        end;
+      end;
+
+      ChkAllChange(Sender);
+      Items.EndUpdate;
+      Rray_TotalNum := nil;
+    end;
+  end;
+  QrCuted.Free;
+  QrLimitNum.Free;
+  if Assigned(QrLotType) then QrLotType.Free;
+end;
+
+procedure TfMain.CutListNumCustomSort(Sender: TObject; ColIndex: Integer;
+  Str1, Str2: String; var Res: Integer; var Handled: Boolean);
+Var  n1, n2: Extended; //Integer;
+begin
+  if (ColIndex in [1]) then
+  begin
+    n1 := TxtToFloat(Str1);
+    n2 := txtToFloat(Str2);
+    if (n1 = n2)
+      then Res := 0 else
+    if (n1 > n2)
+      then Res := 1
+      else Res := -1;
+    Handled := True;
+  end;
+end;
+
+
+procedure TfMain.ChkAllChange(Sender: TObject);
+Var i,j,Itm: integer;
+    Sum: Extended;
+begin
+  if ChkAll.Checked then
+  begin
+    edFindNumSel.Enabled := false;
+    edFindNumSel.sStyle.Painting.Color := clSilver;
+  end
+  else
+  begin
+    edFindNumSel.Enabled := true;
+    edFindNumSel.sStyle.Painting.Color := $00ECFFFF;
+  end;
+
+  with CutListNum            do
+  begin
+    for i := 0 to CutListNum.Items.Count-1 do
+        Items[i].checked := ChkAll.Checked;
+
+    j:=0;
+    Sum:= 0;
+    Itm:=0;
+    if Items.Count > 0 then
+    begin
+      for i:= 0 to Items.Count-1 do
+      begin
+          if items[i].Checked = true then
+          begin
+            inc(j);
+            Sum := Sum + txtToFloat(items[i].SubItems[0]);
+            inc(Itm);
+          end;
+      end;
+    end;
+    //CutOverBtn.Enabled := (j > 0) and (RdgPrev.ItemIndex = 1);
+    Btn_Cut.Enabled := (j > 0);
+    BtnCutClpBrd.Enabled := (j > 0);
+    Btn_PrintOver.Enabled := (j > 0);
+    lbSum.Caption := formatfloat('###,##0.##',Sum);
+    lbItm.Caption := IntToStr(Itm)+' ประตู';
+  end;
+end;
+
+procedure TfMain.CutListNumClick(Sender: TObject);
+Var i,j,Itm: integer;
+    Sum: Extended;
+begin
+  with CutListNum do
+  begin
+    j:=0;
+    Sum:= 0;
+    Itm:=0;
+    if Items.Count > 0 then
+    begin
+      for i:= 0 to Items.Count-1 do
+      begin
+          if items[i].Checked = true then
+          begin
+            inc(j);
+            Sum := Sum + txtToFloat(items[i].SubItems[0]);
+            inc(Itm);
+          end;
+      end;
+    end;
+    //CutOverBtn.Enabled := (j > 0) and (RdgPrev.ItemIndex = 1);
+    Btn_Cut.Enabled := (j > 0);
+    BtnCutClpBrd.Enabled := (j > 0);
+    Btn_PrintOver.Enabled := (j > 0);    
+    lbSum.Caption := formatfloat('###,##0.##',Sum);
+    lbItm.Caption := IntToStr(Itm)+' ประตู';
+  end;
+end;
+
+procedure TfMain.CutListNumKeyPress(Sender: TObject; var Key: Char);
+Var i,j,Itm: integer;
+    Sum: Extended;
+begin
+  with CutListNum do
+  begin
+    j:=0;
+    Sum:= 0;
+    Itm:=0;
+    if Items.Count > 0 then
+    begin
+      for i:= 0 to Items.Count-1 do
+      begin
+          if items[i].Checked = true then
+          begin
+            inc(j);
+            Sum := Sum + txtToFloat(items[i].SubItems[0]);
+            inc(Itm);
+          end;
+      end;
+    end;
+    //CutOverBtn.Enabled := (j > 0) and (RdgPrev.ItemIndex = 1);
+    Btn_Cut.Enabled := (j > 0);
+    lbSum.Caption := formatfloat('###,##0.##',Sum);
+    lbItm.Caption := IntToStr(Itm)+' ประตู';
+  end;
+end;
+
+procedure TfMain.Btn_PrintOverClick(Sender: TObject);
+begin
+   if CutListNum.Items.Count > 0 then
+   begin
+      frmPrintCutPrev.InputPageCut(CutListNum, DatePick.Date, ComboLotType, ComboCutType.Items[ComboCutType.ItemIndex], EdCutName.Text);
+      frmPrintCutPrev.Showmodal;
+   end
+   else Showmessage('ไม่พบข้อมูลเลขเกินอั้นที่ต้องการพิมพ์');
+end;
+
+procedure TfMain.Btn_CutClick(Sender: TObject);
+Var TCutDat: TABSTable;
+    i,j: integer;
+    years, months, dates : Word;
+    CutTime: TDateTime;
+    NumType: String;
+begin
+  if MessageDlg('ต้องการตีออกจำนวน  "'+lbItm.Caption+'" ใช่หรือไม่?',
+  mtConfirmation, [mbYes, mbNo], 0) = mrNo then
+  Exit;
+
+  with CutListNum do
+  begin
+    j:=0;
+    if Items.Count > 0 then
+    begin
+      for i:= 0 to Items.Count-1 do
+      begin
+          if items[i].Checked = true then
+          begin
+            inc(j);
+          end;
+      end;
+    end;
+  end;
+
+  if CutListNum.Items.Count > 0 then
+
+    Case ComboCutType.ItemIndex of
+      0: NumType := 'RunUp';
+      1: NumType := 'NumPos1';
+      2: NumType := 'NumPos2';
+      3: NumType := 'NumPos3';
+      4: NumType := 'RunDown';
+      5: NumType := 'DownPos1';
+      6: NumType := 'DownPos2';
+      7: NumType := 'Num2Up';
+      8: NumType := 'Num2Tod';
+      9: NumType := 'Num2Mee';
+     10: NumType := 'Num2Left';
+     11: NumType := 'Num2Right';
+     12: NumType := 'Num2Down';
+     13: NumType := 'Num3Up';
+     14: NumType := 'Num3Tod';
+     15: NumType := 'Num3Dwn';
+     16: NumType := 'Num4';
+     17: NumType := 'Num4Tod';
+     18: NumType := 'Num5';
+     19: NumType := 'Num5Tod';
+    end;
+
+    With Dm do
+    begin
+      DecodeDate(DatePick.Date,years,months,dates);
+      TCutDat := TABSTable.Create(nil);
+      TCutDat.DatabaseName := Database.DatabaseName;
+      TCutDat.TableName := 'Cut';
+      TCutDat.Open;
+
+      Pbar.Visible := true;
+      ProgressBar2.Progress := 0;
+      ProgressBar2.MinValue := 0;
+      CutTime := Now;
+      With CutListNum,TCutDat do
+      begin
+        ProgressBar2.MaxValue := j;
+        Database.StartTransaction;
+        for i := 0 to Items.Count -1 do
+        begin
+          if items[i].Checked = true then
+          begin
+            Append;
+            TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
+            TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
+            TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
+            TcutDat.FieldByName('Num').AsString        := Items[i].Caption;// CutGrid5[0,i];
+            TcutDat.FieldByName('DealerID').AsString   := '0001';
+            TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
+            if ChkTransTo3Top.Checked then
+            begin
+              if (NumType = 'Num3Tod') then
+                TcutDat.FieldByName('Is3TTeng').AsBoolean := true;
+
+              if (NumType = 'Num4Tod') then
+                TcutDat.FieldByName('Is4TTeng').AsBoolean := true;
+
+              if (NumType = 'Num5Tod') then
+                TcutDat.FieldByName('Is5TTeng').AsBoolean := true;
+            end;
+
+            ProgressBar2.Progress := ProgressBar2.Progress +1;
+          end;
+        end;
+        Post;
+        Database.Commit(False);
+      end;
+      TcutDat.Free;
+      ProgressBar2.Progress := 0;
+      Pbar.Visible := false;
+      Btn_RefreshCutClick(Sender);
+    end;
+end;
+
+procedure TfMain.BtnAddLimitClick(Sender: TObject);
+Var i,j,k,DupCount,CountPMu: integer;
+    Num,yNum ,NumKlub,PmuNum: String;
+    found: Boolean;
+    PmList: TStringList;
+begin
+  with Dm do
+  begin
+    DataSource1.DataSet.DisableControls;
+    Num := Trim(LimitNum3.Text);
+    Case H3Num.ItemIndex of
+      0: begin
+          PmList   := TStringList.Create;
+          CountPMu := Permutation(Num);
+          PMuNum   := PerMuTationStr(Num);
+          PmList.Text := PMuNum;
+
+          for j := 0 to PmList.Count-1 do
+          begin
+            NumKlub := PmList[j];
+            found  := Limit3.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Numklub]),[]);
+            if found then
+            begin
+              Limit3.Edit;
+              //....................
+              if ChkLimit31.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit32.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit33.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              Limit3.Post;
+              //.....................
+            end
+            else
+            begin
+              Limit3.Append;
+              Limit3.FieldByName('LimitDate').AsDateTime := DatePick.Date;
+              Limit3.FieldByName('Num').AsString := NumKlub;
+
+              if ChkLimit31.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit32.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit33.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              Limit3.Post;
+            end;
+          end;
+          PmList.Free;
+         end; //case H3Num.itemindex = 0
+
+      1: begin
+            found  := Limit3.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Num]),[]);
+            if found then
+            begin
+              Limit3.Edit;
+              //....................
+              if ChkLimit31.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit32.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit33.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              Limit3.Post;
+              //.....................
+            end
+            else
+            begin
+              Limit3.Append;
+              Limit3.FieldByName('LimitDate').AsDateTime := DatePick.Date;
+              Limit3.FieldByName('Num').AsString := Num;
+
+              if ChkLimit31.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit32.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              if ChkLimit33.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+              end;
+              Limit3.Post;
+            end;
+         end; //case H3Num.itemindex = 1
+
+      2: begin
+          for i := 0 to 9 do
+          begin
+            for j := 0 to 9 do
+            begin
+              for k := 0 to 9 do
+              begin
+                yNum := IntToStr(i)+IntToStr(j)+IntToStr(k);
+
+                if (String(yNum[1]) = limitNum3.Text)or(String(yNum[2]) = limitNum3.Text)or(String(yNum[3]) = limitNum3.Text) then
+                begin
+                  found  := Limit3.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),yNum]),[]);
+                  if found then
+                  begin
+                    Limit3.Edit;
+                    //....................
+                    if ChkLimit31.Checked then
+                    begin
+                      Limit3.FieldByName('Limit1').AsBoolean := true;
+                      Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice.Text);
+                      Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+                    end;
+                    if ChkLimit32.Checked then
+                    begin
+                      Limit3.FieldByName('Limit2').AsBoolean := true;
+                      Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice.Text);
+                      Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+                    end;
+                    if ChkLimit33.Checked then
+                    begin
+                      Limit3.FieldByName('Limit3').AsBoolean := true;
+                      Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice.Text);
+                      Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+                    end;
+                    Limit3.Post;
+                    //.....................
+                  end
+                  else
+                  begin
+                    Limit3.Append;
+                    Limit3.FieldByName('LimitDate').AsDateTime := DatePick.Date;
+                    Limit3.FieldByName('Num').AsString := yNum;
+
+                    if ChkLimit31.Checked then
+                    begin
+                      Limit3.FieldByName('Limit1').AsBoolean := true;
+                      Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice.Text);
+                      Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+                    end;
+                    if ChkLimit32.Checked then
+                    begin
+                      Limit3.FieldByName('Limit2').AsBoolean := true;
+                      Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice.Text);
+                      Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+                    end;
+                    if ChkLimit33.Checked then
+                    begin
+                      Limit3.FieldByName('Limit3').AsBoolean := true;
+                      Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice.Text);
+                      Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+                    end;
+                    Limit3.Post;
+                  end;
+                end;
+              end;
+            end;
+          end;
+         end; //case H3Num.itemindex = 2
+    end; //case H3Num
+    TabL3Show(Sender);
+    DataSource1.DataSet.EnableControls;
+  end;
+end;
+
+procedure TfMain.LimitNum3KeyPress(Sender: TObject; var Key: Char);
+begin
+  if key in [#13] then
+  begin
+    edLimPrice.SetFocus;
+    Key := #0;
+  end
+  else
+  if (((key=#10) and (GetKeyState(VK_CONTROL) < 0)) ) then
+  begin
+    edLimPriceKeyPress(Sender,Key);
+    LimitNum3.SelectAll;
+  end
+  else
+  if not (key in ['0'..'9',#8]) then
+    key := #0;
+end;
+
+procedure TfMain.edLimPriceKeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key in [#13]) Or (((key=#10) and (GetKeyState(VK_CONTROL) < 0)) ) then
+  begin
+    if LimitNum3.Text <> '' then
+    begin
+      LimitNum3.SetFocus;
+      BtnAddLimitClick(Sender);
+    end
+    else
+    begin
+      BtnAddPriceLimClick(Sender);
+      EdLimPrice.SelectAll;
+    end;
+  end
+  else
+  if not (key in ['0'..'9',#8]) then
+    key := #0;
+end;
+
+procedure TfMain.H3NumChange(Sender: TObject);
+begin
+  Case H3Num.ItemIndex of
+    0,1: LimitNum3.MaxLength := 3;
+  else
+    LimitNum3.MaxLength := 1;
+    LimitNum3.Clear;  
+  end;
+end;
+
+procedure TfMain.edLimPriceChange(Sender: TObject);
+begin
+  if edLimPrice.Text = '' then
+  begin
+    edLimPrice.Text := '0';
+    edLimPrice.SelectAll;
+  end;
+end;
+
+procedure TfMain.ChkImportFileChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Main','DelImport',ChkImportFile.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.ChkDelExportChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Main','DelExport',ChkDelExport.Checked);
+  finally
+    IniFile.Free;
+  end;
+
+end;
+
+procedure TfMain.ChkTotalChange(Sender: TObject);
+begin
+  NGridSpecNum.Columns[4].Visible := ChkTotal.Checked;
+  //RefreshBtnClick(Sender);
+  NewRefreshBtnClick(Sender);
+end;
+
+procedure TfMain.Panel73Resize(Sender: TObject);
+begin
+  Try
+    ChkTotal.Left := Panel73.Width-ChkTotal.Width-5;
+
+    Pbar.Left := (width  - Pbar.Width)  div 2;
+    Pbar.Top  := (Height - Pbar.Height) div 2;
+    PnInputM.Width := Width-(PnInputL.Width+PnInputR.Width+Toollbar.Width+23);
+    PnCutM.Width := Width-(PnCutL.Width+PnCutR.Width+Toollbar.Width+23);
+    statusbar.Panels[0].Width := statusbar.width-50;
+
+    ComboLotType.Left := AdvPanel.Width-ComboLotType.Width-15;
+    Label8.Left := ComboLotType.Left;
+    DatePick.Left := Label8.Left-DatePick.Width-3;
+    BtnSelHuad.Left := DatePick.Left-BtnSelHuad.Width-3;
+    label3.Left := DatePick.Left;
+    lbDueDate.Left := label3.Left+label3.Width+5;
+    lbLottoName.Left := label8.Left+label8.Width+5;
+
+    BtnBookNo.Left := PanelInput.Width-BtnBookNo.Width-10;
+    SpinBook.Left  := BtnBookNo.Left-SpinBook.Width-3;
+    edRefNo.Left   := SpinBook.Left-edRefNo.Width-1;
+    lbBookNo.Left  := edRefNo.Left-lbBookNo.Width-5;
+    ChkSumBook.Left:= edRefNo.Left;
+
+    PanelCustName.Left := PanelInput.Width-PanelCustName.Width-10;
+    edCustNo.Left := PanelCustName.Left-edCustNo.Width-3;
+    lbCust.Left   := edCustNo.Left;//-lbcust.Width-5;
+    ChkSumCust.Left := edCustNo.Left;
+
+
+    GroupBtn.Left     := Panel73.Width-GroupBtn.Width-10;
+    PnDealerName.Left := Panel73.Width-PnDealerName.Width-10;
+    editDealer.Left   := PnDealerName.Left-editDealer.Width-3;
+    Label2.Left       := editDealer.Left-Label2.Width-5;
+  except
+
+  end;
+end;
+
+procedure TfMain.ChkSumCustChange(Sender: TObject);
+begin
+  if ChkTotal.Checked then exit;
+    //RefreshBtnClick(Sender);
+    NewRefreshBtnClick(Sender);
+end;
+
+procedure TfMain.ChkSumBookChange(Sender: TObject);
+begin
+  if ChkTotal.Checked then exit;
+    //RefreshBtnClick(Sender);
+    NewRefreshBtnClick(Sender);
+end;
+
+procedure TfMain.SpinBookDownClick(Sender: TObject);
+begin
+  if Not(ChkTotal.Checked) then
+  begin
+    if SpinBook.Position >= 1 then
+      NewRefreshBtnClick(Sender);
+  end;
+end;
+
+procedure TfMain.Btn_PrintNum2MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintNum2.ClientToScreen(Point(0,Btn_PrintNum2.Height));
+  PMenuNum2.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.N21Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid2);
+   CountNum := 0;
+   for i := 0 to NiceGrid2.RowCount-1 do
+    if NiceGrid2[1,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 1)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 1)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 1)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 1);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);   
+end;
+
+procedure TfMain.N22Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid2);
+   CountNum := 0;
+   for i := 0 to NiceGrid2.RowCount-1 do
+    if NiceGrid2[2,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 2)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 2)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 2)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 2);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N23Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid2);
+   CountNum := 0;
+   for i := 0 to NiceGrid2.RowCount-1 do
+    if NiceGrid2[3,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวมี', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 3)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวมี', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 3)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวมี', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 3)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวมี', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 3);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N24Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid2);
+   CountNum := 0;
+   for i := 0 to NiceGrid2.RowCount-1 do
+    if NiceGrid2[4,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหน้า', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 4)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหน้า', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 4)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหน้า', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 4)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหน้า', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 4);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N25Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid2);
+   CountNum := 0;
+   for i := 0 to NiceGrid2.RowCount-1 do
+    if NiceGrid2[5,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหลัง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 5)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหลัง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 5)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหลัง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 5)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวหลัง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 5);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N26Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid2);
+   CountNum := 0;
+   for i := 0 to NiceGrid2.RowCount-1 do
+    if NiceGrid2[6,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 6)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 6)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 6)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid2, 4, DatePick.Date, ComboLotType, '2 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 6);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N12Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[1,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 1)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 1)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 1)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 1);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N14Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[2,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 2)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'บักหน้าบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 2)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 2)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 2);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N15Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[3,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักกลางบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 3)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักกลางบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 3)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักกลางบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 3)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักกลางบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 3);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N16Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[4,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 4)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 4)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 4)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 4);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N17Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[6,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 6)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 6)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 6)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหน้าล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 6);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N18Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[7,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 7)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 7)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 7)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'ปักหลังล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 7);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.Btn_PrintNum1MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintNum1.ClientToScreen(Point(0,Btn_PrintNum1.Height));
+  PMenuNum1.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.N31Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid3);
+   CountNum := 0;
+   for i := 0 to NiceGrid3.RowCount-1 do
+    if NiceGrid3[1,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 1)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 1)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 1)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวบน', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 1);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N32Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid3);
+   CountNum := 0;
+   for i := 0 to NiceGrid3.RowCount-1 do
+    if NiceGrid3[2,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 2)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 2)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 2)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวโต๊ด', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 2);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N33Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid3);
+   CountNum := 0;
+   for i := 0 to NiceGrid3.RowCount-1 do
+    if NiceGrid3[3,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 3)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 3)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 3)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid3, 4, DatePick.Date, ComboLotType, '3 ตัวล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 3);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.Btn_PrintNum3MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintNum3.ClientToScreen(Point(0,Btn_PrintNum3.Height));
+  PMenuNum3.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.N41Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid4);
+   CountNum := 0;
+   for i := 0 to NiceGrid4.RowCount-1 do
+    if NiceGrid4[1,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 1)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 1)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 1)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 1);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N42Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid4);
+   CountNum := 0;
+   for i := 0 to NiceGrid4.RowCount-1 do
+    if NiceGrid4[2,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 2)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 2)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 2)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid4, 4, DatePick.Date, ComboLotType, '4 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 2);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N51Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid5);
+   CountNum := 0;
+   for i := 0 to NiceGrid5.RowCount-1 do
+    if NiceGrid5[1,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 1)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 1)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 1)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวตรง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 1);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N52Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid5);
+   CountNum := 0;
+   for i := 0 to NiceGrid5.RowCount-1 do
+    if NiceGrid5[2,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 2)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 2)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 2)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid5, 4, DatePick.Date, ComboLotType, '5 ตัวลอยแพ', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 2);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+
+end;
+
+procedure TfMain.Btn_PrintNum45MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintNum45.ClientToScreen(Point(0,Btn_PrintNum45.Height));
+  PMenuNum45.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.Btn_PrintCNum45MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintCNum45.ClientToScreen(Point(0,Btn_PrintCNum45.Height));
+  PMenuCNum45.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.Btn_PrintCNum1MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintCNum1.ClientToScreen(Point(0,Btn_PrintCNum1.Height));
+  PMenuCNum1.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.Btn_PrintCNum2MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintCNum2.ClientToScreen(Point(0,Btn_PrintCNum2.Height));
+  PMenuCNum2.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.Btn_PrintCNum3MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_PrintCNum3.ClientToScreen(Point(0,Btn_PrintCNum3.Height));
+  PMenuCNum3.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.MenuItem1Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[1,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' วิ่งบน', EdCutName.Text,EdRefNo.Text,4, 1);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem3Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[2,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' ปักหน้าบน', EdCutName.Text,EdRefNo.Text,4, 2);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem4Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[3,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' ปักกลางบน', EdCutName.Text,EdRefNo.Text,4, 3);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem5Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[4,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' ปักหลังบน', EdCutName.Text,EdRefNo.Text,4, 4);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem6Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[6,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' ปักหน้าล่าง', EdCutName.Text,EdRefNo.Text,4, 6);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem7Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[7,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' ปักหลังล่าง', EdCutName.Text,EdRefNo.Text,4, 7);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem8Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid2.RowCount-1 do
+    if CutGrid2[1,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid2, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 2 ตัวบน', EdCutName.Text,EdRefNo.Text,4, 1);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem9Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid2.RowCount-1 do
+    if CutGrid2[2,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid2, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 2 ตัวโต๊ด', EdCutName.Text,EdRefNo.Text,4, 2);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem10Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid2.RowCount-1 do
+    if CutGrid2[3,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid2, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 2 ตัวมี', EdCutName.Text,EdRefNo.Text,4, 3);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem11Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid2.RowCount-1 do
+    if CutGrid2[4,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid2, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 2 ตัวหน้า', EdCutName.Text,EdRefNo.Text,4, 4);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem12Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid2.RowCount-1 do
+    if CutGrid2[5,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid2, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 2 ตัวหลัง', EdCutName.Text,EdRefNo.Text,4, 6);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+procedure TfMain.MenuItem13Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid2.RowCount-1 do
+    if CutGrid2[6,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid2, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 2 ตัวล่าง', EdCutName.Text,EdRefNo.Text,4, 6);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem14Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid3.RowCount-1 do
+    if CutGrid3[1,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid3, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 3 ตัวบน',EdCutName.Text,EdRefNo.Text,4, 1);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem15Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid3.RowCount-1 do
+    if CutGrid3[2,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid3, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 3 ตัวโต๊ด', EdCutName.Text,EdRefNo.Text,4, 2);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem16Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid3.RowCount-1 do
+    if CutGrid3[3,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid3, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 3 ตัวล่าง', EdCutName.Text,EdRefNo.Text,4, 3);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem17Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid4.RowCount-1 do
+    if CutGrid4[1,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid4, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 4 ตัวบน', EdCutName.Text,EdRefNo.Text,4, 1);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem18Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid4.RowCount-1 do
+    if CutGrid4[2,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid4, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 4 ตัวลอยแพ', EdCutName.Text,EdRefNo.Text,4, 2);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem20Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid5.RowCount-1 do
+    if CutGrid5[1,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid5, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 5 ตัวบน', EdCutName.Text,EdRefNo.Text,4, 1);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.MenuItem21Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid5.RowCount-1 do
+    if CutGrid5[2,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid5, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' 5 ตัวลอยแพ', EdCutName.Text,EdRefNo.Text,4, 2);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.N20Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+  CountNum := 0;
+  for i := 0 to CutGrid1.RowCount-1 do
+    if CutGrid1[5,i] <> '' then
+      Inc(CountNum);
+
+  if CountNum > 0 then
+  begin
+    frmPrintCutPrev.Translate1(CutGrid1, RdgSell.ItemIndex, DatePick.Date, ComboLotType,' วิ่งล่าง', EdCutName.Text,EdRefNo.Text,4, 5);
+    frmPrintCutPrev.Showmodal;
+  end
+  else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+
+end;
+
+procedure TfMain.N27Click(Sender: TObject);
+Var i,CountNum: integer;
+begin
+   SortGrid(NiceGrid1);
+   CountNum := 0;
+   for i := 0 to NiceGrid1.RowCount-1 do
+    if NiceGrid1[5,i] <> '' then
+      Inc(CountNum);
+
+   if CountNum > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0, 5)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1, 5)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2, 5)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.Translate(NiceGrid1, 4, DatePick.Date, ComboLotType, 'วิ่งล่าง', EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3, 5);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else MessageDlg('ไม่พบข้อมูลที่ท่านต้องการพิมพ์ออกทางเครื่องพิมพ์', mtinformation, [mbOK], 0);
+end;
+
+procedure TfMain.Btn_Find2Click(Sender: TObject);
+Var i: integer;
+    fNum,Num: String;
+begin
+ ProcessBtnClick(Sender);
+ if edFind2.Text <> '' then
+ begin
+  for i := NiceGrid2.RowCount-1 Downto 0 do
+  begin
+    fNum := edFind2.Text;
+    Num  := NiceGrid2[0,i];
+
+    if NOt ([Num[1],Num[2]] = [fNum[1],fNum[2]]) then
+      NiceGrid2.DeleteRow(i);
+  end;
+ end
+end;
+
+procedure TfMain.edFind2KeyPress(Sender: TObject; var Key: Char);
+begin
+  if key = #13 then
+  begin
+    Btn_find2Click(Sender);
+    key := #0;
+  end;
+end;
+
+procedure TfMain.Btn_Tod2TengClick(Sender: TObject);
+Var i,j,k,m,l,Count,StarPos: integer;
+    Nums: Array[1..6] of String[3];
+    temp: Char;
+    Num: String;
+    OrgPrice,Price,TengTotal,Commis: Extended;
+    found: Boolean;
+    PriceDiv,PriceMod: integer;
+begin
+  Tenglist.Items.BeginUpdate;
+  Tenglist.Clear;
+  TengTotal := 0;
+  for m := 0 to CutGrid3.RowCount-1 do
+  begin
+    if CutGrid3[2,m] <> '' then
+    begin
+      Num   := CutGrid3[0,m]; //'123';//trim(Str);
+      OrgPrice := txtToFloat(CutGrid3[2,m]);
+      Commis:= txtToFloat(PayGrid[0,9]);
+      if ChkIncludeCom.Checked  then
+        Price := Round(OrgPrice+((OrgPrice*Commis)/100))
+      else
+        Price := OrgPrice;
+
+      if Price < 6 then
+      begin
+        Price := Price+(6-Price);
+      end
+      else
+      begin
+        Pricemod := Round(Price) mod 6;
+        Price := Price+(6-Pricemod);
+      end;
+
+      Count := length(Num);
+      l := 1;
+      for i := 1 To Count do
+      begin
+        Temp   := Num[1];
+        Num[1] := Num[2];
+        Num[2] := Num[3];
+        Num[3] := Temp;
+        for j := 1 to Count-1 do
+        begin
+          Temp   := Num[2];
+          Num[2] := Num[3];
+          Num[3] := temp;
+          for k := 1 to Count-2 do
+          begin
+            temp   := Num[3];
+            Num[3] := temp;
+
+            Nums[l] := Num[1]+Num[2]+Num[3]; //Array
+            inc(l);
+          end;
+        end;
+      end;
+
+      for i := 1 to 6 do
+      begin
+          with Tenglist.Items.Add do
+          begin
+            try
+               Caption := Nums[i];
+               SubItems.Add(FloatToStr(Price/6));
+
+            except
+            end;
+          end;
+
+      end; //-----------------
+
+    end;
+
+  end;
+  Tenglist.Items.EndUpdate;
+  ChkTengAllChange(Sender);
+
+end;
+
+procedure TfMain.TengListCustomSort(Sender: TObject; ColIndex: Integer;
+  Str1, Str2: String; var Res: Integer; var Handled: Boolean);
+Var  n1, n2: Extended; //Integer;
+begin
+  if (ColIndex in [1]) then
+  begin
+    n1 := TxtToFloat(Str1);
+    n2 := txtToFloat(Str2);
+    if (n1 = n2)
+      then Res := 0 else
+    if (n1 > n2)
+      then Res := 1
+      else Res := -1;
+    Handled := True;
+  end;
+end;
+procedure TfMain.SeSkinButton4Click(Sender: TObject);
+begin
+   if TengList.Items.Count > 0 then
+   begin
+      frmPrintCutPrev.InputPageCut(TengList, DatePick.Date, ComboLotType, '3 ตัวบน', EdCutName.Text);
+      frmPrintCutPrev.Showmodal;
+   end
+   else Showmessage('ไม่พบข้อมูลเลขเกินอั้นที่ต้องการพิมพ์');
+end;
+
+procedure TfMain.ChkTengAllChange(Sender: TObject);
+Var i,j,Itm: integer;
+    Sum: Extended;
+begin
+  with TengList do
+  begin
+    for i := 0 to TengList.Items.Count-1 do
+        Items[i].checked := ChkTengAll.Checked;
+
+    j:=0;
+    Sum:= 0;
+    Itm:=0;
+    if Items.Count > 0 then
+    begin 
+      for i:= 0 to Items.Count-1 do
+      begin
+          if items[i].Checked = true then
+          begin
+            inc(j);
+            Sum := Sum + txtToFloat(items[i].SubItems[0]);
+            inc(Itm);
+          end;
+      end;
+    end;
+    //CutOverBtn.Enabled := (j > 0) and (RdgPrev.ItemIndex = 1);
+    //Btn_Cut.Enabled := (j > 0);
+    lbTengTotal.Caption := formatfloat('###,##0.##',Sum);
+    lbTengItems.Caption := IntToStr(Itm)+' ประตู';
+  end;
+end;
+
+procedure TfMain.ChkIncludeComChange(Sender: TObject);
+begin
+  //Btn_Tod2TengClick(Sender);
+  //CutProcBtnClick(Sender);
+end;
+
+procedure TfMain.TengListClick(Sender: TObject);
+Var i,j,Itm: integer;
+    Sum: Extended;
+begin
+  with TengList do
+  begin
+    j:=0;
+    Sum:= 0;
+    Itm:=0;
+    if Items.Count > 0 then
+    begin
+      for i:= 0 to Items.Count-1 do
+      begin
+          if items[i].Checked = true then
+          begin
+            inc(j);
+            Sum := Sum + txtToFloat(items[i].SubItems[0]);
+            inc(Itm);
+          end;
+      end;
+    end;
+    //CutOverBtn.Enabled := (j > 0) and (RdgPrev.ItemIndex = 1);
+    //Btn_Cut.Enabled := (j > 0);
+    lbTengTotal.Caption := formatfloat('###,##0.##',Sum);
+    lbTengItems.Caption := IntToStr(Itm)+' ประตู';
+  end;
+end;
+
+procedure TfMain.ChkTod2TengChange(Sender: TObject);
+begin
+  //GbTod2Teng.Enabled := ChkTod2Teng.Checked;
+  //CutProcBtnClick(Sender);
+  Totalsales;
+end;
+
+procedure TfMain.ChkPlusTengChange(Sender: TObject);
+begin
+  //CutProcBtnClick(Sender);
+end;
+
+procedure TfMain.BtnSelHuadClick(Sender: TObject);
+begin
+  With frmHuad, HuadList do
+  begin
+    if Showmodal = mrOk then
+    begin
+      DatePick.Date := StrToDate(Items[selected.index].Caption);
+      lbDueDate.Caption := DateToStr(DatePick.Date);
+      lbLottoName.Caption := ComboLotType.Items[ComboLotType.itemIndex];
+      ComboLotType.ItemIndex := ComboLotType.Items.IndexOf(Items[selected.index].SubItems[0]);
+      ComboLotTypeChange(Sender);
+    end;
+  end;
+end;
+
+procedure TfMain.ChkDataFromFileChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Main','ImportFileData',ChkDataFromFile.Checked);
+  finally
+    IniFile.Free;
+  end;
+
+end;
+
+procedure TfMain.ChkExtractTodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','ExtractTod',ChkExtractTod.Checked);
+  finally
+    IniFile.Free;
+  end;
+
+end;
+
+procedure TfMain.BtnCutByChartClick(Sender: TObject);
+Var i: integer;
+begin
+
+  With frmCutByChart,ChartListData do
+  begin
+    BtnCutOut.Enabled := true;
+    Case RdgSell.ItemIndex of
+    1: Panel9.Caption := 'ยอดเหลือในมือ';
+    2: Panel9.Caption := 'ยอดเกินอั้น';
+    3: begin
+        Panel9.Caption := 'ยอดตัดส่งเจ้ามือ';
+        BtnCutOut.Enabled := false;
+       end;
+    end;
+
+    GridTemp[0] := CutGrid1;
+    GridTemp[1] := CutGrid1;
+    GridTemp[2] := CutGrid1;
+    GridTemp[3] := CutGrid1;
+    GridTemp[4] := CutGrid1;
+    GridTemp[5] := CutGrid1;
+    GridTemp[6] := CutGrid1;
+    GridTemp[7] := CutGrid2;
+    GridTemp[8] := CutGrid2;
+    GridTemp[9] := CutGrid2;
+    GridTemp[10] := CutGrid2;
+    GridTemp[11] := CutGrid2;
+    GridTemp[12] := CutGrid2;
+    GridTemp[13] := CutGrid3;
+    GridTemp[14] := CutGrid3;
+    GridTemp[15] := CutGrid3;
+    GridTemp[16] := CutGrid4;
+    GridTemp[17] := CutGrid4;
+    GridTemp[18] := CutGrid5;
+    GridTemp[19] := CutGrid5;
+
+
+
+    HDatePick.Date := DatePick.Date;
+    CbLotType.ItemIndex := ComboLotType.ItemIndex;
+    CbCutType.ItemIndex := ComboCutType.ItemIndex;
+    EdLID.Text          := edLotID.Text;
+    EdSendName.Text     := edCutName.Text;
+    //ChartGridData.RowCount := 0;
+    //ChartGridData.BeginUpdate;
+
+   {
+    Clear;
+    for i := 0 to CutGrid3.RowCount-1 do
+    begin
+      //ChartGridData.AddRow;
+      //ChartGridData[0,i] := NiceGrid3[0,i];
+      //ChartGridData[1,i] := NiceGrid3[1,i];
+
+      With Items.Add do
+      begin
+        Caption   := CutGrid3[0,i];
+        SubItems.Add(CutGrid3[1,i]);
+      end;
+
+    end;
+
+    for i := 0 to Items.Count-1 do
+        Items[i].checked := true;
+
+    //ChartGridData.EndUpdate;
+  }
+
+    if Showmodal = mrOk then
+    //----------------
+    else RdgSellClick(Sender);
+
+
+  end;
+end;
+
+procedure TfMain.BtnCutClpbrdMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  //P := BtnCutClpbrd.ClientToScreen(Point(0,-40));
+  //MenuCutClpBrd.Popup(P.x,P.y);
+end;
+
+procedure TfMain.N13Click(Sender: TObject);
+Var i,Total: integer;
+    NumCut,txtPrice,HeadStr : String;
+
+begin
+  //NumCut := '';
+  //txtPrice := '';
+  Total := 0;
+  with CutListNum do
+  begin
+    Case ComboCutType.ItemIndex of
+      0:HeadStr := 'Top'+ #13#10;
+      1:HeadStr := 'Top-Left'+ #13#10;
+      2:HeadStr := 'Top-Center'+ #13#10;
+      3:HeadStr := 'Top-Right'+ #13#10;
+      4:HeadStr := 'Down'+ #13#10;
+      5:HeadStr := 'Down-Left'+ #13#10;
+      6:HeadStr := 'Down-Right'+ #13#10;
+      7:HeadStr := 'Top'+ #13#10;
+      8:HeadStr := 'Tod'+ #13#10;
+      9:HeadStr := 'Mee'+ #13#10;
+      10:HeadStr := 'Top-Left'+ #13#10;
+      11:HeadStr := 'Top-Split'+ #13#10;
+      12:HeadStr := 'Down'+ #13#10;
+      13:HeadStr := 'Teng'+ #13#10;
+      14:HeadStr := 'Tod'+ #13#10;
+      15:HeadStr := 'Down'+ #13#10;
+      16:HeadStr := 'Teng4'+ #13#10;
+      17:HeadStr := 'Pae4'+ #13#10;
+      18:HeadStr := 'Teng5'+ #13#10;
+      19:HeadStr := 'Pae5'+ #13#10;
+
+    end;
+
+    for i := 0 to Items.Count-1 do
+    begin
+      if Items[i].Checked then
+      begin
+        txtPrice := formatFloat('0',txtToFloat(items[i].SubItems[0]));
+        NumCut := NumCut + (items[i].Caption+'='+txtPrice+#13#10);
+
+        {
+        Case ComboCutType.ItemIndex of
+          0: NumCut := NumCut + (items[i].Caption+'='+txtPrice+#13#10) //วิ่งบน
+          1: NumCut := NumCut + (items[i].Caption+'- '+txtPrice+#13#10); //หน้าบน
+          2: NumCut := NumCut + '-'+(items[i].Caption+'- '+txtPrice+#13#10); //กลางบน
+          3: NumCut := NumCut + '-'+(items[i].Caption+' '+txtPrice+#13#10); //หลังบน
+          4: NumCut := NumCut + (items[i].Caption+' +'+txtPrice+#13#10); //วิ่งล่าง
+          5: NumCut := NumCut + (items[i].Caption+'- +'+txtPrice+#13#10); //หน้าล่าง
+          6: NumCut := NumCut + '-'+(items[i].Caption+' +'+txtPrice+#13#10); //หลังล่าง
+          7: NumCut := NumCut + (items[i].Caption+' '+txtPrice+#13#10); //2ตัวบน
+          8: NumCut := NumCut + (items[i].Caption+' -'+txtPrice+#13#10); //2ตัวโต๊ด
+          9: NumCut := NumCut + (items[i].Caption+'+ '+txtPrice+#13#10); //2ตัวมี
+         10: NumCut := NumCut + (items[i].Caption+'- '+txtPrice+#13#10); //2ตัวหน้า
+         11: NumCut := NumCut + '-'+(items[i].Caption+' '+txtPrice+#13#10); //2ตัวหลัง
+         12: NumCut := NumCut + (items[i].Caption+' +'+txtPrice+#13#10); //2ตัวล่าง
+         13: NumCut := NumCut + (items[i].Caption+' '+txtPrice+#13#10); //3ตัวบน
+         14: NumCut := NumCut + (items[i].Caption+' -'+txtPrice+#13#10); //3ตัวโต๊ด
+         15: NumCut := NumCut + (items[i].Caption+' +'+txtPrice+#13#10); //3ตัวล่าง
+         16: NumCut := NumCut + (items[i].Caption+' '+txtPrice+#13#10); //4ตัวบน
+         17: NumCut := NumCut + (items[i].Caption+' -'+txtPrice+#13#10); //4/3โต๊ด
+         18: NumCut := NumCut + (items[i].Caption+' '+txtPrice+#13#10); //5ตัวบน
+         19: NumCut := NumCut + (items[i].Caption+' -'+txtPrice+#13#10); //5/3โต๊ด
+        end;
+        }
+        inc(Total);
+      end;
+    end;
+    Clipboard.AsText := HeadStr+NumCut;
+    Clipboard.AsText := Clipboard.AsText+HeadStr+NumCut;
+    Showmessage('คัดลอกลงคลิปบอร์ดจำนวน '+IntToStr(Total)+' ประตู');
+  end;
+end;
+
+procedure TfMain.N28Click(Sender: TObject);
+Var i,Total: integer;
+    NumCut,txtPrice : String;
+begin
+  NumCut := '';
+  txtPrice := '';
+  Total := 0;
+  with CutListNum do
+  begin
+    for i := 0 to Items.Count-1 do
+    begin
+      if Items[i].Checked then
+      begin
+        txtPrice := formatFloat('0',txtToFloat(items[i].SubItems[0]));
+        NumCut := NumCut + (items[i].Caption+' '+txtPrice+#13#10);
+        inc(Total);
+      end;
+    end;
+    Clipboard.AsText := NumCut;
+    Showmessage('คัดลอกลงคลิปบอร์ดจำนวน '+IntToStr(Total)+' ประตู');
+  end;
+end;
+
+procedure TfMain.SeSkinButton6Click(Sender: TObject);
+Var row,Count,LenDate: integer;
+    TbImport: TABSTable;
+    IpNum, IpPrice, TxtLine,RegKey,StrDate: String;
+    QrCount : TABSQuery;
+    //DriveNumber: Byte;
+    ExprKeyDate: TDateTime;
+    SerialInfo: TSerialInfo;
+begin
+  with Dm,fRegis do
+  begin
+    if not Regis then
+    begin
+      EdCode.Text := GetHardwareID;
+      edKey.Clear;
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;
+
+      if Showmodal = mrOk then
+      begin
+        UpdateSerialNo(edKey.Text);
+        UpdateLastDate(Date);
+        UpdateLastRun(Date);
+        UpDateRPD(1);
+        AppKey := EdKey.text;
+        LastInputDate := Date;
+
+        Regis := true;
+        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
+        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+        exit;
+      end
+      else exit;
+    end;
+  end;
+
+  With frmInputtext, Dm do
+  begin
+    IpDate    := DatePick.Date;
+    IpRefID   := edRefNo.Text;
+    IpEmpID   := edUsID.Text;
+    IpCustID  := edCustNo.Text;
+    IpLotType := StrToInt(EdLotID.Text);
+
+    if Showmodal = mrOk then
+    begin
+       //Showform ขึ้นมาทำงาน
+    end;
+  end;
+end;
+
+procedure TfMain.ChkAllNumChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Main','ShowAllNum',ChkAllNum.Checked);
+  finally
+    IniFile.Free;
+  end;
+  Btn_RefreshCutClick(Sender);
+
+end;
+
+procedure TfMain.Btn_Input_MenuMouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_Input_Menu.ClientToScreen(Point(0,Btn_Input_Menu.Height));
+  PMenu_Input.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.N29Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        if (Not FoundChar(InputGrid[1,i],'+')) and (Not FoundChar(InputGrid[1,i],'-')) then
+        begin
+          UpTemp := InputGrid[1,i];
+          QrUpdate.Close;
+          QrUpdate.SQL.Clear;
+
+          QrUpdate.SQL.Add('Update Data');
+          QrUpDate.SQL.Add('Set Up=:aUp, Dwn=:aDwn ');
+          QrUpDate.SQL.Add('where ID =:aID');
+
+          QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+          QrUpDate.ParamByName('aUp').Value   := InputGrid[2,i];
+          QrUpDate.ParamByName('aDwn').Value  := InputGrid[1,i];
+          QrUpdate.ExecSQL;
+
+          UpTemp := InputGrid[1,i];
+
+          InputGrid[1,i] := InputGrid[2,i];
+          InputGrid[2,i] := UpTemp;
+          inc(Count);
+        end;
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('สลับจากบนเป็นล่าง ล่างเป็นบน เสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.N30Click(Sender: TObject);
+begin
+  ChkSortInput.Checked := Not ChkSortInput.Checked;
+  ChkSortInputChange(Sender);
+end;
+
+procedure TfMain.McAdress1Click(Sender: TObject);
+begin
+  //ShowMessage(GetMACAddress('MainCom'));
+  ShowMessage(Get_MACAddress);
+end;
+
+procedure TfMain.N35Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        if (Not FoundChar(InputGrid[1,i],'+')) and (Not FoundChar(InputGrid[1,i],'-')) then
+        begin
+          if InputGrid[1,i] <> '' then
+          begin
+            UpTemp := InputGrid[1,i];
+            QrUpdate.Close;
+            QrUpdate.SQL.Clear;
+
+            QrUpdate.SQL.Add('Update Data');
+            QrUpDate.SQL.Add('Set Up=:aUp, Dwn=:aDwn ');
+            QrUpDate.SQL.Add('where ID =:aID');
+
+            QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+            QrUpDate.ParamByName('aUp').Value   := InputGrid[2,i];
+            QrUpDate.ParamByName('aDwn').Value  := UpTemp;
+            QrUpdate.ExecSQL;
+
+            InputGrid[1,i] := InputGrid[2,i];
+            InputGrid[2,i] := UpTemp;
+            inc(Count);
+          end;
+        end;
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนจากบนเป็นล่าง เสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.N36Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    DwnTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        if (Not FoundChar(InputGrid[1,i],'+')) and (Not FoundChar(InputGrid[1,i],'-')) then
+        begin
+          if InputGrid[2,i] <> '' then
+          begin
+            DwnTemp := InputGrid[2,i];
+            QrUpdate.Close;
+            QrUpdate.SQL.Clear;
+
+            QrUpdate.SQL.Add('Update Data');
+            QrUpDate.SQL.Add('Set Up=:aUp, Dwn=:aDwn ');
+            QrUpDate.SQL.Add('where ID =:aID');
+
+            QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+            QrUpDate.ParamByName('aDwn').Value  := InputGrid[1,i];
+            QrUpDate.ParamByName('aUp').Value   := DwnTemp;
+            QrUpdate.ExecSQL;
+            InputGrid.BeginUpdate;
+
+            InputGrid[2,i] := InputGrid[1,i];
+            InputGrid[1,i] := DwnTemp;
+            inc(Count);
+          end;
+        end;
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนจากล่างเป็นบน เสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.Chk_2UP_TodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','2Up_Tod',Chk_2Up_Tod.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_2TodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','2Tod',Chk_2Tod.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_4UpChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','4Up',Chk_4Up.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_4Up_TodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','4Up_Tod',Chk_4Up_Tod.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_4TodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','4Tod',Chk_4Tod.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_5UpChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','5Up',Chk_5Up.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_5Up_TodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','5Up_Tod',Chk_5Up_Tod.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.Chk_5TodChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','5Tod',Chk_5Tod.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.SpinBookUpClick(Sender: TObject);
+begin
+  {
+  if InputGrid.RowCount > 0 then
+  begin
+    //RefreshBtnClick(Sender);
+    NewRefreshBtnClick(Sender);
+  end;
+  }
+  NewRefreshBtnClick(Sender);
+end;
+
+procedure TfMain.Btn_SaveExport_IniClick(Sender: TObject);
+Var IniFile : TInifile;
+    Exporttext: String;
+begin
+        IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+        if ChkHost.Checked then
+          IniFile.WriteString('DB','SavePath',edExportFolder.Text)
+        else
+          IniFile.WriteString('DB','ExportPath',edExportFolder.Text);
+
+        IniFile.Free;
+        Showmessage('บันทึกโฟลเดอร์ส่งออกแล้ว');
+
+end;
+
+procedure TfMain.Btn_SaveImport_IniClick(Sender: TObject);
+Var IniFile : TInifile;
+    Importtext: String;
+begin
+  IniFile := TIniFile.Create(ChangeFileExt(Application.ExeName,'.ini'));
+  if ChkHost.Checked then
+    IniFile.WriteString('DB','ImportPath',edImportFolder.Text)
+  else
+    IniFile.WriteString('DB','OpenPath',edImportFolder.Text);
+
+  IniFile.Free;
+  Showmessage('บันทึกโฟลเดอร์นำเข้าแล้ว');
+end;
+
+procedure TfMain.Btn_SaveServerDB_IniClick(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  if trim(edServerDB.Text) = '' then exit;
+
+  with Dm do
+  begin
+    try
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      if ChkHost.Checked then
+        IniFile.WriteString('DB','DBFile',edServerDB.Text)
+      else
+        IniFile.WriteString('DB','ServDBFile',edServerDB.Text);
+
+      Showmessage('บันทึกโฟลเดอร์ไฟล์ฐานข้อมูลแล้ว');
+    finally
+      IniFile.Free;
+    end
+  end;
+end;
+
+procedure TfMain.edExportFolderKeyPress(Sender: TObject; var Key: Char);
+begin
+  try
+    if edExportFolder.Text[length(edExportfolder.Text)] = ':' then
+      if not(key in ['\']) then
+        key := #0;
+  except
+
+  end;
+end;
+
+procedure TfMain.edImportFolderKeyPress(Sender: TObject; var Key: Char);
+begin
+  try
+    if edImportFolder.Text[length(edImportfolder.Text)] = ':' then
+      if not(key in ['\']) then
+        key := #0;
+  except
+
+  end;
+end;
+
+procedure TfMain.N37Click(Sender: TObject);
+begin
+  with Dm do
+  begin
+    Database.Close;
+    //Database.BeforeRepair := Pbar.Visible;
+    //Database.RepairDatabase;
+     //Database.RepairDatabase;
+    Showmessage('ซ่อมฐานข้อมูล '+Database.DatabaseFileName+' เสร็จเรียบร้อย'+database.RepairDatabase);
+    Try
+      Database.Connected := true;
+      QrData.Open;
+      Lotto.Open;
+      Limit3.Open;
+      TbLocateNum.Open;
+      TAllData.Open;
+    except
+
+    end;
+  end;
+end;
+
+procedure TfMain.BtnFindDataClick(Sender: TObject);
+Var fNum,Num: String;
+    QrDat: TABSQuery;
+    i,j: Integer;
+begin
+  NiceGrid1.Clear;
+  NiceGrid2.Clear;
+  NiceGrid3.Clear;
+  NiceGrid4.Clear;
+  NiceGrid5.Clear;
+  InputGrid.Clear;
+
+  NiceGrid1.RowCount := 0;
+  NiceGrid2.RowCount := 0;
+  NiceGrid3.RowCount := 0;
+  NiceGrid4.RowCount := 0;
+  NiceGrid5.RowCount := 0;
+  InputGrid.RowCount := 0;
+  ClearSumGrid(SumGrid);
+  Application.ProcessMessages;
+
+  With Dm do
+  begin
+   if Not Chklook.Checked then
+   begin
+    QrDat := TABSQuery.Create(nil);
+    QrDat.DatabaseName := Database.DatabaseName;
+    QrDat.Close;
+    QrDat.SQL.Clear;
+    QrDat.SQL.Add('Select * from Data');
+    QrDat.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrDat.SQL.Add('and (Period_Date = "'+DateToStr(Datepick.Date)+'")');
+
+    if Not ChkTotal.Checked then
+    begin
+      if Not ChkSumBook.Checked then
+        QrDat.SQL.Add('and (RefNo = "'+edRefNo.Text +'")');
+      if Not ChkSumCust.Checked then
+        QrDat.SQL.Add('and (CustNo = "'+edCustNo.Text+'")');
+    end;
+
+    if Not ChkSortInput.Checked then
+      QrDat.SQL.Add('Order By ID DESC')
+    else
+      QrDat.SQL.Add('Order By ID ASC');
+    QrDat.Open;
+
+    InputGrid.BeginUpDate;
+    InputGrid.RowCount := 0;
+    InputGrid.Clear;
+
+    fNum := edFindData.Text;
+    QrDat.First;
+    While Not QrDat.Eof do
+    begin
+      Num := QrDat.fieldByName('Num').AsString;
+      if trim(fNum) <> '' then
+      begin
+        if (length(trim(fNum)) = 1) and (Not (fNum[1] in ['0'..'9'])) then
+        begin
+          if Num[1] = fNum then
+          begin
+            InputGrid.AddRow;
+            InputGrid[0,InputGrid.RowCount-1] := QrDat.fieldByName('Num').AsString;
+            InputGrid[1,InputGrid.RowCount-1] := QrDat.fieldByName('Up').AsString;
+            InputGrid[2,InputGrid.RowCount-1] := QrDat.fieldByName('Dwn').AsString;
+            InputGrid[3,InputGrid.RowCount-1] := QrDat.fieldByName('ID').AsString;
+            InputGrid[4,InputGrid.RowCount-1] := QrDat.fieldByName('CustNo').AsString;
+            InputGrid[5,InputGrid.RowCount-1] := QrDat.fieldByName('RefNo').AsString;
+            InputGrid[6,InputGrid.RowCount-1] := QrDat.fieldByName('EmpNo').AsString;
+            InputGrid[7,InputGrid.RowCount-1] := QrDat.fieldByName('LotType').AsString;
+          end;
+        end
+        else
+        begin
+          if AlterNum(fNum) = AlterNum(Num) then
+          begin
+            InputGrid.AddRow;
+            InputGrid[0,InputGrid.RowCount-1] := QrDat.fieldByName('Num').AsString;
+            InputGrid[1,InputGrid.RowCount-1] := QrDat.fieldByName('Up').AsString;
+            InputGrid[2,InputGrid.RowCount-1] := QrDat.fieldByName('Dwn').AsString;
+            InputGrid[3,InputGrid.RowCount-1] := QrDat.fieldByName('ID').AsString;
+            InputGrid[4,InputGrid.RowCount-1] := QrDat.fieldByName('CustNo').AsString;
+            InputGrid[5,InputGrid.RowCount-1] := QrDat.fieldByName('RefNo').AsString;
+            InputGrid[6,InputGrid.RowCount-1] := QrDat.fieldByName('EmpNo').AsString;
+            InputGrid[7,InputGrid.RowCount-1] := QrDat.fieldByName('LotType').AsString;
+          end;
+        end;
+      end
+      else
+      begin
+      InputGrid.AddRow;
+      InputGrid[0,InputGrid.RowCount-1] := QrDat.fieldByName('Num').AsString;
+      InputGrid[1,InputGrid.RowCount-1] := QrDat.fieldByName('Up').AsString;
+      InputGrid[2,InputGrid.RowCount-1] := QrDat.fieldByName('Dwn').AsString;
+      InputGrid[3,InputGrid.RowCount-1] := QrDat.fieldByName('ID').AsString;
+      InputGrid[4,InputGrid.RowCount-1] := QrDat.fieldByName('CustNo').AsString;
+      InputGrid[5,InputGrid.RowCount-1] := QrDat.fieldByName('RefNo').AsString;
+      InputGrid[6,InputGrid.RowCount-1] := QrDat.fieldByName('EmpNo').AsString;
+      InputGrid[7,InputGrid.RowCount-1] := QrDat.fieldByName('LotType').AsString;
+      end;  
+
+      QrDat.Next;
+    end;
+    InputGrid.EndUpDate;
+    QrDat.Free;
+
+    lbItems1.Caption := IntToStr(inputGrid.RowCount)+' รายการ';
+    edFindData.SelectAll;
+
+    ProcessBtnClick(Sender);
+    Btn_RefreshCutClick(Sender);
+    BtnSpecLimitNumClick(Sender);
+   end
+   else
+   begin
+    Look;
+    BtnSpecLimitNumClick(Sender);
+   end;
+  end;    
+end;
+
+procedure TfMain.edFindDataKeyPress(Sender: TObject; var Key: Char);
+begin
+  if key = #13 then
+  begin
+    BtnfindDataClick(Sender);
+    edFindData.SelectAll;
+    key := #0;
+  end;
+end;
+
+procedure TfMain.SaveBtnClick(Sender: TObject);
+Var
+   i,j,GCnt1,GCnt2,GCnt3,GCnt4,GCnt5,Col,Row,Lastrow: Integer;
+   QrDelete, QrCount : TABSQuery;
+   DriveNumber: Byte;
+   SerialInfo: TSerialInfo;
+begin
+  with Dm, fRegis do
+  begin
+    if not Regis then
+    begin
+      EdCode.Text := GetHardwareID;
+      edKey.Clear;
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;
+
+      if Showmodal = mrOk then
+      begin
+        UpdateSerialNo(edKey.Text);
+        UpdateLastDate(Date);
+        UpdateLastRun(Date);
+        UpDateRPD(1);
+        AppKey := EdKey.text;
+        LastInputDate := Date;
+
+        Regis := true;
+        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
+        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+        exit;
+      end
+      else exit;
+    end;
+  end;
+
+  GCnt1 := InputGrid.RowCount;
+  SaveXLSDialog.InitialDir := edExportFolder.Text;
+  if (ChkSumCust.Checked)or(ChkTotal.Checked) then
+  begin
+      SaveXLSDialog.FileName := edExportFolder.Text+'\'+ GetComputerName+'_All_Data_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now)
+  end
+  else
+  begin
+      SaveXLSDialog.FileName := edExportFolder.Text+'\'+ GetComputerName+'_'+PanelCustName.Caption+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now)
+  end;
+  if SaveXLSDialog.Execute then
+  begin
+    if FileExists(SaveXLSDialog.FileName) then
+    begin
+      if MessageDlg('ไฟล์ '+SaveXLSDialog.FileName+' มีอยู่แล้วต้องการเขียนทับหรือใม่',mtConfirmation,[mbYes,mbNo],0) = IdNo then
+        exit
+      else
+        XLS.Filename := SaveXLSDialog.FileName;
+    end
+    else
+    begin
+        XLS.Filename := SaveXLSDialog.FileName;
+    end
+  end
+  else exit;
+
+
+  XLS.Clear;
+  // Add format #0
+   with XLS.Formats.Add do begin
+    FontIndex := XLS.Fonts.AddIndex;
+    XLS.Fonts[FontIndex].Name := 'Courier new';
+    XLS.Fonts[FontIndex].Size := 12;
+    XLS.Fonts[FontIndex].Color := xcRed;
+    HorizAlignment := chaCenter;
+  end;
+
+  // Add format #1
+  with XLS.Formats.Add do begin
+    FontIndex := XLS.Fonts.AddIndex;
+    XLS.Fonts[FontIndex].AssignTFont(Font);
+    BorderTopColor := xcBlue;
+    BorderTopStyle := cbsThin;
+  end;
+
+  // Add format #2
+  with XLS.Formats.Add do begin
+    //FontIndex := XLS.Fonts.AddIndex;
+    //XLS.Fonts[FontIndex].Name := 'CordiaUPC';   
+    BorderTopColor := xcBlue;
+    BorderBottomColor := xcBlue;
+    BorderTopStyle := cbsThin;
+    BorderBottomStyle := cbsThin;
+    FillPatternForeColor := xcLilac;
+    HorizAlignment := chaCenter;
+  end;
+
+  // Add format #3
+  with XLS.Formats.Add do begin
+    BorderTopColor := xcBlue;
+    BorderBottomColor := xcBlue;
+    BorderTopStyle := cbsThin;
+    BorderBottomStyle := cbsThin;
+  end;
+
+  // Add format #4
+  // ShortDateFormat is a Delphi global variable for the local date format.
+  with XLS.Formats.Add do begin
+    NumberFormat := '#,##0.00_);[Red](#,##0.00)';
+  end;
+
+
+ LastRow := 0;
+ Row := 0;
+ if InputGrid.RowCount > 0 then
+ begin
+
+  XLS.Sheets[0].WriteString(0,0,1,'Num');
+  XLS.Sheets[0].WriteString(1,0,1,'Up');
+  XLS.Sheets[0].WriteString(2,0,1,'Down');
+  XLS.Sheets[0].WriteString(3,0,1,'ID');
+  XLS.Sheets[0].WriteString(4,0,1,'CustID');
+  XLS.Sheets[0].WriteString(5,0,1,'BookNo');
+  XLS.Sheets[0].WriteString(6,0,1,'UserID');
+  XLS.Sheets[0].WriteString(7,0,1,'LottoID');
+
+  for Col := 0 to InputGrid.ColCount - 1 do
+  begin
+   for Row := 0 To GCnt1 -1 do
+   begin
+    XLS.Sheets[0].WriteString(Col,Row+1,2,InputGrid[Col,Row])
+   end;
+  end;
+  
+  LastRow := Row+1;
+ end;
+ try
+  XLS.Write;
+  Showmessage('ข้อมูลได้บันทึกไปยังไฟล์ '+SaveXLSDialog.FileName+' เรียบร้อยแล้ว');
+ except
+  Showmessage('เกิดปัญหาไม่สามารถบันทึกไปยังไฟล์ '+SaveXLSDialog.FileName+' ได้');
+ end;
+
+end;
+
+procedure TfMain.SeSkinSpeedButton6Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+    with Dm do
+    begin
+      edHostName.Clear;
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      IniFile.WriteString('DB','HostName','');
+      IniFile.Free;
+      IsHost := true;
+      If DirectoryExists('Z:\') = true then
+        DisconnectNetworkDrive('z:',true,true,true);
+    end;
+end;
+
+procedure TfMain.ChkHostClick(Sender: TObject);
+Var IniFile : TInifile;
+    HostName: string;
+begin
+  Application.ProcessMessages;
+  if ChkHost.Checked then
+  begin
+    with Dm do
+    begin
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      edHostName.Text     := GetComputerName;
+      edServerDB.Text     := IniFile.ReadString('DB','DBFile',ExtractFilePath(Application.ExeName)+'Data\' + 'LNUM.LUX');
+      edExportFolder.Text := IniFile.ReadString('DB','SavePath',ExtractFilePath(Application.ExeName)+'MyXLS');
+      edImportFolder.Text := IniFile.ReadString('DB','ImportPath',ExtractFilePath(Application.ExeName)+'Import');
+      IsHost := true;
+      IniFile.WriteBool('DB','IsHost',IsHost);
+
+      IniFile.Free;
+      If DirectoryExists('Z:\') = true then
+        DisconnectNetworkDrive('z:',true,true,true);
+    end;
+  end
+  else
+  begin
+    with Dm do
+    begin
+
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      edHostName.Text := IniFile.ReadString('DB','HostName','');
+      ServerDBFile := IniFile.ReadString('DB','ServDBFile','Z:\Public\Biglotto\Data\LNUM.LUX');
+      edServerDB.Text :=  ServerDBFile;
+
+      edExportFolder.Text := IniFile.ReadString('DB','ExportPath','Z:\Public\Biglotto\Import');
+      edImportFolder.Text := IniFile.ReadString('DB','OpenPath',ExtractFilePath(Application.ExeName)+'MyXLS');
+      IsHost := false;
+      IniFile.WriteBool('DB','IsHost',IsHost);
+      edHostName.SetFocus;
+
+      IniFile.Free;
+
+      if trim(edHostName.Text) <> '' then
+        BtnSaveHostIniClick(Sender);
+      {
+      if ChkHost.Checked = false then
+      begin
+        If DirectoryExists('Z:\') = true then
+          DisconnectNetworkDrive('z:',true,true,true);
+
+        HostName := edHostName.Text;
+        if trim(HostName) <> '' then
+        Begin
+          with Dm do
+          begin
+            If DirectoryExists('Z:\') = false then
+            begin
+              try
+                ConnectDrive('z:','\\'+HostName+'\Users', True, True);
+              except
+              end;
+            end;
+
+            try
+              IniFile := TIniFile.Create(
+                  ChangeFileExt(Application.ExeName,'.ini'));
+              IniFile.WriteString('DB','HostName',HostName);
+              isHost := false;
+
+              If DirectoryExists('Z:\') = false then //DirectoryExists(ServerPath) = false then
+              begin
+                Showmessage('เกิดปัญหาในการเชื่อมต่อ โปรดตรวจสอบเครือข่าย');
+              end
+              else Showmessage('เชื่อมต่อเครื่องแม่สำเร็จแล้ว');
+
+            finally
+              IniFile.Free;
+            end
+          end;
+        end;
+      end;
+      }
+
+    end;
+  end
+end;
+
+procedure TfMain.BtnSaveHostIniClick(Sender: TObject);
+Var HostName,Drive: String;
+    IniFile : TInifile;
+begin
+ //Drive := ExtractFileDrive(edServerDB.Text); // C: , D:
+ if ChkHost.Checked = false then
+ begin
+  If DirectoryExists('Z:\') = true then
+    DisconnectNetworkDrive('z:',true,true,true);
+  //if DirectoryExists(Drive+'\') = true then
+    //DisconnectNetworkDrive(Drive,true,true,true);
+
+  HostName := edHostName.Text;
+  if trim(HostName) <> '' then
+  Begin
+    with Dm do
+    begin
+      If DirectoryExists('Z:\') = false then
+      //If DirectoryExists(Drive+'\') = false then
+      begin
+        try
+          ConnectDrive('z:','\\'+HostName+'\Users', True, True);
+          //ConnectDrive(Drive,'\\'+HostName+'\Users', True, True);
+        except
+        end;
+      end;
+
+      try
+        If DirectoryExists('Z:\') = false then 
+        begin
+          Showmessage('เกิดปัญหาไม่สามารถเชื่อมต่อได้ โปรดตรวจสอบเครือข่าย หรือชื่อเครื่องที่ต้องการเชื่อมต่อให้ถูกต้อง');
+
+        end
+        else
+        begin
+          IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+          IniFile.WriteString('DB','HostName',HostName);
+          isHost := false;
+          Showmessage('เชื่อมต่อไปยังเครื่อง '+edHostName.Text+' สำเร็จแล้ว');
+        end;
+
+      finally
+        IniFile.Free;
+      end
+    end;
+  end;
+ end
+ else
+ begin
+  If DirectoryExists('Z:\') = true then
+    DisconnectNetworkDrive('z:',true,true,true);
+ end;
+end;
+
+procedure TfMain.N38Click(Sender: TObject);
+Var
+    i,PosSym,LenNum,PosStar,PosMinus: Integer;
+    Num,P1,P11,P12,P2,P21,P22,Status,StrUp,StrDwn,Head,HeadStr,Price,Saparate: String;
+    Str11,Str12,Str13,Str14,Str15,Str16,Str17, Str21,Str22,Str23,Str24,Str25: String;
+    Str31,Str32,Str33, Str41,Str42, Str51,Str52, StrAll: String;
+
+    Strings: TStringList;//TStrings;
+    StrData: UTF8String;
+    Heads: array[0..18] of String;
+    RtedInput: TRichEdit;
+begin
+  //Strings := TStringList.create;
+  RtedInput := TRichEdit.Create(nil);
+  RtedInput.Parent := PnCutM;
+  RtedInput.Visible := false;
+  Saparate := '<-------------------------------->'+#13#10;
+
+  Heads[0] := '[วิ่งบน]';
+  Heads[1] := '[ปักหน้าบน]';
+  Heads[2] := '[ปักกลางบน]';
+  Heads[3] := '[ปักหลังบน]';
+  Heads[4] := '[วิ่งล่าง]';
+  Heads[5] := '[ปักหน้าล่าง]';
+  Heads[6] := '[ปักหลังล่าง]';
+  Heads[7] := '[2 ตัวบน]';
+  Heads[8] := '[2 ตัวมี]';
+  Heads[9] := '[2 ตัวหน้าบน]';
+  Heads[10] := '[2 ตัวถ่างบน]';
+  Heads[11] := '[2 ตัวล่าง]';
+  Heads[12] := '[3 ตัวบน]';
+  Heads[13] := '[3 ตัวโต๊ด]';
+  Heads[14] := '[3 ตัวล่าง]';
+  Heads[15] := '[4 ตัวบน]';
+  Heads[16] := '[4 ตัวลอยแพ]';
+  Heads[17] := '[5 ตัวบน]';
+  Heads[18] := '[5 ตัวลอยแพ]';
+
+  Str11 := '';
+  Str12 := '';
+  Str13 := '';
+  Str14 := '';
+  Str15 := '';
+  Str16 := '';
+  Str17 := '';
+
+  Str21 := '';
+  Str22 := '';
+  Str23 := '';
+  Str24 := '';
+  Str25 := '';
+
+  Str31 := '';
+  Str32 := '';
+  Str33 := '';
+
+  Str41 := '';
+  Str42 := '';
+
+  Str51 := '';
+  Str52 := '';
+
+  StrAll:= '';
+
+    StrUp  := 'เธเธ'; //คำว่า บน
+    StrDwn := 'เธฅเนเธฒเธ'; //คำว่า ล่าง
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      Head := '';
+      LenNum := 0;
+      StrData := '';
+      Status := '0';
+      Progressbar2.MinValue := 0;
+      Progressbar2.MaxValue := InputGrid.RowCount;
+      Progressbar2.Progress := 0;
+      Pbar.Visible := true;
+      Progressbar2.Visible := true;
+
+      //for i := SelectArea.Bottom Downto SelectArea.Top  do
+      for i := SelectArea.Top to SelectArea.Bottom do
+      begin
+        Progressbar2.Progress := Progressbar2.Progress+1;
+        Num := InputGrid[0,i];
+        P1  := InputGrid[1,i];
+        P2  := InputGrid[2,i];
+
+        if (P1 <> '') and (P2 = '') then //เลขบน
+        begin
+          if CountStrNum(Num) = 1 then
+          begin
+            if (Length(Num) = 1) and IsNumOnly(Num) then  //ลอยบน
+            begin
+              Str11 := Str11+Num+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 2) and (Num[2] = '-') then  //ปักหน้าบน
+            begin
+              Str12 := Str12+Num[1]+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 3) and (Num[1] = '-') and (Num[2] in ['0'..'9']) and (Num[3] = '-') then  //ปักกลาง
+            begin
+              Str13 := Str13+Num[2]+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 2) and (Num[1] = '-')  then  //ปักหลัง
+            begin
+              Str14 := Str14+Num[2]+'='+P1+#13#10;
+            end;
+          end
+          else
+          if CountStrNum(Num) = 2 then
+          begin
+            if (Length(Num) = 2) and IsNumOnly(P1) then //2 ตัวบน
+            begin
+              Str21 := Str21+Num+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 2) and Is15Set(P1) then  //2 ตัวบนกลับ
+            begin
+              Str21 := Str21+Num+'='+P1+#13#10;
+            end;
+
+
+            if (Length(Num) = 2) and IsMultiSet(P1) then  //2 ตัวกลับ แบบไม่ป้อนเลขกลับ
+            begin
+              Str21 := Str21+Num+'='+P1+ReplaceLast(P1,'*','')+#13#10;
+            end;
+
+            if (Length(Num) = 2) and IsMinusSet(P1) then  //2 ตัวตรงโต๊ด ตรง=โต๊ด แบบไม่ป้อนเลขโต๊ด
+            begin
+              Str21 := Str21+Num+'='+GetNum(P1)+'-'+GetNum(P1)+#13#10;
+            end;
+
+
+            if (Length(Num) = 2) and IsTengTod(P1) then  //2 ตัวตรงโต๊ด แบบป้อนเลขโต๊ด
+            begin
+              Str21 := Str21+Num+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 3) and (Num[3] = '+')  then  //2 ตัวมี
+            begin
+              Str22 := Str22+GetNum(Num)+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 3) and (Num[3] = '-')  then  //2 ตัวหน้า
+            begin
+              Str23 := Str23+Num[1]+Num[2]+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 3) and (Num[2] = '-')  then  //2 ตัวถ่าง
+            begin
+              Str24 := Str24+Num[1]+Num[3]+'='+P1+#13#10;
+            end;
+          end
+          else
+          if CountStrNum(Num) = 3 then
+          begin
+            if IsNumOnly(P1) then  //3 ตัวตรง (เต็ง)
+            begin
+              Str31 := Str31+Num+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 3) and IsTod(P1) then  //3 ตัวโต๊ด
+            begin
+              Price  := Replace(P1, '-', '');
+              Str32 := Str32+Num+'='+Price+#13#10;
+            end;
+
+            if IsTengTod(P1) then  //3 ตัว เต็ง-โต๊ด
+            begin
+              Price  := Replace(P1, '-', '*');
+              Str31 := Str31+Num+'='+Price+#13#10;
+            end;
+
+            if (Length(Num) = 3) then //3 ตัว คูณชุด
+            begin
+              if IsLastStr(P1,'*') then
+              begin
+                Price  := Replace(P1, '*', '*'+IntToStr(Permutation(Num)) );
+                Str31 := Str31+Num+'='+Price+#13#10;
+              end;
+            end;
+
+            if (Length(Num) = 3) and Is15Set(P1) then  //3 ตัว 1+5ชุดกลับ
+            begin
+              
+              if (Num[1]<>Num[2]) and (Num[2]<>Num[3]) and (Num[3]<>Num[1]) then
+                Price  := StringReplace(P1, '*', '*5*',[rfReplaceAll, rfIgnoreCase]);
+
+              if (Num[1]=Num[2]) Or (Num[2]=Num[3]) Or (Num[3]=Num[1]) then
+                Price  := StringReplace(P1, '*', '*2*',[rfReplaceAll, rfIgnoreCase]);
+
+              Str31 := Str31+Num+'='+Price+#13#10;
+            end;
+          end
+          else
+          if CountStrNum(Num) = 4 then
+          begin
+            if (Length(Num) = 4) and IsNumOnly(P1) then  //4 ตัวตรง (เต็ง4)
+            begin
+              Str41 := Str41+Num+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 4) and IsTod(P1) then  //4 ลอยแพ (4/3)
+            begin
+              Price  := StringReplace(P1, '-', '',[rfReplaceAll, rfIgnoreCase]);
+              Str42 := Str42+Num+'='+Price+#13#10;
+            end;
+
+            if (Length(Num) = 4) then //and IsMultiSet(P1) then  //4 แปลงเป็นเลข 3 ตัว
+            begin
+              if IsMultiSet(P1) then
+              begin
+                Price  := StringReplace(P1, '*', '*'+IntToStr(Permutation(Num)) ,[rfReplaceAll, rfIgnoreCase]);
+                Str31 := Str31+Num+'='+Price+#13#10;
+              end
+              else
+              //if Is15Set(P1) then
+              if IsLastStr(P1,'*24') or IsLastStr(P1,'*12') or IsLastStr(P1,'*4') then
+              begin
+                Price  := P1;
+                Str31 := Str31+Num+'='+Price+#13#10;
+              end;
+            end;
+          end
+          else
+          if CountStrNum(Num) = 5 then
+          begin
+            if (Length(Num) = 5) and IsNumOnly(P1) then  //5 ตัวตรง (เต็ง5)
+            begin
+              Str51 := Str51+Num+'='+P1+#13#10;
+            end;
+
+            if (Length(Num) = 5) and IsTod(P1) then  //5 ลอยแพ (5/3)
+            begin
+              Price  := StringReplace(P1, '-', '',[rfReplaceAll, rfIgnoreCase]);
+              Str51 := Str51+Num+'='+Price+#13#10;
+            end;
+
+            if (Length(Num) = 5) then
+            begin
+              if IsMultiSet(P1) then
+              begin
+                Price  := StringReplace(P1, '*', '*'+IntToStr(Permutation(Num)) ,[rfReplaceAll, rfIgnoreCase]);
+                Str51 := Str51+Num+'='+Price+#13#10;
+              end
+              else
+              if IsLastStr(P1,'*60') or IsLastStr(P1,'*33') or IsLastStr(P1,'*13') or IsLastStr(P1,'*4') then
+              begin
+                Price  := P1;
+                Str31 := Str31+Num+'='+Price+#13#10;
+              end;
+            end;
+          end;
+        end
+        else //ช่องล่างไม่ว่าง    คือ ล่าง
+        if (P2 <> '') and (P1 = '') then
+        begin
+
+          if CountStrNum(Num) = 1 then
+          begin
+            if (Length(Num) = 1) and IsNumOnly(Num) then  //ลอยบน
+            begin
+              Str15 := Str15+Num+'='+P2+#13#10;
+            end;
+
+            if (Length(Num) = 2) and (Num[2] = '-') then  //ปักหน้าล่าง
+            begin
+              Str16 := Str16+Num[1]+'='+P2+#13#10;
+            end;
+
+            if (Length(Num) = 2) and (Num[1] = '-')  then  //ปักหลัง
+            begin
+              Str17 := Str17+Num[2]+'='+P2+#13#10;
+            end;
+
+          end
+          else
+          if CountStrNum(Num) = 2 then
+          begin
+            if Length(Num) = 2 then  //2 ตัวบน
+            begin
+              Str25 := Str25+Num+'='+P2+#13#10;
+            end;
+          end
+          else
+          if CountStrNum(Num) = 3 then
+          begin
+            if Length(Num) = 3 then  //3 ตัวล่าง
+            begin
+              Str33 := Str33+Num+'='+P2+#13#10;
+            end;
+          end
+        end;
+      end;
+
+      Pbar.Visible := false;
+
+      if Str11 <> '' then
+        StrAll := StrAll+Saparate+Heads[0]+#13#10+Str11;
+      if Str12 <> '' then
+        StrAll := StrAll+Saparate+Heads[1]+#13#10+Str12;
+      if Str13 <> '' then
+        StrAll := StrAll+Saparate+Heads[2]+#13#10+Str13;
+      if Str14 <> '' then
+        StrAll := StrAll+Saparate+Heads[3]+#13#10+Str14;
+      if Str15 <> '' then
+        StrAll := StrAll+Saparate+Heads[4]+#13#10+Str15;
+      if Str16 <> '' then
+        StrAll := StrAll+Saparate+Heads[5]+#13#10+Str16;
+      if Str17 <> '' then
+        StrAll := StrAll+Saparate+Heads[6]+#13#10+Str17;
+
+      if Str21 <> '' then
+        StrAll := StrAll+Saparate+Heads[7]+#13#10+Str21;
+      if Str22 <> '' then
+        StrAll := StrAll+Saparate+Heads[8]+#13#10+Str22;
+      if Str23 <> '' then
+        StrAll := StrAll+Saparate+Heads[9]+#13#10+Str23;
+      if Str24 <> '' then
+        StrAll := StrAll+Saparate+Heads[10]+#13#10+Str24;
+      if Str25 <> '' then
+        StrAll := StrAll+Saparate+Heads[11]+#13#10+Str25;
+
+      if Str31 <> '' then
+        StrAll := StrAll+Saparate+Heads[12]+#13#10+Str31;
+      if Str32 <> '' then
+        StrAll := StrAll+Saparate+Heads[13]+#13#10+Str32;
+      if Str33 <> '' then
+        StrAll := StrAll+Saparate+Heads[14]+#13#10+Str33;
+
+      if Str41 <> '' then
+        StrAll := StrAll+Saparate+Heads[15]+#13#10+Str41;
+      if Str42 <> '' then
+        StrAll := StrAll+Saparate+Heads[16]+#13#10+Str42;
+
+      if Str51 <> '' then
+        StrAll := StrAll+Saparate+Heads[17]+#13#10+Str51;
+      if Str52 <> '' then
+        StrAll := StrAll+Saparate+Heads[18]+#13#10+Str52;
+
+
+
+      RtedInput.Text := StrAll;//StrData;
+      RtedInput.SelectAll;
+      RtedInput.CutToClipboard;
+      //RtedInput
+
+      //ClipBoard.AsText := trim(StrData);
+      //Strings.Text := UTF8Encode('BigLottoData'+#13#10+StrData);
+    end;
+end;
+
+procedure TfMain.BtnCutClpbrdClick(Sender: TObject);
+Var i,Total: integer;
+    NumCut,txtPrice,HeadStr : String;
+    RtCut: TRichEdit;
+begin
+  RtCut := TRichEdit.Create(nil);
+  RtCut.Visible := false;
+  RtCut.Parent := Panel66;
+  NumCut := '';
+  txtPrice := '';
+  Total := 0;
+  with CutListNum do
+  begin
+   {
+    Case ComboCutType.ItemIndex of
+      0:HeadStr := 'Float-Top'+ #13#10;
+      1:HeadStr := 'Left-Top'+ #13#10;
+      2:HeadStr := 'Center-Top'+ #13#10;
+      3:HeadStr := 'Right-Top'+ #13#10;
+      4:HeadStr := 'Down'+ #13#10;
+      5:HeadStr := 'Left-Down'+ #13#10;
+      6:HeadStr := 'Right-Down'+ #13#10;
+      7:HeadStr := '2 Top'+ #13#10;
+      8:HeadStr := '2 Tod'+ #13#10;
+      9:HeadStr := '2 Float'+ #13#10;
+      10:HeadStr := 'Left-Top'+ #13#10;
+      11:HeadStr := 'Split-Top'+ #13#10;
+      12:HeadStr := '2 Down'+ #13#10;
+      13:HeadStr := '3 Top'+ #13#10;
+      14:HeadStr := '3 Float'+ #13#10;
+      15:HeadStr := '3 Down'+ #13#10;
+      16:HeadStr := '4 Top'+ #13#10;
+      17:HeadStr := '4 Float'+ #13#10;
+      18:HeadStr := '5 Top'+ #13#10;
+      19:HeadStr := '5 Float'+ #13#10;
+    end;
+   }
+    HeadStr := '['+ComboCutType.Items[ComboCutType.ItemIndex]+']';
+
+
+    for i := 0 to Items.Count-1 do
+    begin
+      if Items[i].Checked then
+      begin
+        txtPrice := formatFloat('0',txtToFloat(items[i].SubItems[0]));
+        NumCut := NumCut + (items[i].Caption+'='+txtPrice+#13#10);
+        inc(Total);
+      end;
+    end;
+    RtCut.Text := HeadStr+#13#10+NumCut;
+    RtCut.SelectAll;
+    RtCut.CutToClipboard;
+
+    //Clipboard.AsText := HeadStr+NumCut;
+    //Showmessage('คัดลอกเลข '+ComboCutType.Items[ComboCutType.ItemIndex]+' ลงคลิปบอร์ดจำนวน '+IntToStr(Total)+' ประตู');
+    Showmessage('คัดลอกเลข '+HeadStr+' ลงคลิปบอร์ดจำนวน '+IntToStr(Total)+' ประตู '+'ยอดเงินรวม '+lbSum.Caption+' บาท');
+  end;
+end;
+
+procedure TfMain.MoveBtnClick(Sender: TObject);
+Var i: integer;
+    QrMoveData : TABSQuery;
+    SQLUpdate,SQLParam: String;
+    PickDate: TDateTime;
+begin
+  With frmMove, Dm do
+  begin
+    DateMove.Date := DatePick.Date;
+    PickDate := DatePick.Date;
+    edStart.Value := InputGrid.SelectArea.Top+1;
+    edEnd.Value := InputGrid.SelectArea.Bottom+1;
+
+    QrMoveData := TABSQuery.Create(nil);
+    QrMoveData.DatabaseName := Database.DatabaseName;
+
+    if Showmodal = mrOk then
+    begin
+      try
+
+        if (DateToStr(DateMove.Date) = DateToStr(PickDate)) then
+        begin
+          //if (Not(ChkMoveB.Checked) and Not(ChkMoveCust.Checked)) then
+          //begin
+            for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
+            begin
+              SQLUpdate := '';
+              QrMoveData.Close;
+              QrMoveData.SQL.Clear;
+
+              if Not(ChkMoveCust.Checked) then
+              begin
+                SQLUpdate := 'Update Data Set CustNo=:aCustNo';
+                if Not(ChkMoveB.Checked) then
+                  SQLUpdate := SQLUpdate+', RefNo=:aRefNo'
+              end
+              else
+              begin
+                if Not(ChkMoveB.Checked) then
+                  SQLUpdate := 'Update Data Set RefNo=:aRefNo'
+
+
+              end;
+              QrMoveData.SQL.Add(SQLUpdate);
+              QrMoveData.SQL.Add('where ID =:aID');
+
+              if Not(ChkMoveCust.Checked) then
+                QrMoveData.ParamByName('aCustNo').Value  := EdCust.Text;
+  
+              if Not(ChkMoveB.Checked) then
+                QrMoveData.ParamByName('aRefNo').Value   := edBookNo.Text;
+  
+              QrMoveData.ParamByName('aID').Value      := InputGrid[3,i];
+              QrMoveData.ExecSQL;
+              
+            end;
+            //RefreshBtnClick(Sender);
+            NewRefreshBtnClick(Sender);
+            BtnSpecLimitNumClick(Sender);
+            Showmessage('ย้ายข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
+           {
+            for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
+            begin
+              SQLUpdate := '';
+              QrMoveData.Close;
+              QrMoveData.SQL.Clear;
+              QrMoveData.SQL.Add('Update Data');
+  
+              if (ChkMoveB.Checked) and (ChkMoveCust.Checked) then
+                SQLUpdate := 'Set Period_Date=:aPDate'
+              else
+              if (ChkMoveB.Checked) and Not(ChkMoveCust.Checked) then
+                SQLUpdate := 'Set Period_Date=:aPDate, CustNo=:aCustNo'
+              else
+              if Not(ChkMoveB.Checked) and Not(ChkMoveCust.Checked) then
+                SQLUpdate := 'Set Period_Date=:aPDate, CustNo=:aCustNo, RefNo=:aRefNo';
+  
+              QrMoveData.SQL.Add(SQLUpdate);
+              QrMoveData.SQL.Add('where ID =:aID');
+              QrMoveData.ParamByName('aPDate').Value   := DateToStr(DateMove.Date);
+  
+              if Not(ChkMoveCust.Checked) then
+                QrMoveData.ParamByName('aCustNo').Value  := EdCust.Text;
+  
+              if Not(ChkMoveB.Checked) then
+                QrMoveData.ParamByName('aRefNo').Value   := edBookNo.Text;
+  
+              QrMoveData.ParamByName('aID').Value      := InputGrid[3,i];
+              QrMoveData.ExecSQL;
+            end;
+            Showmessage('ย้ายข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
+            
+
+          //end;
+
+          }
+        end
+        else
+        begin
+          for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
+          begin
+            QrMoveData.Close;
+            QrMoveData.SQL.Clear;
+            QrMoveData.SQL.Add('INSERT INTO Data (Period_Date, Num, Up, Dwn, CustNo, RefNo, EmpNo, LotType)');
+            QrMoveData.SQL.Add('VALUES (:aPDate, :aNum, :aUp, :aDwn, :aCustNo, :aRefNo, :aEmpNo, :aLotType)');
+
+            QrMoveData.ParamByName('aPDate').Value    := DateToStr(DateMove.Date);
+            QrMoveData.ParamByName('aNum').Value      := InputGrid[0,i];
+            QrMoveData.ParamByName('aUp').Value       := InputGrid[1,i];
+            QrMoveData.ParamByName('aDwn').Value      := InputGrid[2,i];
+            QrMoveData.ParamByName('aEmpNo').Value    := InputGrid[6,i];
+            QrMoveData.ParamByName('aLotType').Value  := InputGrid[7,i];
+
+            if Not(ChkMoveCust.Checked) then
+              QrMoveData.ParamByName('aCustNo').Value := EdCust.Text
+            else
+              QrMoveData.ParamByName('aCustNo').Value := InputGrid[4,i];
+
+            if Not(ChkMoveB.Checked) then
+              QrMoveData.ParamByName('aRefNo').Value  := edBookNo.Text
+            else
+              QrMoveData.ParamByName('aRefNo').Value  := InputGrid[5,i];
+
+            QrMoveData.ExecSQL;
+          end;
+          //RefreshBtnClick(Sender);
+          NewRefreshBtnClick(Sender);
+          BtnSpecLimitNumClick(Sender);
+          Showmessage('คัดลอกข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
+        end;
+
+      except
+        QrMoveData.Free;
+      end;
+
+    end;
+
+  end;
+end;
+
+procedure TfMain.BtnCopyClick(Sender: TObject);
+var i,j,Count: integer;
+    Num,Run,Str,StrData,Pr,SumStrData,bookmark: String;
+    Head: array[0..19] of String;
+    RtedCut: TRichEdit;
+    SerialInfo: TSerialInfo;
+begin
+  with Dm,fRegis do
+  begin
+    if not Regis then
+    begin
+      EdCode.Text := GetHardwareID;
+      edKey.Clear;
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;
+
+      if Showmodal = mrOk then
+      begin
+        UpdateSerialNo(edKey.Text);
+        UpdateLastDate(Date);
+        UpdateLastRun(Date);
+        UpDateRPD(1);
+        AppKey := EdKey.text;
+
+        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
+        Regis := true;
+        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+        exit;
+      end
+      else exit;
+    end;
+  end;
+  
+  RtedCut := TRichEdit.Create(nil);
+  RtedCut.Visible := false;
+  RtedCut.Parent := PnCutM;
+  SumStrData := '';
+
+  Head[0] := '[วิ่งบน]'+ #13#10;
+  Head[1] := '[ปักหน้าบน]'+ #13#10;
+  Head[2] := '[ปักกลางบน]'+ #13#10;
+  Head[3] := '[ปักหลังบน]'+ #13#10;
+  Head[4] := '[วิ่งล่าง]'+ #13#10;
+  Head[5] := '[ปักหน้าล่าง]'+ #13#10;
+  Head[6] := '[[ปักหลังล่าง]'+ #13#10;
+  Head[7] := '[2 ตัวบน]'+ #13#10;
+  Head[8] := '[2 ตัวโต๊ด]'+ #13#10;
+  Head[9] := '[2 ตัวมี]'+ #13#10;
+  Head[10] := '[2 ตัวหน้าบน]'+ #13#10;
+  Head[11] := '[2 ตัวถ่างบน]'+ #13#10;
+  Head[12] := '[2 ตัวล่าง]'+ #13#10;
+  Head[13] := '[3 ตัวบน]'+ #13#10;
+  Head[14] := '[3 ตัวโต๊ด]'+ #13#10;
+  Head[15] := '[3 ตัวล่าง]'+ #13#10;
+  Head[16] := '[4 ตัวบน]'+ #13#10;
+  Head[17] := '[4 ตัวลอยแพ]'+ #13#10;
+  Head[18] := '[5 ตัวบน]'+ #13#10;
+  Head[19] := '[5 ตัวลอยแพ]'+ #13#10;
+
+
+  Count := 0;
+  bookmark := '<------------------------->';
+  With CutGrid1 do
+  begin
+    StrData := '';
+    for i := 1 to ColCount-1 do
+    begin
+      Str := '';
+      for j := 0 to RowCount-1 do
+      begin
+        Num := CutGrid1[0,j];
+        Pr  := CutGrid1[i,j];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+      end;
+      if trim(Str) <> '' then
+        StrData := StrData+bookmark+#13#10+Head[i-1]+Str;
+    end;
+    SumStrData := SumStrData+StrData;
+  end;
+
+  
+  With CutGrid2 do
+  begin
+    StrData := '';
+    for i := 1 to ColCount-1 do
+    begin
+      Str := '';
+      for j := 0 to RowCount-1 do
+      begin
+        Num := CutGrid2[0,j];
+        Pr  := CutGrid2[i,j];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+      end;
+      if trim(Str) <> '' then
+        StrData := StrData+bookmark+#13#10+Head[i+6]+Str;
+    end;
+    SumStrData := SumStrData+StrData;
+  end;
+
+
+  With CutGrid3 do
+  begin
+    StrData := '';
+    for i := 1 to ColCount-1 do
+    begin
+      Str := '';
+      for j := 0 to RowCount-1 do
+      begin
+        Num := CutGrid3[0,j];
+        Pr  := CutGrid3[i,j];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+      end;
+      if trim(Str) <> '' then
+        StrData := StrData+bookmark+#13#10+Head[i+12]+Str;
+    end;
+    SumStrData := SumStrData+StrData;
+  end;
+
+  
+  With CutGrid4 do
+  begin
+    StrData := '';
+    for i := 1 to ColCount-1 do
+    begin
+      Str := '';
+      for j := 0 to RowCount-1 do
+      begin
+        Num := CutGrid4[0,j];
+        Pr  := CutGrid4[i,j];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+      end;
+      if trim(Str) <> '' then
+        StrData := StrData+bookmark+#13#10+Head[i+15]+Str;
+    end;
+    SumStrData := SumStrData+StrData;
+  end;
+
+  
+  With CutGrid5 do
+  begin
+    StrData := '';
+    for i := 1 to ColCount-1 do
+    begin
+      Str := '';
+      for j := 0 to RowCount-1 do
+      begin
+        Num := CutGrid5[0,j];
+        Pr  := CutGrid5[i,j];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+      end;
+      if trim(Str) <> '' then
+        StrData := StrData+bookmark+#13#10+Head[i+17]+Str;
+    end;
+    SumStrData := SumStrData+StrData;
+  end;
+  SumStrData := SumStrData+bookmark;
+
+  RtEdCut.Text := Trim(SumStrData);
+  RtEdCut.SelectAll;
+  RtEdCut.CutToClipboard;
+  //RtEdCut.Free;
+  //ClipBoard.AsText := trim(SumStrData);
+  Showmessage('คัดลอกข้อมูลไปยังคลิปบอร์ดทั้งหมด '+IntToStr(Count)+' รายการเรียบร้อยแล้ว');
+end;
+
+procedure TfMain.BtnGetDataClick(Sender: TObject);
+Var i,j,IpTop: Integer;
+    found: Boolean;
+    QrFindCust,QrEdInput: TABSQuery;
+
+begin
+  try
+  with frmEditInPut,InputGrid,Dm do
+  begin
+   Application.ProcessMessages;
+   editInputGrid.BeginUpdate;
+   editInputGrid.Clear;
+   editInputGrid.RowCount :=  (SelectArea.Bottom - SelectArea.Top)+1;
+   IpTop := SelectArea.Top;
+   //Showmessage(IntToStr( (SelectArea.Bottom - SelectArea.Top)+1));
+   j := 0;
+   for i := SelectArea.Top to SelectArea.Bottom do
+   begin
+    editInputGrid[0,j] := InputGrid[0,i];
+    editInputGrid[1,j] := InputGrid[1,i];
+    editInputGrid[2,j] := InputGrid[2,i];
+    editInputGrid[3,j] := InputGrid[3,i];
+    inc(j);
+   end;
+   editInputGrid.EndUpdate;
+
+   if Showmodal = mrOk then
+   begin
+    //try
+      QrEdInput := TABSQuery.Create(nil);
+      QrEdInput.DatabaseName := Database.DatabaseName;
+
+      for i := 0 to editInputGrid.RowCount-1 do
+      begin
+        QrEdInput.Close;
+        QrEdInput.SQL.Clear;
+        QrEdInput.SQL.Add('Update Data');
+        QrEdInput.SQL.Add('Set Num=:aNum, Up=:aUp, Dwn=:aDwn');
+        QrEdInput.SQL.Add('where ID =:aID');
+
+        QrEdInput.ParamByName('aNum').Value  := editInputGrid[0,i];
+        QrEdInput.ParamByName('aUp').Value   := editInputGrid[1,i];
+        QrEdInput.ParamByName('aDwn').Value  := editInputGrid[2,i];
+        QrEdInput.ParamByName('aID').Value   := editInputGrid[3,i];
+        QrEdInput.ExecSQL;
+
+      end;
+  
+      InputGrid.BeginUpdate;
+      for i := 0 to editInputGrid.RowCount-1 do
+      begin
+        InputGrid[0,i+IpTop] := editInputGrid[0,i];
+        InputGrid[1,i+IpTop] := editInputGrid[1,i];
+        InputGrid[2,i+IpTop] := editInputGrid[2,i];
+        inc(j);
+      end;
+      InputGrid.EndUpdate;
+      ProcessBtnClick(Sender);
+    //except
+      //Showmessage('การแก้เกิดการผิดพลาด แก้ไขไม่ถูกต้อง');
+    //end;
+
+   end;
+  end;
+  except
+
+  end;
+
+end;
+
+procedure TfMain.BtnAddLimit2Click(Sender: TObject);
+Var i,j,k,DupCount: integer;
+    Num,yNum ,NumKlub: String;
+    found: Boolean;
+begin
+  with Dm do
+  begin
+    DataSource1.DataSet.DisableControls;
+    Num := LimitNum2.Text;
+    Case H2Num.ItemIndex of
+      0: begin
+          for j := 1 to 2 do
+          begin
+            //---------------
+            Case j of
+              1 : NumKlub := String(Num[1])+String(Num[2]);
+              2 : NumKlub := String(Num[2])+String(Num[1]);
+            end;
+            //---------
+
+            found  := Limit3.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Numklub]),[]);
+            if found then
+            begin
+              Limit3.Edit;
+              //....................
+              if ChkLimit21.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit22.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit23.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit24.Checked then
+              begin
+                Limit3.FieldByName('Limit4').AsBoolean := true;
+                Limit3.FieldByName('Price4').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt4').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit25.Checked then
+              begin
+                Limit3.FieldByName('Limit5').AsBoolean := true;
+                Limit3.FieldByName('Price5').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt5').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit26.Checked then
+              begin
+                Limit3.FieldByName('Limit6').AsBoolean := true;
+                Limit3.FieldByName('Price6').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt6').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              Limit3.Post;
+              //.....................
+            end
+            else
+            begin
+              Limit3.Append;
+              Limit3.FieldByName('LimitDate').AsDateTime := DatePick.Date;
+              Limit3.FieldByName('Num').AsString := NumKlub;
+
+              if ChkLimit21.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit22.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit23.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit24.Checked then
+              begin
+                Limit3.FieldByName('Limit4').AsBoolean := true;
+                Limit3.FieldByName('Price4').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt4').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit25.Checked then
+              begin
+                Limit3.FieldByName('Limit5').AsBoolean := true;
+                Limit3.FieldByName('Price5').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt5').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit26.Checked then
+              begin
+                Limit3.FieldByName('Limit6').AsBoolean := true;
+                Limit3.FieldByName('Price6').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt6').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              Limit3.Post;
+            end;
+          end;
+         end; //case H2Num.itemindex = 0
+
+      1: begin
+            found  := Limit3.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),Num]),[]);
+            if found then
+            begin
+              Limit3.Edit;
+              //....................
+              if ChkLimit21.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit22.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit23.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit24.Checked then
+              begin
+                Limit3.FieldByName('Limit4').AsBoolean := true;
+                Limit3.FieldByName('Price4').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt4').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit25.Checked then
+              begin
+                Limit3.FieldByName('Limit5').AsBoolean := true;
+                Limit3.FieldByName('Price5').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt5').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit26.Checked then
+              begin
+                Limit3.FieldByName('Limit6').AsBoolean := true;
+                Limit3.FieldByName('Price6').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt6').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              Limit3.Post;
+              //.....................
+            end
+            else
+            begin
+              Limit3.Append;
+              Limit3.FieldByName('LimitDate').AsDateTime := DatePick.Date;
+              Limit3.FieldByName('Num').AsString := Num;
+
+              if ChkLimit21.Checked then
+              begin
+                Limit3.FieldByName('Limit1').AsBoolean := true;
+                Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit22.Checked then
+              begin
+                Limit3.FieldByName('Limit2').AsBoolean := true;
+                Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit23.Checked then
+              begin
+                Limit3.FieldByName('Limit3').AsBoolean := true;
+                Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit24.Checked then
+              begin
+                Limit3.FieldByName('Limit4').AsBoolean := true;
+                Limit3.FieldByName('Price4').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt4').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit25.Checked then
+              begin
+                Limit3.FieldByName('Limit5').AsBoolean := true;
+                Limit3.FieldByName('Price5').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt5').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              if ChkLimit26.Checked then
+              begin
+                Limit3.FieldByName('Limit6').AsBoolean := true;
+                Limit3.FieldByName('Price6').AsFloat   := StrTofloat(edLimPrice2.Text);
+                Limit3.FieldByName('PayPcnt6').AsFloat := StrTofloat(edPercent2.Text);
+              end;
+              Limit3.Post;
+            end;
+         end; //case H2Num.itemindex = 1
+
+      2: begin
+          for i := 0 to 9 do
+          begin
+            for j := 0 to 9 do
+            begin
+                yNum := IntToStr(i)+IntToStr(j);
+                if (String(yNum[1]) = limitNum3.Text)or(String(yNum[2]) = limitNum2.Text) then
+                begin
+                  found  := Limit3.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),yNum]),[]);
+                  if found then
+                  begin
+                    Limit3.Edit;
+                    //....................
+                    if ChkLimit21.Checked then
+                    begin
+                      Limit3.FieldByName('Limit1').AsBoolean := true;
+                      Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit22.Checked then
+                    begin
+                      Limit3.FieldByName('Limit2').AsBoolean := true;
+                      Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit23.Checked then
+                    begin
+                      Limit3.FieldByName('Limit3').AsBoolean := true;
+                      Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit24.Checked then
+                    begin
+                      Limit3.FieldByName('Limit4').AsBoolean := true;
+                      Limit3.FieldByName('Price4').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt4').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit25.Checked then
+                    begin
+                      Limit3.FieldByName('Limit5').AsBoolean := true;
+                      Limit3.FieldByName('Price5').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt5').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit26.Checked then
+                    begin
+                      Limit3.FieldByName('Limit6').AsBoolean := true;
+                      Limit3.FieldByName('Price6').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt6').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    Limit3.Post;
+                    //.....................
+                  end
+                  else
+                  begin
+                    Limit3.Append;
+                    Limit3.FieldByName('LimitDate').AsDateTime := DatePick.Date;
+                    Limit3.FieldByName('Num').AsString := yNum;
+
+                    if ChkLimit21.Checked then
+                    begin
+                      Limit3.FieldByName('Limit1').AsBoolean := true;
+                      Limit3.FieldByName('Price1').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit22.Checked then
+                    begin
+                      Limit3.FieldByName('Limit2').AsBoolean := true;
+                      Limit3.FieldByName('Price2').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit23.Checked then
+                    begin
+                      Limit3.FieldByName('Limit3').AsBoolean := true;
+                      Limit3.FieldByName('Price3').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit24.Checked then
+                    begin
+                      Limit3.FieldByName('Limit4').AsBoolean := true;
+                      Limit3.FieldByName('Price4').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt4').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit25.Checked then
+                    begin
+                      Limit3.FieldByName('Limit5').AsBoolean := true;
+                      Limit3.FieldByName('Price5').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt5').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    if ChkLimit26.Checked then
+                    begin
+                      Limit3.FieldByName('Limit6').AsBoolean := true;
+                      Limit3.FieldByName('Price6').AsFloat   := StrTofloat(edLimPrice2.Text);
+                      Limit3.FieldByName('PayPcnt6').AsFloat := StrTofloat(edPercent2.Text);
+                    end;
+                    Limit3.Post;
+                  end;
+                end;
+            end;
+          end;
+         end; //case H2Num.itemindex = 2
+    end; //case H2Num
+
+    TabL2Show(Sender);
+    DataSource1.DataSet.EnableControls;
+  end;
+end;
+
+procedure TfMain.LimitNum2KeyPress(Sender: TObject; var Key: Char);
+begin
+  if key in [#13] then
+  begin
+    edLimPrice2.SetFocus;
+    Key := #0;
+  end
+  else
+  if (((key=#10) and (GetKeyState(VK_CONTROL) < 0)) ) then
+  begin
+    edLimPrice2KeyPress(Sender,Key);
+    LimitNum2.SelectAll;
+  end
+  else
+  if not (key in ['0'..'9',#8]) then
+    key := #0;
+end;
+
+procedure TfMain.edLimPrice2KeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key in [#13]) Or (((key=#10) and (GetKeyState(VK_CONTROL) < 0))) then
+  begin
+    if LimitNum2.Text <> '' then
+    begin
+      LimitNum2.SetFocus;
+      BtnAddLimit2Click(Sender);
+    end
+    else
+    begin
+      BtnAddPriceLim2Click(Sender);
+      EdLimPrice2.SelectAll;
+    end;
+  end
+  else
+  if not (key in ['0'..'9',#8]) then
+    key := #0;
+end;
+
+procedure TfMain.edFindSelKeyPress(Sender: TObject; var Key: Char);
+Var i,j,Itm: integer;
+    Sum: Extended;
+    fNum,Num: String;
+begin
+  if Not (key in ['0'..'9', #13, #8]) then
+    Key := #0
+  else
+  if Key = #13 then
+  begin
+    Key := #0;
+    Btn_RefreshCutClick(Sender);
+    edFindSel.SelectAll;
+  end;
+end;
+
+// เพิ่มพารามิเตอร์ ParentHandle เข้ามาเพื่อระบุว่าให้ Progress Bar เด้งที่หน้าต่างไหน
+function CopyDirShellWithProgress(const SourceDir, DestDir: string; ParentHandle: HWND): Boolean;
+var
+  ShOp: TSHFileOpStruct;
+  FromPath, ToPath: string;
+begin
+  Result := False;
+  
+  // เตรียม Path (ต้องมี #0 สองตัวปิดท้ายสำหรับ Shell API)
+  FromPath := IncludeTrailingBackslash(SourceDir) + '*.*' + #0;
+  ToPath := IncludeTrailingBackslash(DestDir) + #0;
+
+  FillChar(ShOp, SizeOf(ShOp), 0);
+  with ShOp do
+  begin
+    // ระบุ Owner Window: สำคัญมาก! เพื่อให้ User คลิกที่โปรแกรมหลักไม่ได้จนกว่าจะ Copy เสร็จ
+    wnd := ParentHandle; 
+    
+    wFunc := FO_COPY;
+    pFrom := PChar(FromPath);
+    pTo := PChar(ToPath);
+    
+    // Flags ที่ปรับปรุง:
+    // 1. FOF_NOCONFIRMATION = ไม่ถามยืนยัน (Yes to all)
+    // 2. FOF_NOCONFIRMMKDIR = สร้างโฟลเดอร์ปลายทางให้เอง
+    // ** เอา FOF_SILENT ออก เพื่อให้แสดง Progress Bar **
+    fFlags := FOF_NOCONFIRMATION or FOF_NOCONFIRMMKDIR;
+    
+    // ถ้าต้องการ Progress Bar แบบเรียบๆ (ไม่โชว์ชื่อไฟล์ที่กำลังวิ่ง) ให้เพิ่ม FOF_SIMPLEPROGRESS
+    // fFlags := fFlags or FOF_SIMPLEPROGRESS; 
+    
+    // ชื่อที่จะแสดงบนหัวข้อของ Progress Bar Dialog (ใส่หรือไม่ก็ได้)
+    lpszProgressTitle := 'กำลังสำรองข้อมูล... กรุณารอสักครู่';
+  end;
+
+  // สั่งทำงาน
+  if SHFileOperation(ShOp) = 0 then
+    Result := True;
+end;
+
+procedure TfMain.BackupDatabase1Click(Sender: TObject);
+Var AppPath,DBFN,BackUpDir: String;
+    IniFile: TiniFile;
+    Source, Dest: string;
+begin
+  BrowseFolder.Path := ExtractFilePath(Application.ExeName)+'Backup';
+  BrowseFolder.Title := 'เลือกโฟลเดอร์ที่ต้องการสำรองข้อมูล';
+  if BrowseFolder.Execute then
+  begin
+    Dest := BrowseFolder.Path;
+    Source := ExtractFilePath(edServerDB.Text); //'C:\MySourceData';
+
+    with Dm do
+    begin
+      Database.Close;
+      if CopyDirShellWithProgress(Source, Dest, Self.Handle) then
+        ShowMessage('สำรอง Database ไปไว้ที่ '+Dest+' เสร็จสมบูรณ์แล้ว')
+      else
+        ShowMessage('เกิดข้อผิดพลาดในการสำรอง Database');
+
+      Database.Connected := true;
+      QrData.Open;
+      Lotto.Open;
+      Limit3.Open;
+      TbLocateNum.Open;
+      TAllData.Open;
+    end;
+  end;
+
+  {
+  With Dm do
+  begin
+    BrowseFolder.Title := 'เลือกโฟลเดอร์ที่ท่านต้องการนำไฟล์แบคอัพไปเก็บไว้';
+    BrowseFolder.Path := ExtractFileDir('Firebird Database ('+Dm.ZConnection1.HostName+')'); //AppPath+'\'Data;
+    if BrowseFolder.Execute then
+    begin
+      BackUpDir := BrowseFolder.Path;
+
+      Try
+        //Database.Connected := false;
+        Database.Close;
+
+        AddFolderToZip('Firebird Database ('+Dm.ZConnection1.HostName+')',BackUpDir,true);
+
+        Database.Connected := true;
+
+        QrData.Open;
+        Lotto.Open;
+        Limit3.Open;
+        TbLocateNum.Open;
+        TAllData.Open;
+      except
+        Showmessage('เกิดปัญหาไม่สามารถสำรองข้อมูลได้');
+      end;
+
+    end;
+  end;
+  }
+end;
+
+procedure TfMain.SeSkinButton1Click(Sender: TObject);
+begin
+  BackupDatabase1Click(Sender);
+end;
+
+procedure TfMain.Label26Click(Sender: TObject);
+begin
+  //label26.Caption := IntToStr(AltGridL3.DataSource.DataSet.RecordCount)+' รายการ';
+end;
+
+procedure TfMain.BtnAddPriceLimClick(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit31.Checked then
+      begin
+        Limit3.FieldByName('Price1').Value := StrToFloat(edLimPrice.Text);
+        Limit3.FieldByName('Limit1').Value := true;
+        Limit3.FieldByName('PayPcnt1').AsFloat := StrTofloat(edPercent.Text);
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit1').Value := false;
+      end;
+
+      if ChkLimit32.Checked then
+      begin
+        Limit3.FieldByName('Price2').Value := StrToFloat(edLimPrice.Text);
+        Limit3.FieldByName('Limit2').Value := true;
+        Limit3.FieldByName('PayPcnt2').AsFloat := StrTofloat(edPercent.Text);
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit2').Value := false;
+      end;
+
+      if ChkLimit33.Checked then
+      begin
+        Limit3.FieldByName('Price3').Value := StrToFloat(edLimPrice.Text);
+        Limit3.FieldByName('Limit3').Value := true;
+        Limit3.FieldByName('PayPcnt3').AsFloat := StrTofloat(edPercent.Text);
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit3').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+
+
+    DataSource1.DataSet.EnableControls;// .Enabled := true;
+  end;
+
+end;
+
+procedure TfMain.ChkLimit31Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit31.Checked then
+      begin
+        Limit3.FieldByName('Limit1').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit1').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit32Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit32.Checked then
+      begin
+        Limit3.FieldByName('Limit2').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit2').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit33Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit33.Checked then
+      begin
+        Limit3.FieldByName('Limit3').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit3').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit21Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit21.Checked then
+      begin
+        Limit3.FieldByName('Limit1').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit1').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit26Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit26.Checked then
+      begin
+        Limit3.FieldByName('Limit6').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit6').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit22Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit22.Checked then
+      begin
+        Limit3.FieldByName('Limit2').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit2').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit23Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit23.Checked then
+      begin
+        Limit3.FieldByName('Limit3').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit3').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit24Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit24.Checked then
+      begin
+        Limit3.FieldByName('Limit4').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit4').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.ChkLimit25Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit25.Checked then
+      begin
+        Limit3.FieldByName('Limit5').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit5').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+  end;
+  DataSource1.DataSet.EnableControls;// .Enabled := true;
+end;
+
+procedure TfMain.BtnAddPriceLim2Click(Sender: TObject);
+Var i: integer;
+begin
+  DataSource1.DataSet.DisableControls;// .Enabled := false;
+  With Dm do
+  begin
+    Limit3.First;
+    for i := 0 to Limit3.RecordCount-1 do
+    begin
+      Application.ProcessMessages;
+      Limit3.Edit;
+      if ChkLimit21.Checked then
+      begin
+        Limit3.FieldByName('Price1').Value := StrToFloat(edLimPrice2.Text);
+        Limit3.FieldByName('Limit1').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit1').Value := false;
+      end;
+
+      if ChkLimit22.Checked then
+      begin
+        Limit3.FieldByName('Price2').Value := StrToFloat(edLimPrice2.Text);
+        Limit3.FieldByName('Limit2').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit2').Value := false;
+      end;
+
+      if ChkLimit23.Checked then
+      begin
+        Limit3.FieldByName('Price3').Value := StrToFloat(edLimPrice2.Text);
+        Limit3.FieldByName('Limit3').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit3').Value := false;
+      end;
+
+      if ChkLimit24.Checked then
+      begin
+        Limit3.FieldByName('Price4').Value := StrToFloat(edLimPrice2.Text);
+        Limit3.FieldByName('Limit4').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit4').Value := false;
+      end;
+
+      if ChkLimit25.Checked then
+      begin
+        Limit3.FieldByName('Price5').Value := StrToFloat(edLimPrice2.Text);
+        Limit3.FieldByName('Limit5').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit5').Value := false;
+      end;
+
+      if ChkLimit26.Checked then
+      begin
+        Limit3.FieldByName('Price6').Value := StrToFloat(edLimPrice2.Text);
+        Limit3.FieldByName('Limit6').Value := true;
+      end
+      else
+      begin
+        Limit3.FieldByName('Limit6').Value := false;
+      end;
+
+      Limit3.Next;
+    end;
+    if Limit3.State = dsEdit then
+      Limit3.Post;
+
+
+    DataSource1.DataSet.EnableControls;// .Enabled := true;
+  end;
+  
+end;
+
+procedure TfMain.edFindNumSelKeyPress(Sender: TObject; var Key: Char);
+Var i,j,Itm: integer;
+    Sum: Extended;
+    fNum,Num: String;
+begin
+  if Not (key in ['0'..'9', #13, #8]) then
+    Key := #0
+  else
+  if Key = #13 then
+  begin
+    Key := #0;
+    with CutListNum do
+    begin
+      fNum := edFindNumSel.Text;
+      Sum := 0;
+      Itm := 0;
+      for i := 0 to CutListNum.Items.Count-1 do
+      begin
+
+        Num  := CutListNum.Items[i].Caption;
+        Case Length(Num) of
+        1:begin
+            if ([Num[1]] = [fNum[1]]) then
+              Items[i].checked := true;
+          end;
+        2:begin
+            if ([Num[1],Num[2]] = [fNum[1],fNum[2]]) then
+              Items[i].checked := true;
+          end;
+        3:begin
+            if ([Num[1],Num[2],Num[3]] = [fNum[1],fNum[2],fNum[3]]) then
+              Items[i].checked := true;
+          end;
+        4:begin
+            if ([Num[1],Num[2],Num[3],Num[4]] = [fNum[1],fNum[2],fNum[3],fNum[4]]) then
+              Items[i].checked := true;
+          end;
+        5:begin
+            if ([Num[1],Num[2],Num[3],Num[4],Num[5]] = [fNum[1],fNum[2],fNum[3],fNum[4],fNum[5]]) then
+              Items[i].checked := true;
+          end;
+        end;
+
+
+        if items[i].Checked = true then
+        begin
+            inc(j);
+            Sum := Sum + txtToFloat(items[i].SubItems[0]);
+            inc(Itm);
+        end;
+      end;
+
+    end;
+    Btn_Cut.Enabled := (j > 0);
+    BtnCutClpBrd.Enabled := (j > 0);
+    Btn_PrintOver.Enabled := (j > 0);
+    lbSum.Caption := formatfloat('###,##0.##',Sum);
+    lbItm.Caption := IntToStr(Itm)+' ประตู';
+    edFindNumSel.SelectAll;
+  end;
+
+end;
+
+procedure TfMain.ChkCutAll1Change(Sender: TObject);
+begin
+  ChkCut11.Checked := ChkCutAll1.Checked;
+  ChkCut12.Checked := ChkCutAll1.Checked;
+  ChkCut13.Checked := ChkCutAll1.Checked;
+  ChkCut14.Checked := ChkCutAll1.Checked;
+  ChkCut15.Checked := ChkCutAll1.Checked;
+  ChkCut16.Checked := ChkCutAll1.Checked;
+  ChkCut17.Checked := ChkCutAll1.Checked;
+end;
+
+procedure TfMain.ChkCutAll2Change(Sender: TObject);
+begin
+  ChkCut21.Checked := ChkCutAll2.Checked;
+  ChkCut22.Checked := ChkCutAll2.Checked;
+  ChkCut23.Checked := ChkCutAll2.Checked;
+  ChkCut24.Checked := ChkCutAll2.Checked;
+  ChkCut25.Checked := ChkCutAll2.Checked;
+  ChkCut26.Checked := ChkCutAll2.Checked;
+end;
+
+procedure TfMain.ChkCutAll3Change(Sender: TObject);
+begin
+  ChkCut31.Checked := ChkCutAll3.Checked;
+  ChkCut32.Checked := ChkCutAll3.Checked;
+  ChkCut33.Checked := ChkCutAll3.Checked;
+end;
+
+procedure TfMain.ChkCutAll45Change(Sender: TObject);
+begin
+  ChkCut41.Checked := ChkCutAll45.Checked;
+  ChkCut42.Checked := ChkCutAll45.Checked;
+  ChkCut51.Checked := ChkCutAll45.Checked;
+  ChkCut52.Checked := ChkCutAll45.Checked;
+end;
+
+procedure TfMain.Panel77Resize(Sender: TObject);
+Var Dist: integer;
+begin
+  try
+    Dist := Panel77.Width div 10;
+    if Dist > (ChkCutAll1.Width+5) then
+      ChkCut11.Left := ChkCutAll1.Left+Dist
+    else
+      ChkCut11.Left := ChkCutAll1.Left+(ChkCutAll1.Width+5);
+
+    ChkCut12.Left := ChkCut11.Left+Dist;
+    ChkCut13.Left := ChkCut11.Left+Dist*2;
+    ChkCut14.Left := ChkCut11.Left+Dist*3;
+    ChkCut15.Left := ChkCut11.Left+Dist*4;
+    ChkCut16.Left := ChkCut11.Left+Dist*5;
+    ChkCut17.Left := ChkCut11.Left+Dist*6;
+  except
+
+  end;
+end;
+
+procedure TfMain.Panel78Resize(Sender: TObject);
+Var Dist: integer;
+begin
+  try
+    Dist := Panel78.Width div 10;
+    if Dist > (ChkCutAll2.Width+5) then
+      ChkCut21.Left := ChkCutAll2.Left+Dist
+    else
+      ChkCut21.Left := ChkCutAll2.Left+(ChkCutAll2.Width+5);
+
+    ChkCut22.Left := ChkCut21.Left+Dist;
+    ChkCut23.Left := ChkCut21.Left+Dist*2;
+    ChkCut24.Left := ChkCut21.Left+Dist*3;
+    ChkCut25.Left := ChkCut21.Left+Dist*4;
+    ChkCut26.Left := ChkCut21.Left+Dist*5;
+  except
+
+  end;
+end;
+
+procedure TfMain.ChkShowOverLimtChange(Sender: TObject);
+
+begin
+  //PanelOver.Visible := ChkShowOverLimt.Checked;
+  //SplitPnOver.Visible := ChkShowOverLimt.Checked;
+
+  if ChkShowOverLimt.Checked then
+  begin
+    if Panel94.Width < 250+PanelOver.Width then
+      Panel94.Width := 254 + PanelOver.Width;
+    PanelOver.Visible := true;
+    SplitPnOver.Visible := true;
+
+    if Not ChkTotal.Checked then
+      BtnSpecLimitNumClick(Sender);
+  end
+  else
+  begin
+    PanelOver.Visible := false;
+    SplitPnOver.Visible := false;
+    Panel94.Width := 250;
+  end;
+end;
+
+
+
+
+procedure TfMain.BtnSpecLimitNumClick(Sender: TObject);
+Var i,SumWin: integer;
+    SpecNum: String;
+begin
+  NGridSpecNum.Columns[4].Visible := ChkTotal.Checked;
+  with Dm do
+  begin
+    QrLocateNum.Close;
+    QrLocateNum.ParamByName('mDate').Value  := DateToStr(Datepick.Date);
+    QrLocateNum.ParamByName('mLotID').Value := edLotID.Text;
+    QrLocateNum.Open;
+
+    SpecNum := '';
+    QrLocateNum.First;
+    for i := 0 to QrLocateNum.RecordCount-1 do
+    begin
+      SpecNum := SpecNum + QrLocateNum.FieldByName('Num').AsString+#13#10;
+      QrLocateNum.Next;
+    end;
+  end;
+
+  with  NGridSpecNum do
+  begin
+    RowCount := 0;
+    Clear;
+    Application.ProcessMessages;
+    if InputGrid.RowCount > 0 then
+    begin
+      ProgressBar2.Progress := 0;
+      ProgressBar2.MinValue := 0;
+      ProgressBar2.MaxValue := InputGrid.RowCount;
+      PBar.Show;
+      Application.ProcessMessages;
+      
+      for i := 0 to InputGrid.RowCount-1 do
+      begin
+        if RdNumClose.Checked then
+          CheckSpecNum(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i], InputGrid[4,i],false,false,SpecNum)
+        else
+        begin
+          //if Not((LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='')) then
+          if Not((edCor6.Text = '') Or (edCor2.Text = '')) then
+            CheckCorectNum(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i], InputGrid[4,i], InputGrid[5,i],false);
+        end;
+        ProgressBar2.AddProgress(1);
+      end;
+      PBar.Hide;
+      ProgressBar2.Progress := 0;
+
+      SumWin := 0;
+      for i := 0 to NGridSpecNum.RowCount-1 do
+        if NGridSpecNum[8,i] <> '' then
+          SumWin := SumWin + StrToInt(NGridSpecNum[8,i]);
+      lbSumWin.Caption := FormatFloat('###,##0',SumWin)+' บาท';
+    end;
+  end;
+end;
+
+procedure TfMain.Panel96Resize(Sender: TObject);
+begin
+  try
+    Label28.Left := Panel96.Width Div 2 -Label28.Width Div 2;
+    BtnSpecLimitNum.Left := Panel96.Width - BtnSpecLimitNum.Width -10;
+    Panel97.Left := Panel96.Width Div 2 - Panel97.Width Div 2; //Center
+  except
+
+  end;
+end;
+
+procedure TfMain.Panel95Resize(Sender: TObject);
+begin
+  try
+    lbSumWin.Left := Panel95.Width - lbSumWin.Width -20;
+  except
+  end;
+end;
+
+procedure TfMain.BtnUpdateAllClick(Sender: TObject);
+Var QrLastCustID,QrMasterCust,QrUpDateCust,QrUpDateNum,QrMasterSpec,QrSlaveSpec : TABSQuery;
+    i,j,Total: integer;
+    Num,PriUp,PriDwn,LastCustID: String;
+begin
+  try
+    With Dm do
+    begin
+      ServerDB.Connected := false;
+      ServerDB.DatabaseFileName := ServerDBFile;
+      ServerDB.Connected := true;
+
+      QrLastCustID := TABSQuery.Create(nil);
+      QrLastCustID.DatabaseName := ServerDB.DatabaseName;
+      QrLastCustID.Close;
+      QrLastCustID.SQL.Clear;
+      QrLastCustID.SQL.Add('Select Max(CustID) as MaxCustID from Cust');
+      QrLastCustID.Open;
+      LastCustID := QrLastCustID.fieldByName('MaxCustID').AsString;
+      QrLastCustID := nil;
+
+      QrMasterCust := TABSQuery.Create(nil);
+      QrMasterCust.DatabaseName := ServerDB.DatabaseName;
+      QrMasterCust.Close;
+      QrMasterCust.SQL.Clear;
+      QrMasterCust.SQL.Add('Select * from Cust');
+      QrMasterCust.Open;
+
+      QrMasterSpec := TABSQuery.Create(nil);
+      QrMasterSpec.DatabaseName := ServerDB.DatabaseName;
+      QrMasterSpec.Close;
+      QrMasterSpec.SQL.Clear;
+      QrMasterSpec.SQL.Add('Select * from LimitNum');
+      QrMasterSpec.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      QrMasterSpec.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+      QrMasterSpec.Open;
+
+
+      Progress1.MinValue := 0;
+      Progress1.MaxValue := QrMasterCust.RecordCount+QrMasterSpec.RecordCount;
+      Progress1.Progress := 0;
+      Progress1.Visible  := true;
+
+
+      QrSlaveSpec := TABSQuery.Create(nil);
+      QrSlaveSpec.DatabaseName := Database.DatabaseName;
+      QrSlaveSpec.Close;
+      QrSlaveSpec.SQL.Clear;
+      QrSlaveSpec.SQL.Add('Select * from LimitNum');
+      QrSlaveSpec.Open;
+      if QrSlaveSpec.RecordCount > 0 then
+      QrSlaveSpec.Close;
+      QrSlaveSpec.SQL.Clear;
+      QrSlaveSpec.SQL.Add('Delete from LimitNum');
+      QrSlaveSpec.ExecSQL;
+
+      QrMasterSpec.First;
+      for i := 0 to QrMasterSpec.RecordCount-1 do
+      begin
+        Progress1.Progress := Progress1.Progress+1;
+        QrSlaveSpec.Close;
+        QrSlaveSpec.SQL.Clear;
+        QrSlaveSpec.SQL.Add('INSERT INTO LimitNum (LimitDate, LotType, Num, Limit1, Price1, Limit2, Price2, '+
+                           'Limit3, Price3, Limit4, Price4, Limit5, Price5, Limit6, Price6, Limit7, Price7)');
+
+        QrSlaveSpec.SQL.Add('VALUES (:aLimitDate, :aLotType, :aNum, :aLimit1, :aPrice1, :aLimit2, :aPrice2, '+
+                           ':aLimit3, :aPrice3, :aLimit4, :aPrice4, :aLimit5, :aPrice5, :aLimit6, :aPrice6, :aLimit7, :aPrice7)');
+
+        QrSlaveSpec.ParamByName('aLimitDate').Value  := QrMasterSpec.fieldByName('LimitDate').Value;
+        QrSlaveSpec.ParamByName('aLotType').Value    := QrMasterSpec.fieldByName('LotType').Value;
+        QrSlaveSpec.ParamByName('aNum').Value        := QrMasterSpec.fieldByName('Num').Value;
+        QrSlaveSpec.ParamByName('aLimit1').Value     := QrMasterSpec.fieldByName('Limit1').Value;
+        QrSlaveSpec.ParamByName('aPrice1').Value     := QrMasterSpec.fieldByName('Price1').Value;
+        QrSlaveSpec.ParamByName('aLimit2').Value     := QrMasterSpec.fieldByName('Limit2').Value;
+        QrSlaveSpec.ParamByName('aPrice2').Value     := QrMasterSpec.fieldByName('Price2').Value;
+        QrSlaveSpec.ParamByName('aLimit3').Value     := QrMasterSpec.fieldByName('Limit3').Value;
+        QrSlaveSpec.ParamByName('aPrice3').Value     := QrMasterSpec.fieldByName('Price3').Value;
+        QrSlaveSpec.ParamByName('aLimit4').Value     := QrMasterSpec.fieldByName('Limit4').Value;
+        QrSlaveSpec.ParamByName('aPrice4').Value     := QrMasterSpec.fieldByName('Price4').Value;
+        QrSlaveSpec.ParamByName('aLimit5').Value     := QrMasterSpec.fieldByName('Limit5').Value;
+        QrSlaveSpec.ParamByName('aPrice5').Value     := QrMasterSpec.fieldByName('Price5').Value;
+        QrSlaveSpec.ParamByName('aLimit6').Value     := QrMasterSpec.fieldByName('Limit6').Value;
+        QrSlaveSpec.ParamByName('aPrice6').Value     := QrMasterSpec.fieldByName('Price6').Value;
+        QrSlaveSpec.ParamByName('aLimit7').Value     := QrMasterSpec.fieldByName('Limit7').Value;
+        QrSlaveSpec.ParamByName('aPrice7').Value     := QrMasterSpec.fieldByName('Price7').Value;
+        QrSlaveSpec.ExecSQL;
+
+        QrMasterSpec.Next;
+      end;
+
+
+      QrUpDateCust := TABSQuery.Create(nil);
+      QrUpDateCust.DatabaseName := Database.DatabaseName;
+      QrUpDateCust.Close;
+      QrUpDateCust.SQL.Clear;
+
+      QrUpDateCust.SQL.Add('Select * from Cust');
+      QrUpDateCust.Open;
+      if QrUpDateCust.RecordCount > 0 then
+      QrUpDateCust.Close;
+      QrUpDateCust.SQL.Clear;
+      QrUpDateCust.SQL.Add('Delete from Cust');
+      QrUpDateCust.ExecSQL;
+
+      QrMasterCust.First;
+      for i := 0 to QrMasterCust.RecordCount-1 do
+      begin
+        Application.ProcessMessages;
+        Progress1.Progress := Progress1.Progress+1;
+        QrUpDateCust.Close;
+        QrUpDateCust.SQL.Clear;
+        QrUpDateCust.SQL.Add('INSERT INTO Cust (CustID, IDCard, bfName, fName, lName, Address1, Address2, Phone1, Phone2, Mobile1, Mobile2, HasCom, Comment, '+
+                           'ComRnUp, ComRnDwn, ComPosUp, ComPosDwn, Com2Up, Com2Tod, Com2Dwn, Com2Mee, Com2Pos, Com3Up, Com3Tod, Com3Dwn, Com4, Com4Tod, Com5, Com5Tod, '+
+                           'PayRnUp, PayRnDwn, PayPosUp, PayPosDwn, Pay2Up, Pay2Tod, Pay2Dwn, Pay2Mee, Pay2Pos, Pay3Up, Pay3Tod, Pay3Dwn, Pay4, Pay4Tod, Pay5, Pay5Tod)');
+
+        QrUpDateCust.SQL.Add('VALUES (:aCustID, :aIDCard, :aBfn, :afName, :alName, :aAdr1, :aAdr2, :aPhone1, :aPhone2, :aMoBile1, :aMoBile2, :aHasCom, :aComment, '+
+                           ':aComRnUp, :aComRnDwn, :aComPosUp, :aComPosDwn, :aCom2Up, :aCom2Tod, :aCom2Dwn, :aCom2Mee, :aCom2Pos, :aCom3Up, :aCom3Tod, :aCom3Dwn, :aCom4, :aCom4Tod, :aCom5, :aCom5Tod, '+
+                           ':aPayRnUp, :aPayRnDwn, :aPayPosUp, :aPayPosDwn, :aPay2Up, :aPay2Tod, :aPay2Dwn, :aPay2Mee, :aPay2Pos, :aPay3Up, :aPay3Tod, :aPay3Dwn, :aPay4, :aPay4Tod, :aPay5, :aPay5Tod)');
+
+        QrUpDateCust.ParamByName('aCustID').Value  := QrMasterCust.fieldByName('CustID').AsString;
+        QrUpDateCust.ParamByName('aIDCard').Value  := QrMasterCust.fieldByName('CustID').AsString;
+        QrUpDateCust.ParamByName('aBfn').Value     := QrMasterCust.fieldByName('bfName').AsString;
+        QrUpDateCust.ParamByName('afName').Value   := QrMasterCust.fieldByName('fName').AsString;
+        QrUpDateCust.ParamByName('alName').Value   := QrMasterCust.fieldByName('lName').AsString;
+        QrUpDateCust.ParamByName('aAdr1').Value    := QrMasterCust.fieldByName('Address1').AsString;
+        QrUpDateCust.ParamByName('aAdr2').Value    := QrMasterCust.fieldByName('Address2').AsString;
+        QrUpDateCust.ParamByName('aPhone1').Value  := QrMasterCust.fieldByName('Phone1').AsString;
+        QrUpDateCust.ParamByName('aPhone2').Value  := QrMasterCust.fieldByName('Phone2').AsString;
+        QrUpDateCust.ParamByName('aMobile1').Value := QrMasterCust.fieldByName('Mobile1').AsString;
+        QrUpDateCust.ParamByName('aMobile2').Value := QrMasterCust.fieldByName('Mobile2').AsString;
+        QrUpDateCust.ParamByName('aHasCom').Value  := QrMasterCust.fieldByName('HasCom').AsString;
+        QrUpDateCust.ParamByName('aComment').Value := QrMasterCust.fieldByName('Comment').AsString;
+
+        QrUpDateCust.ParamByName('aComRnUp').Value   := QrMasterCust.fieldByName('ComRnUp').Value;
+        QrUpDateCust.ParamByName('aComRnDwn').Value  := QrMasterCust.fieldByName('ComRnDwn').Value;
+        QrUpDateCust.ParamByName('aComPosUp').Value  := QrMasterCust.fieldByName('ComPosUp').Value;
+        QrUpDateCust.ParamByName('aComPosDwn').Value := QrMasterCust.fieldByName('ComPosDwn').Value;
+        QrUpDateCust.ParamByName('aCom2Up').Value    := QrMasterCust.fieldByName('Com2Up').Value;
+        QrUpDateCust.ParamByName('aCom2Tod').Value   := QrMasterCust.fieldByName('Com2Tod').Value;
+        QrUpDateCust.ParamByName('aCom2Dwn').Value   := QrMasterCust.fieldByName('Com2Dwn').Value;
+        QrUpDateCust.ParamByName('aCom2Mee').Value   := QrMasterCust.fieldByName('Com2Mee').Value;
+        QrUpDateCust.ParamByName('aCom2Pos').Value   := QrMasterCust.fieldByName('Com2Pos').Value;
+        QrUpDateCust.ParamByName('aCom3Up').Value    := QrMasterCust.fieldByName('Com3Up').Value;
+        QrUpDateCust.ParamByName('aCom3Tod').Value   := QrMasterCust.fieldByName('Com3Tod').Value;
+        QrUpDateCust.ParamByName('aCom3Dwn').Value   := QrMasterCust.fieldByName('Com3Dwn').Value;
+        QrUpDateCust.ParamByName('aCom4').Value      := QrMasterCust.fieldByName('Com4').Value;
+        QrUpDateCust.ParamByName('aCom4Tod').Value   := QrMasterCust.fieldByName('Com4Tod').Value;
+        QrUpDateCust.ParamByName('aCom5').Value      := QrMasterCust.fieldByName('Com5').Value;
+        QrUpDateCust.ParamByName('aCom5Tod').Value   := QrMasterCust.fieldByName('Com5Tod').Value;
+
+        QrUpDateCust.ParamByName('aPayRnUp').Value   := QrMasterCust.fieldByName('PayRnUp').Value;
+        QrUpDateCust.ParamByName('aPayRnDwn').Value  := QrMasterCust.fieldByName('PayRnDwn').Value;
+        QrUpDateCust.ParamByName('aPayPosUp').Value  := QrMasterCust.fieldByName('PayPosUp').Value;
+        QrUpDateCust.ParamByName('aPayPosDwn').Value := QrMasterCust.fieldByName('PayPosDwn').Value;
+        QrUpDateCust.ParamByName('aPay2Up').Value    := QrMasterCust.fieldByName('Pay2Up').Value;
+        QrUpDateCust.ParamByName('aPay2Tod').Value   := QrMasterCust.fieldByName('Pay2Tod').Value;
+        QrUpDateCust.ParamByName('aPay2Dwn').Value   := QrMasterCust.fieldByName('Pay2Dwn').Value;
+        QrUpDateCust.ParamByName('aPay2Mee').Value   := QrMasterCust.fieldByName('Pay2Mee').Value;
+        QrUpDateCust.ParamByName('aPay2Pos').Value   := QrMasterCust.fieldByName('Pay2Pos').Value;
+        QrUpDateCust.ParamByName('aPay3Up').Value    := QrMasterCust.fieldByName('Pay3Up').Value;
+        QrUpDateCust.ParamByName('aPay3Tod').Value   := QrMasterCust.fieldByName('Pay3Tod').Value;
+        QrUpDateCust.ParamByName('aPay3Dwn').Value   := QrMasterCust.fieldByName('Pay3Dwn').Value;
+        QrUpDateCust.ParamByName('aPay4').Value      := QrMasterCust.fieldByName('Pay4').Value;
+        QrUpDateCust.ParamByName('aPay4Tod').Value   := QrMasterCust.fieldByName('Pay4Tod').Value;
+        QrUpDateCust.ParamByName('aPay5').Value      := QrMasterCust.fieldByName('Pay5').Value;
+        QrUpDateCust.ParamByName('aPay5Tod').Value   := QrMasterCust.fieldByName('Pay5Tod').Value;
+        QrUpDateCust.ExecSQL;
+
+        QrMasterCust.Next;
+      end;
+      ServerDB.Close;
+      QrUpDateCust := nil;
+      QrMasterCust := nil;
+      Progress1.Visible := false;
+      //FindBtnClick(Sender);
+      Showmessage('อัพเดทข้อมูลเครื่องแม่สำเร็จแล้ว');
+    end;
+  except
+    Showmessage('อัพเดทข้อมูลเครื่องแม่ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ');
+  end;
+
+
+
+end;
+
+procedure TfMain.Panel7Resize(Sender: TObject);
+begin
+  Try
+    BtnUpDateAll.Left := Panel7.Width-BtnUpDateAll.Width-10;
+    Progress1.Left := Panel7.Width-BtnUpDateAll.Width-10-Progress1.Width-5;
+  Except
+
+  end;
+end;
+
+procedure TfMain.PanelOverResize(Sender: TObject);
+Var i,Count,Wth: Integer;
+begin
+
+  Try
+    Count := 0;
+    for i := 0 to NGridSpecNum.ColCount -1 do
+    begin
+      if NGridSpecNum.Columns[i].Visible then
+        inc(Count);
+    end;
+    Wth := (PanelOver.Width - NGridSpecNum.GutterWidth*2) div Count;
+  
+    for i := 0 to NGridSpecNum.ColCount -1 do
+    begin
+      if NGridSpecNum.Columns[i].Visible then
+         NGridSpecNum.Columns[i].Width := Wth;
+    end;
+  Except
+
+  end;
+  
+end;
+
+procedure TfMain.NGridSpecNumDblClick(Sender: TObject);
+Var i: integer;
+    found: Boolean;
+begin
+  if rdNumCor.Checked then
+  begin
+    With Dm, frmCorectNum do
+    begin
+      if rdNumCor.Checked then
+      begin
+        Application.ProcessMessages;
+  
+        NGridCorrect.BeginUpdate;
+        NGridCorrect.Clear;
+        NGridCorrect.RowCount := 0;
+        TbCust.Close;
+        TbCust.Open;
+  
+        found := TbCust.Locate('CustID',NGridSpecNum[4,NGridSpecNum.Row],[]);
+        if found then
+          PanelNameCor.Caption := TbCust.FieldByName('CustID').AsString+' '+TbCust.FieldByName('fName').AsString+' '+TbCust.FieldByName('lName').AsString;
+  
+        for i := 0 to NGridSpecNum.RowCount-1 do
+        begin
+          if NGridSpecNum[4,NGridSpecNum.Row] = NGridSpecNum[4,i] then
+          begin
+            NGridCorrect.AddRow;
+            NGridCorrect[0,NGridCorrect.RowCount-1] := NGridSpecNum[0,i];
+            NGridCorrect[1,NGridCorrect.RowCount-1] := NGridSpecNum[1,i];
+            NGridCorrect[2,NGridCorrect.RowCount-1] := NGridSpecNum[2,i];
+            NGridCorrect[5,NGridCorrect.RowCount-1] := NGridSpecNum[5,i];
+            NGridCorrect[8,NGridCorrect.RowCount-1] := NGridSpecNum[8,i];
+          end;
+  
+        end;
+        NGridCorrect.EndUpdate;
+      end;
+      if Showmodal = mrOk then
+      begin
+  
+      end;
+  
+    end;
+  end;
+end;
+
+procedure TfMain.N43Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        if (Length(InputGrid[0,i]) > 2) and (Length(InputGrid[0,i]) < 6) then
+        begin
+          if IsNumOnly(InputGrid[1,i]) then
+          begin
+            if InputGrid[1,i] <> '' then
+            begin
+              UpTemp := InputGrid[1,i];
+              QrUpdate.Close;
+              QrUpdate.SQL.Clear;
+
+              QrUpdate.SQL.Add('Update Data');
+              QrUpDate.SQL.Add('Set Up=:aUp');
+              QrUpDate.SQL.Add('where ID =:aID');
+
+              QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+              QrUpDate.ParamByName('aUp').Value   := '-'+UpTemp;
+              QrUpdate.ExecSQL;
+
+              InputGrid[1,i] := '-'+UpTemp;
+              inc(Count);
+            end;
+          end;
+        end;
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนจากเต็งเป็นโต๊ด เสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.N44Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        if (Pos('-',InputGrid[1,i]) = 1) then
+        begin
+          if InputGrid[1,i] <> '' then
+          begin
+            UpTemp := InputGrid[1,i];
+            QrUpdate.Close;
+            QrUpdate.SQL.Clear;
+
+            QrUpdate.SQL.Add('Update Data');
+            QrUpDate.SQL.Add('Set Up=:aUp');
+            QrUpDate.SQL.Add('where ID =:aID');
+
+            QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+            QrUpDate.ParamByName('aUp').Value   := Replace(UpTemp,'-','');
+            QrUpdate.ExecSQL;
+
+            InputGrid[1,i] := Replace(UpTemp,'-','');
+            inc(Count);
+          end;
+
+        end;
+
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนจากโต๊ดเป็นเต็ง เสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.N46Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp,DwnTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        
+        if InputGrid[1,i] <> '' then
+        begin
+          if (CountNum(InputGrid[0,i]) > 1) and (CountNum(InputGrid[0,i]) < 6) then
+          begin
+            if IsNumOnly(InputGrid[1,i]) then
+            begin
+              UpTemp := InputGrid[1,i];
+              QrUpdate.Close;
+              QrUpdate.SQL.Clear;
+  
+              QrUpdate.SQL.Add('Update Data');
+              QrUpDate.SQL.Add('Set Up=:aUp');
+              QrUpDate.SQL.Add('where ID =:aID');
+  
+              QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+              QrUpDate.ParamByName('aUp').Value   := UpTemp+'*';
+              QrUpdate.ExecSQL;
+
+              InputGrid[1,i] := UpTemp+'*';
+              inc(Count);
+            end;
+          end;
+
+        end
+        else
+        if InputGrid[2,i] <> '' then
+        begin
+          if (CountNum(InputGrid[0,i]) = 2) then
+          begin
+            if IsNumOnly(InputGrid[2,i]) then
+            begin
+              DwnTemp := InputGrid[2,i];
+              QrUpdate.Close;
+              QrUpdate.SQL.Clear;
+  
+              QrUpdate.SQL.Add('Update Data');
+              QrUpDate.SQL.Add('Set Dwn=:aDwn');
+              QrUpDate.SQL.Add('where ID =:aID');
+  
+              QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+              QrUpDate.ParamByName('aDwn').Value   := DwnTemp+'*';
+              QrUpdate.ExecSQL;
+
+              InputGrid[2,i] := UpTemp+'*';
+              inc(Count);
+            end;
+          end;
+        end
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนจากตรงเป็นคูณชุด หรือ กลับ เสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.N47Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp,DwnTemp: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        if InputGrid[1,i] <> '' then
+        begin
+          if (CountNum(InputGrid[0,i]) > 1) and (CountNum(InputGrid[0,i]) < 6) then
+          begin
+            if Pos('*',InputGrid[1,i]) = Length(InputGrid[1,i]) then
+            begin
+              UpTemp := InputGrid[1,i];
+              QrUpdate.Close;
+              QrUpdate.SQL.Clear;
+  
+              QrUpdate.SQL.Add('Update Data');
+              QrUpDate.SQL.Add('Set Up=:aUp');
+              QrUpDate.SQL.Add('where ID =:aID');
+  
+              QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+              QrUpDate.ParamByName('aUp').Value   := Replace(UpTemp,'*','');
+              QrUpdate.ExecSQL;
+  
+              InputGrid[1,i] := Replace(UpTemp,'*','');
+              inc(Count);
+            end;
+          end;
+
+        end
+        else
+        if InputGrid[2,i] <> '' then
+        begin
+          if (CountNum(InputGrid[0,i]) = 2) then
+          begin
+            if Pos('*',InputGrid[1,i]) = Length(InputGrid[1,i]) then
+            begin
+              DwnTemp := InputGrid[2,i];
+              QrUpdate.Close;
+              QrUpdate.SQL.Clear;
+  
+              QrUpdate.SQL.Add('Update Data');
+              QrUpDate.SQL.Add('Set Dwn=:aDwn');
+              QrUpDate.SQL.Add('where ID =:aID');
+  
+              QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+              QrUpDate.ParamByName('aDwn').Value   := Replace(UpTemp,'*','');
+              QrUpdate.ExecSQL;
+
+              InputGrid[2,i] := Replace(UpTemp,'*','');
+              inc(Count);
+            end;
+          end;
+        end
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนจากเลขคูณชุดเป็นตรงเสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.N49Click(Sender: TObject);
+Var QrUpdate: TABSQuery;
+    i,Count: Integer;
+    UpTemp,Up: String;
+begin
+    with InputGrid, Dm do
+    begin
+      Application.ProcessMessages;
+      BeginUpdate;
+      QrUpdate := TABSQuery.Create(nil);
+      QrUpdate.DatabaseName := Database.DatabaseName;
+      Count := 0;
+      for i := SelectArea.Bottom Downto SelectArea.Top  do
+      begin
+        Up := InputGrid[1,i];
+        if (Length(InputGrid[0,i]) > 2) and (Length(InputGrid[0,i]) < 6) then
+        begin
+          if Up <> '' then
+          begin
+            if Up[Length(Up)] = '-' then
+            begin
+              UpTemp := Copy(Up,1,Length(Up)-1);
+              QrUpdate.Close;
+              QrUpdate.SQL.Clear;
+
+              QrUpdate.SQL.Add('Update Data');
+              QrUpDate.SQL.Add('Set Up=:aUp');
+              QrUpDate.SQL.Add('where ID =:aID');
+
+              QrUpDate.ParamByName('aID').Value   := InputGrid[3,i];
+              QrUpDate.ParamByName('aUp').Value   := '-'+UpTemp;
+              QrUpdate.ExecSQL;
+
+              InputGrid[1,i] := '-'+UpTemp;
+              inc(Count);
+            end;
+          end;
+        end;
+
+      end;
+      EndUpdate;
+      ProcessBtnClick(Sender);
+      if Count > 0 then
+        Showmessage('เปลี่ยนโต๊ดที่มีเครื่องหมายลบ(-)อยู่หลังมาอยู่หน้าเสร็จแล้ว '+IntToStr(Count)+' รายการ')
+      else
+        Showmessage('ไม่พบรายการที่ต้องการเปลี่ยน');
+    end;
+end;
+
+procedure TfMain.SeSkinSpeedButton7Click(Sender: TObject);
+Var i,LenUp: integer;
+    fNum,Up: String;
+begin
+  fNum := trim(edFindData.Text);
+
+  for i := InputGrid.RowCount-1 downto 0 do
+  begin
+    Up := trim(inputGrid[1,i]);
+    LenUp := Length(Up);
+    if Up <> '' then
+    begin
+      if (fNum <> Up[Lenup]) then
+      begin
+        InputGrid.DeleteRow(i);
+      end;
+    end
+    else
+      InputGrid.DeleteRow(i);
+
+  end;
+  lbItems1.Caption := IntToStr(InputGrid.RowCount)+' รายการ';
+end;
+
+
+procedure TfMain.Chk4Tod2TengChange(Sender: TObject);
+Var i,j,k,CountPMuNum,PrPerNum: integer;
+    PMNum: String;
+    PmList: TStringList;
+    foundNum: Boolean;
+begin
+  //CutProcBtnClick(Sender);
+  Totalsales;
+  {
+  PmList := TStringList.Create;
+  Application.ProcessMessages;
+  if Chk4Tod2Teng.Checked then
+  begin
+    for i := CutGrid4.RowCount-1 Downto 0 do
+    begin
+      CountPMuNum := Permutation(CutGrid4[0,i]);
+      PrPerNum := Round(TxtToFloat(CutGrid4[2,i])/CountPMuNum);
+      PMNum := PerMuTationStr(CutGrid4[0,i]);
+      PmList.Text := PMNum;
+      for j := 0 to PmList.Count-1 do
+      begin
+        if CutGrid3.RowCount = 0 then
+        begin
+          CutGrid3.BeginUpdate;
+          CutGrid3.RowCount := 1;
+          CutGrid3[0,0] := PmList[j];
+          CutGrid3[1,0] := IntToStr(PrPerNum);
+          CutGrid3.EndUpdate;
+        end
+        else
+        begin
+          for k := 0 to CutGrid3.RowCount-1 do
+          begin
+            foundNum := false;
+            if (PmList[j] = CutGrid3[0,k]) then
+            begin
+              CutGrid3.BeginUpdate;
+              CutGrid3[1,k] := IntToStr(StrToInt(CutGrid3[1,k]) + PrPerNum);
+              CutGrid3.EndUpdate;
+              foundNum := true;
+              Break;
+            end
+          end;
+
+          if Not(foundNum) then
+          begin
+            CutGrid3.AddRow;
+            CutGrid3[0,CutGrid3.Rowcount-1] := PmList[j];
+            CutGrid3[1,CutGrid3.Rowcount-1] := IntToStr(PrPerNum);
+          end;
+        end;
+      end;
+      CutGrid4[2,i] := '';
+      if (CutGrid4[1,i] = '') and (CutGrid4[2,i] = '') then
+        CutGrid4.DeleteRow(i);
+    end;
+  end;
+  SumCutGrid[0,17] := '0';
+  SumCutGrid[1,17] := '0';
+  PmList.Free;
+ }
+end;
+
+procedure TfMain.Panel62Resize(Sender: TObject);
+begin
+  try
+    Chk5Tod2Teng.Left := Panel62.Left+20;
+  except
+  end;
+end;
+
+procedure TfMain.Chk5Tod2TengChange(Sender: TObject);
+begin
+  //CutProcBtnClick(Sender);
+  Totalsales;
+end;
+
+procedure TfMain.MenuItem2Click(Sender: TObject);
+var i,Count: integer;
+    Num,Str,StrData,Pr,bookmark: String;
+    Head: String;
+    RtedCut: TRichEdit;
+begin
+  Head := '[3 ตัวบน]'+ #13#10;
+  Count := 0;
+  bookmark := '<------------------------->';
+
+  With CutGrid3 do
+  begin
+    StrData := '';
+    Str := '';
+    for i := 0 to RowCount-1 do
+    begin
+        Num := CutGrid3[0,i];
+        Pr  := CutGrid3[1,i];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+    end;
+    if trim(Str) <> '' then
+    begin
+      StrData := StrData+bookmark+#13#10+Head+Str+bookmark;
+
+      RtedCut := TRichEdit.Create(nil);
+      RtedCut.Visible := false;
+      RtedCut.Parent := Panel31;
+      RtEdCut.Text := StrData;
+      RtEdCut.SelectAll;
+      RtEdCut.CutToClipboard;
+
+      //RtEdCut.Free;
+
+      Showmessage('คัดลอกข้อมูลเลข 3 ตัวบนไปยังคลิปบอร์ด '+IntToStr(Count)+' รายการเรียบร้อยแล้ว');
+    end
+    else
+      Showmessage('ไม่พบข้อมูลที่ต้องการคัดลอก');
+  end;
+
+end;
+
+procedure TfMain.Btn_CopyNum3MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var P: TPoint;
+begin
+  P := Btn_CopyNum3.ClientToScreen(Point(0,Btn_CopyNum3.Height));
+  PMenuCopy3.Popup(P.x,P.y);
+
+end;
+
+procedure TfMain.MenuItem22Click(Sender: TObject);
+var i,Count: integer;
+    Num,Str,StrData,Pr,bookmark: String;
+    Head: String;
+    RtedCut: TRichEdit;
+begin
+  Head := '[3 ตัวโต๊ด]'+ #13#10;
+  Count := 0;
+  bookmark := '<------------------------->';
+
+  With CutGrid3 do
+  begin
+    StrData := '';
+    Str := '';
+    for i := 0 to RowCount-1 do
+    begin
+        Num := CutGrid3[0,i];
+        Pr  := CutGrid3[2,i];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+    end;
+    if trim(Str) <> '' then
+    begin
+      StrData := StrData+bookmark+#13#10+Head+Str+bookmark;
+      RtedCut := TRichEdit.Create(nil);
+      RtedCut.Visible := false;
+      RtedCut.Parent := Panel31;
+      RtEdCut.Text := StrData;
+      RtEdCut.SelectAll;
+      RtEdCut.CutToClipboard;
+
+      Showmessage('คัดลอกข้อมูลเลข 3 ตัวโต๊ดไปยังคลิปบอร์ด '+IntToStr(Count)+' รายการเรียบร้อยแล้ว');
+    end
+    else
+      Showmessage('ไม่พบข้อมูลที่ต้องการคัดลอก');
+  end;
+
+end;
+
+procedure TfMain.MenuItem23Click(Sender: TObject);
+var i,Count: integer;
+    Num,Str,StrData,Pr,bookmark: String;
+    Head: String;
+    RtedCut: TRichEdit;
+begin
+  Head := '[3 ตัวล่าง]'+ #13#10;
+  Count := 0;
+  bookmark := '<------------------------->';
+
+  With CutGrid3 do
+  begin
+    StrData := '';
+    Str := '';
+    for i := 0 to RowCount-1 do
+    begin
+        Num := CutGrid3[0,i];
+        Pr  := CutGrid3[3,i];
+        if Pr <> '' then
+        begin
+          Str := Str+Num+'='+Pr+#13#10;
+          Count := count+1;
+        end;
+    end;
+    if trim(Str) <> '' then
+    begin
+      StrData := StrData+bookmark+#13#10+Head+Str+bookmark;
+      //ClipBoard.AsText := trim(StrData);
+            RtedCut := TRichEdit.Create(nil);
+      RtedCut.Visible := false;
+      RtedCut.Parent := Panel31;
+      RtEdCut.Text := StrData;
+      RtEdCut.SelectAll;
+      RtEdCut.CutToClipboard;
+      
+      Showmessage('คัดลอกข้อมูลเลข 3 ตัวล่างไปยังคลิปบอร์ด '+IntToStr(Count)+' รายการเรียบร้อยแล้ว');
+    end
+    else
+      Showmessage('ไม่พบข้อมูลที่ต้องการคัดลอก');
+  end;
+
+end;
+
+procedure TfMain.edNumUpKeyPress(Sender: TObject; var Key: Char);
+Var ValidNum: Boolean;
+    NumUp,filename: String;
+begin
+  NumUp := edNumUp.Text;
+  ValidNum := false;
+
+  if Not(key in [#13,#10,'0'..'9','-','+','/','.','*',#8,#32]) then
+  begin
+    Key := #0;
+    Filename := AppPath + 'Sound\fail.wav';
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in [#32]) then //--------------------------------------------------//
+  begin
+    if ChkCanLockPr.Checked then
+    begin
+      Key := #0;
+      ChkNumLock.Checked := Not(ChkNumLock.Checked);
+    end
+    else
+      Key := #0
+  end
+  else
+  if (key in ['-']) then //--------------------------------------------------//
+  begin
+    if ((CountOccur('*',NumUp) = 0) and (CountOccur('/',NumUp) = 0) and (CountOccur('+',NumUp) = 0) and
+        (CountOccur('.',NumUp) = 0) and (CountOccur('-',NumUp) <= 1)) Or (edNumup.SelLength = Length(NumUp)) then
+    begin
+      if (Length(NumUp) = 0) Or (edNumup.SelLength = Length(NumUp))  then
+        Filename := AppPath + 'Sound\lang.wav'
+      else
+      if (Length(NumUp) = 1) and (Length(GetNum(NumUp)) = 1) then
+        Filename := AppPath + 'Sound\nar.wav'
+      else
+      if ((Length(NumUp) = 2) and (Length(GetNum(NumUp)) = 2) and (edNumUp.SelStart = 2)) then
+        Filename := AppPath + 'Sound\nar.wav'
+      else
+      if ((Length(NumUp) = 2) and (Length(GetNum(NumUp)) = 1) and (Pos('-',NumUp) = 1) and (edNumUp.SelStart = 2)) then
+        Filename := AppPath + 'Sound\nar.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['+']) then //--------------------------------------------------//
+  begin
+    if ((CountOccur('*',NumUp) = 0) and (CountOccur('/',NumUp) = 0) and (CountOccur('+',NumUp) = 0) and
+        (CountOccur('.',NumUp) = 0) and (CountOccur('-',NumUp) = 0)) Or (edNumUp.SelLength = Length(NumUp)) then
+    begin
+      if (Length(NumUp) = 2) and (edNumUp.SelStart = 2) then
+        Filename := AppPath + 'Sound\mee.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['*']) then //--------------------------------------------------//
+  begin
+    if ((CountOccur('*',NumUp) = 0) and (CountOccur('/',NumUp) = 0) and (CountOccur('+',NumUp) = 0) and
+        (CountOccur('.',NumUp) = 0) and (CountOccur('-',NumUp) = 0)) Or (edNumup.SelLength = Length(NumUp)) then
+    begin
+      if (Length(NumUp) > 2) and (edNumUp.SelStart = Length(NumUp)) then
+        Filename := AppPath + 'Sound\win.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['.']) then //--------------------------------------------------//
+  begin
+    if ((CountOccur('*',NumUp) = 0) and (CountOccur('/',NumUp) = 0) and (CountOccur('+',NumUp) = 0) and
+        (CountOccur('.',NumUp) < 2) and (CountOccur('-',NumUp) = 0)) Or (edNumUp.SelLength = Length(NumUp)) then
+    begin
+      if (Length(NumUp) = 0) Or (edNumUp.SelLength = Length(NumUp)) then
+        Filename := AppPath + 'Sound\lekkoo.wav'
+      else
+      if (Length(NumUp) = 1) and (NumUp = '.')  and (edNumUp.SelStart = Length(NumUp)) then
+        Filename := AppPath + 'Sound\peenong.wav'
+      else
+      if (Length(NumUp) = 2) and ((NumUp = '19') Or (NumUp = '20'))  and (edNumUp.SelStart = Length(NumUp)) then
+        Filename := AppPath + 'Sound\ding.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['/']) then
+  begin
+    if ((CountOccur('*',NumUp) = 0) and (CountOccur('/',NumUp) = 0) and (CountOccur('+',NumUp) = 0) and
+        (CountOccur('.',NumUp) = 0) and (CountOccur('-',NumUp) = 0)) Or (edNumup.SelLength = Length(NumUp)) then
+    begin
+      if (Length(NumUp) = 0)  Or (edNumup.SelLength = Length(NumUp)) then
+        Filename := AppPath + 'Sound\roodlang.wav'
+      else
+      if ((Length(NumUp) = 1) and (edNumUp.SelStart = Length(NumUp))) then
+        Filename := AppPath + 'Sound\roodnar.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['0'..'9']) then
+  begin
+    if key in ['0'] then
+      Filename := AppPath + 'Sound\0.wav';
+    if key in ['1'] then
+      Filename := AppPath + 'Sound\1.wav';
+    if key in ['2'] then
+      Filename := AppPath + 'Sound\2.wav';
+    if key in ['3'] then
+      Filename := AppPath + 'Sound\3.wav';
+    if key in ['4'] then
+      Filename := AppPath + 'Sound\4.wav';
+    if key in ['5'] then
+      Filename := AppPath + 'Sound\5.wav';
+    if key in ['6'] then
+      Filename := AppPath + 'Sound\6.wav';
+    if key in ['7'] then
+      Filename := AppPath + 'Sound\7.wav';
+    if key in ['8'] then
+      Filename := AppPath + 'Sound\8.wav';
+    if key in ['9'] then
+      Filename := AppPath + 'Sound\9.wav';
+
+    if (((CountOccur('*',NumUp) > 0) Or (CountOccur('+',NumUp) > 0) Or (CountOccur('.',NumUp) > 1)) and (edNumup.SelStart = Length(NumUp))  ) Or
+       ((((Length(Numup) = 3)) and (Pos('-',NumUp) = Length(NumUp)) and (Length(GetNum(NumUp)) = Length(Numup)-1) ) and (edNumup.SelStart = Length(NumUp))  ) Or
+       (((CountOccur('.',NumUp) = 1) and (NumUp[1] = '1') and (NumUp[2] = '9') and (NumUp[3] = '.') and (NumUp[4] in ['0'..'9']) ) and (edNumup.SelStart = Length(NumUp)) ) Or
+       (((CountOccur('.',NumUp) = 1) and (NumUp[1] = '2') and (NumUp[2] = '0') and (NumUp[3] = '.') and (NumUp[4] in ['0'..'9']) ) and (edNumup.SelStart = Length(NumUp)) ) Or
+       (((CountOccur('-',NumUp) = 2) and (NumUp[1] = '-') and (NumUp[2] in ['0'..'9']) and (NumUp[3] = '-') ) and (edNumup.SelStart = Length(NumUp))  ) Or
+       (((CountOccur('/',NumUp) = 1) and (NumUp[1] = '/') and (NumUp[2] in ['0'..'9']) ) and (edNumup.SelStart = Length(NumUp)) ) Or
+       (((CountOccur('/',NumUp) = 1) and (NumUp[1] in ['0'..'9']) and (NumUp[2] = '/') ) and (edNumup.SelStart = Length(NumUp)) ) Or
+       (((CountOccur('-',NumUp) = 1) and (NumUp[1] = '-') and (NumUp[2] in ['0'..'9']) and (Length(NumUp) = 2)  ) and (edNumUp.SelStart = Length(NumUp)) ) Or
+       (((CountOccur('-',NumUp) = 1) and (NumUp[1] in ['0'..'9']) and (NumUp[2] = '-') and (NumUp[3] in ['0'..'9'])  and (Length(NumUp) = 3)  ) and (edNumUp.SelStart = Length(NumUp)) ) Or
+       ((CountOccur('.',NumUp) = 1) and (Length(NumUp) = 1) and (edNumup.SelStart = Length(NumUp)) )
+
+    then
+    begin
+      Key := #0;
+      Filename := AppPath + 'Sound\fail.wav';
+
+    end;
+
+    if SoundOn then
+        PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if ((Key = #13) Or ((key=#10) and (GetKeyState(VK_CONTROL) < 0)) ) then
+  begin
+    if Not(ChkNumLock.Checked) then
+    begin
+      if Key = #13 then
+      begin
+        Key := #0;
+        if (Length(NumUp) = 1)  then
+        begin
+          if IsNumOnly(NumUp) then
+            ValidNum := true;
+  
+          if NumUp = '.' then
+            ValidNum := true;
+        end
+        else
+        if (Length(NumUp) = 2)  then
+        begin
+          if IsNumOnly(NumUp) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['-']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['/']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['-']) and (NumUp[2] in ['0'..'9']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['/']) and (NumUp[2] in ['0'..'9']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['.']) and (NumUp[2] in ['.']) then
+            ValidNum := true;
+        end
+        else
+        if (Length(NumUp) = 3)  then
+        begin
+          if IsNumOnly(NumUp) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['0'..'9']) and (NumUp[3] in ['-']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['-']) and (NumUp[2] in ['0'..'9']) and (NumUp[3] in ['-']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['0'..'9']) and (NumUp[3] in ['+']) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['-']) and (NumUp[3] in ['0'..'9'])  then
+            ValidNum := true;
+        end
+        else
+        if (Length(NumUp) = 4)  then
+        begin
+          if IsNumOnly(NumUp) then
+            ValidNum := true;
+  
+          if (NumUp[1] in ['1']) and (NumUp[2] in ['9']) and (NumUp[3] in ['.']) and (NumUp[4] in ['0'..'9']) then
+            ValidNum := true;
+
+          if (NumUp[1] in ['2']) and (NumUp[2] in ['0']) and (NumUp[3] in ['.']) and (NumUp[4] in ['0'..'9']) then
+            ValidNum := true;
+
+
+          if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (NumUp[Length(NumUp)] in ['*']) then
+            ValidNum := true;
+        end
+        else
+        if (Length(NumUp) = 5)  then
+        begin
+          if IsNumOnly(NumUp) then
+            ValidNum := true;
+  
+          if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (NumUp[Length(NumUp)] in ['*']) then
+            ValidNum := true;
+        end
+        else
+        if (Length(NumUp) > 5)  then
+        begin
+          if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (NumUp[Length(NumUp)] in ['*']) then
+            ValidNum := true;
+        end;
+  
+        if ValidNum then
+          edPr.SetFocus
+        else
+        begin
+          filename := AppPath + 'Sound\fail.wav';
+          if SoundOn then
+            PlaySound(PChar(filename), 0, SND_ASYNC);
+  
+          edNumUp.SelectAll;
+        end;
+      end
+      else
+      begin
+        edPrKeyPress(Sender,Key);
+        edNumUp.SelectAll;
+      end;
+
+    end
+    else
+    begin
+      edPrKeyPress(Sender,Key);
+      edNumUp.SelectAll;
+    end;
+  end;
+end;
+
+procedure TfMain.edPrKeyPress(Sender: TObject; var Key: Char);
+Var ValidNum,PrErr: Boolean;
+    NumUp,NumDwn,Pr,filename,Val2TodStr,StrDate,RegKey: String;
+    Val2Tod: real;
+    TbData: TABSTable;
+    QrEdInput: TABSQuery;
+    LenDate: Integer;
+    ExprKeyDate: TDateTime;
+    HDDInfo: THDDInfo;
+    DriveNumber: Byte;
+    HardwareID: string;
+    SerialNo: string;
+    SerialInfo: TSerialInfo;
+begin
+  ValidNum := false;
+  NumUp  := edNumUp.Text;
+  NumDwn := edNumDwn.Text;
+  Pr    := edPr.Text;
+
+  if Not(key in [#13,#10,'0'..'9','-','*',#8,#32]) then
+  begin
+    Key := #0;
+    Filename := AppPath + 'Sound\fail.wav';
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in [#32]) then  //--------------------------------------------------//
+  begin
+    Key := #0;
+    if (NumUp <> '') then
+    begin
+      if (Length(NumUp) = 3) then
+      begin
+        if (ChkNewInput.Checked) then
+        begin
+          if (CountOccur('*',Pr) = 0) then
+          begin
+            edPr.Text := Pr+'*'+IntToStr(Permutation(NumUp)-1)+'*';
+            edPr.SelStart := Length(Pr)+3;
+          end
+          else
+          if (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr)) then
+          begin
+            edPr.Text := Pr+IntToStr(Permutation(NumUp)-1)+'*';
+            edPr.SelStart := Length(Pr)+2;
+          end
+        end;
+      end;
+    end;
+  end
+  else
+  if (key in [#8]) then  //--------------------------------------------------//
+  begin
+    if (edPr.Text = '0') then
+    begin
+      if (NumUp <> '') then
+        edNumUp.SetFocus
+      else
+        edNumDwn.SetFocus;
+    end;
+  end
+  else
+  if (key in ['-']) then  //--------------------------------------------------//
+  begin
+    if NumUp <> '' then
+    begin
+      if ((CountOccur('*',Pr) = 0) and (CountOccur('-',Pr) = 0) and (CountOccur('.',NumUp) = 0) and (CountOccur('+',NumUp) = 0)) Or (edPr.SelLength = Length(Pr)) then
+      begin
+        if (CountOccur('*',NumUp) > 0) then
+        begin
+          Key := #0;
+          Filename := AppPath + 'Sound\fail.wav';
+        end
+        else
+        if IsNumOnly(NumUp) then
+        begin
+          if ((Length(GetNum(NumUp)) = 5) and (length(Pr) = 0)) Or ((Length(GetNum(NumUp)) = 5) and  (edPr.SelLength = Length(Pr))) then
+            Filename := AppPath + 'Sound\pare.wav'
+          else
+          if ((Length(GetNum(NumUp)) = 4) and (length(Pr) = 0)) Or ((Length(GetNum(NumUp)) = 4) and  (edPr.SelLength = Length(Pr))) then
+            Filename := AppPath + 'Sound\pare.wav'
+          else
+          if ((Length(GetNum(NumUp)) = 3) and (CountOccur('-',Pr) = 0) ) Or ((Length(GetNum(NumUp)) = 3) and  (edPr.SelLength = Length(Pr))) then
+            Filename := AppPath + 'Sound\tote.wav'
+          else
+          if ((Length(GetNum(NumUp)) = 2) and (Length(NumUp) = 2) and (length(Pr) = 0)) Or ((Length(GetNum(NumUp)) = 2) and (Length(NumUp) = 2) and  (edPr.SelLength = Length(Pr))) then
+            Filename := AppPath + 'Sound\tote.wav'
+          else
+          begin
+            Key := #0;
+            Filename := AppPath + 'Sound\fail.wav';
+          end;
+        end;
+      end
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+      if ((Length(GetNum(NumDwn)) = 2) and (length(Pr) = 0)) Or ((Length(GetNum(NumDwn)) = 2) and  (edPr.SelLength = Length(Pr))) then
+        Filename := AppPath + 'Sound\tote.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['*']) then  //--------------------------------------------------//
+  begin
+    if (NumUp <> '') then
+    begin
+      if (edPr.SelStart >= 1) then
+      begin
+        if ((CountOccur('*',Pr) = 0) and (CountOccur('-',Pr) = 0) and (CountOccur('.',NumUp) = 0) and (CountOccur('+',NumUp) = 0)) then
+        begin
+          if (Length(GetNum(NumUp)) = 2) and (edPr.SelStart > 1) then
+            Filename := AppPath + 'Sound\klub.wav'
+          else
+          if (Length(GetNum(NumUp)) = 3) and (CountOccur('*',NumUp) = 0) then
+            Filename := AppPath + 'Sound\koon.wav'
+          else
+          if (Length(NumUp) > 3) then
+          begin
+            if IsNumOnly(NumUp) then
+              Filename := AppPath + 'Sound\koon.wav';
+
+            if (CountOccur('*',NumUp) = 1) then
+              Filename := AppPath + 'Sound\klub.wav'
+          end
+          else
+          begin
+            Key := #0;
+            Filename := AppPath + 'Sound\fail.wav';
+          end
+        end
+        else
+        begin
+          Key := #0;
+          Filename := AppPath + 'Sound\fail.wav';
+        end;
+      end
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+        edPr.SelectAll;
+      end;
+    end
+    else
+    begin
+      if (Length(NumDwn) > 3) and (CountOccur('*',NumDwn) = 1) and (CountOccur('*',Pr) = 0) then
+        Filename := AppPath + 'Sound\klub.wav'
+      else
+      if ((Length(GetNum(NumDwn)) = 2) and (edPr.SelStart > 1) and (CountOccur('*',Pr) = 0) and (CountOccur('-',Pr) = 0) )  then
+        Filename := AppPath + 'Sound\klub.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['0'..'9']) then //--------------------------------------------------//
+  begin
+    if key in ['0'] then
+      Filename := AppPath + 'Sound\0.wav';
+    if key in ['1'] then
+      Filename := AppPath + 'Sound\1.wav';
+    if key in ['2'] then
+      Filename := AppPath + 'Sound\2.wav';
+    if key in ['3'] then
+      Filename := AppPath + 'Sound\3.wav';
+    if key in ['4'] then
+      Filename := AppPath + 'Sound\4.wav';
+    if key in ['5'] then
+      Filename := AppPath + 'Sound\5.wav';
+    if key in ['6'] then
+      Filename := AppPath + 'Sound\6.wav';
+    if key in ['7'] then
+      Filename := AppPath + 'Sound\7.wav';
+    if key in ['8'] then
+      Filename := AppPath + 'Sound\8.wav';
+    if key in ['9'] then
+      Filename := AppPath + 'Sound\9.wav';
+
+    if IsNumOnly(NumUp) then
+    begin
+      if ( ( (Length(NumUp) = 5) Or (Length(NumUp) = 4)  ) and (CountOccur('*',Pr) > 0) and (edPr.SelStart = Length(Pr))) then
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    if ((Length(NumUp) > 3) and (CountOccur('*',Numup) > 0) and (CountOccur('*',Pr) > 0) and (edPr.SelStart = Length(Pr))) then
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if ((Length(NumDwn) > 3) and (CountOccur('*',NumDwn) > 0) and (CountOccur('*',Pr) > 0) and (edPr.SelStart = Length(Pr))) then
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else //------------------------------------------------------------//
+  if (key = #13) Or ((key=#10) and (GetKeyState(VK_CONTROL) < 0)) then
+  begin
+    with InputGrid,Dm,fRegis do
+    begin
+      HardwareID := GetHardwareID;
+
+      if Not(IsKeyCount) then //เริ่มนับ data จากการ Key
+      begin
+        TotalRecFree := ReadDataCount;
+        IsKeyCount := true;
+      end;
+
+      if Not(Regis) then
+      begin
+        if (TotalRecFree >= LimitFreeInput) then
+        begin
+          EdCode.Text  := HardwareID;
+          edKey.Clear;
+          edKey.ReadOnly := false;
+          edKey.PasswordChar := #0;
+
+          if Showmodal = mrOk then
+          begin
+            UpdateSerialNo(edKey.Text);
+            UpdateLastDate(Date);
+            UpdateLastRun(Date);
+            UpDateRPD(1);
+            AppKey := EdKey.text;
+            LastInputDate := Date;
+  
+            MessageDlg('ขอบคุณที่ลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
+            Regis := true;
+            lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+            Key := #0;
+            Exit;
+          end
+          else
+          begin
+            Key := #0;
+            Exit;
+          end;
+        end;
+      end;
+    end;
+    //-----------------------------------------------------------------------------------//
+    ValidNum := false;
+    if NumUp <> '' then
+    begin
+      if (Length(NumUp) = 1)  then
+      begin
+        if IsNumOnly(NumUp) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if NumUp = '.' then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+      end
+      else
+      if (Length(NumUp) = 2)  then
+      begin
+        if IsNumOnly(NumUp) then
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) > 1)  then
+            ValidNum := true;
+
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1)  then
+            ValidNum := true;
+        end;
+  
+        if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['-']) then  //1-
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+        if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['/']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumUp[1] in ['-']) and (NumUp[2] in ['0'..'9']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumUp[1] in ['/']) and (NumUp[2] in ['0'..'9']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumUp[1] in ['.']) and (NumUp[2] in ['.']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+      end
+      else
+      if (Length(NumUp) = 3)  then
+      begin
+        if IsNumOnly(NumUp) then
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) > 1)  then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1)  then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) > 1) and (Pos('-',Pr) < Length(Pr))  then
+            ValidNum := true;
+        end;
+        //----------------------------------
+
+        if (Length(GetNum(NumUp)) = 1) and (NumUp[1] in ['-']) and (NumUp[2] in ['0'..'9']) and (NumUp[3] in ['-']) then  //-1-
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+        //----------------------------------
+
+        if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['0'..'9']) and (NumUp[3] in ['-']) then  //25-
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) > 1)  then //
+            ValidNum := true;
+        end;
+        //----------------------------------
+
+        if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['-']) and (NumUp[3] in ['0'..'9'])  then  //2-5
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) > 1)  then //
+            ValidNum := true;
+        end;
+        //----------------------------------
+
+        if (NumUp[1] in ['0'..'9']) and (NumUp[2] in ['0'..'9']) and (NumUp[3] in ['+']) then  //25+
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+      end
+      else
+      if (Length(NumUp) = 4)  then
+      begin
+        if IsNumOnly(NumUp) then
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1)  then
+            ValidNum := true;
+
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr))  then
+            ValidNum := true;
+        end;
+
+        if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (CountOccur('*',Numup) = 1) and (Pos('*',NumUp) = Length(NumUp))  then
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr))  then
+            ValidNum := true;
+
+        if (NumUp[1] in ['1']) and (NumUp[2] in ['9']) and (NumUp[3] in ['.']) and (NumUp[4] in ['0'..'9']) then //19.1
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+        if (NumUp[1] in ['2']) and (NumUp[2] in ['0']) and (NumUp[3] in ['.']) and (NumUp[4] in ['0'..'9']) then //20.2
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (NumUp[Length(NumUp)] in ['*']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+      end
+      else
+      if (Length(NumUp) = 5)  then
+      begin
+        if IsNumOnly(NumUp) then
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1)  then
+            ValidNum := true;
+
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr))  then
+            ValidNum := true;
+        end;
+
+        if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (CountOccur('*',Numup) = 1) and (Pos('*',NumUp) = Length(NumUp))  then
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr))  then
+            ValidNum := true;
+  
+        if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (NumUp[Length(NumUp)] in ['*']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+      end
+      else
+      if (Length(NumUp) > 5)  then
+      begin
+        if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (NumUp[Length(NumUp)] in ['*']) then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+        if (Length(GetNum(NumUp)) = (Length(NumUp)-1)) and (CountOccur('*',Numup) = 1) and (Pos('*',NumUp) = Length(NumUp))  then
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr))  then
+            ValidNum := true;
+      end;
+
+      if (Pr = '0') then
+        ValidNum := false;
+
+      try
+        if (StrToInt(GetNum(Pr)) = 0) then
+          ValidNum := false;
+      except
+        edPr.Text := '0';
+        ValidNum := false;
+      end;
+
+    end //-----------------------------------------------------------------------------//
+    else
+    begin
+      if (Length(NumDwn) = 1)  then
+      begin
+        if IsNumOnly(NumDwn) then  // 12
+          if IsNumOnly(Pr) then    //100
+            ValidNum := true;
+  
+        if NumDwn = '.' then
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+      end
+      else
+      if (Length(NumDwn) = 2)  then
+      begin
+        if IsNumOnly(NumDwn) then
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) > 1)  then
+            ValidNum := true;
+
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1)  then
+            ValidNum := true;
+        end;
+  
+        if (NumDwn[1] in ['0'..'9']) and (NumDwn[2] in ['-']) then  //1-
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumDwn[1] in ['0'..'9']) and (NumDwn[2] in ['/']) then  //1/
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumDwn[1] in ['-']) and (NumDwn[2] in ['0'..'9']) then  //-1
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumDwn[1] in ['/']) and (NumDwn[2] in ['0'..'9']) then  // /1
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+  
+        if (NumDwn[1] in ['.']) and (NumDwn[2] in ['.']) then //..
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+      end
+      else
+      if (Length(NumDwn) = 3)  then
+      begin
+        if IsNumOnly(NumDwn) then
+        begin
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+        end;
+      end
+      else
+      if (Length(NumDwn) > 3)  then
+      begin
+        if (Length(NumDwn) = 4)  then
+        begin
+          if (NumDwn[1] in ['1']) and (NumDwn[2] in ['9']) and (NumDwn[3] in ['.']) and (NumDwn[4] in ['0'..'9']) then //19.1
+            if IsNumOnly(Pr) then
+              ValidNum := true;
+
+          if (NumDwn[1] in ['2']) and (NumDwn[2] in ['0']) and (NumDwn[3] in ['.']) and (NumDwn[4] in ['0'..'9']) then //20.2
+            if IsNumOnly(Pr) then
+              ValidNum := true;
+
+        end;
+
+        if (Length(GetNum(NumDwn)) = (Length(NumDwn)-1)) and (NumDwn[Length(NumDwn)] in ['*']) then  // 1234* = 100
+          if IsNumOnly(Pr) then
+            ValidNum := true;
+
+        if (Length(GetNum(NumDwn)) = (Length(NumDwn)-1)) and (CountOccur('*',NumDwn) = 1) and (Pos('*',NumDwn) = Length(NumDwn)) then // 1234* = 100*
+          if (Length(GetNum(Pr)) = (Length(Pr)-1)) and (CountOccur('*',Pr) = 1) and (Pos('*',Pr) = Length(Pr))  then
+            ValidNum := true;
+      end;
+
+      if (Pr = '0') then
+        ValidNum := false;
+
+      try
+        if (StrToInt(GetNum(Pr)) = 0) then
+          ValidNum := false;
+      except
+        edPr.Text := '0';
+        ValidNum := false;
+      end;
+    end;
+    //------------------------------------------------------------------//
+   if (Key = #13)  then
+   begin
+    if ChkNewInput.Checked and (edPr.Text <> '0') then
+    begin
+      ValidNum := false;
+      PrErr := false;
+      if (NumUp <> '') then
+      begin
+        if (Length(GetNum(NumUp)) > 1)  then
+        begin
+          if Not(ChkNumLock.Checked) and (CountOccur('*',Pr) = 0) and (CountOccur('-',Pr) = 0) and (CountOccur('.',NumUp) = 0) and (CountOccur('+',NumUp) = 0) and (edPr.SelLength = 0) then
+          begin
+            if Not(IsZeroOnly(GetNum(edPr.Text))) then
+            begin
+              edPr.Text := edPr.Text+'*';
+              if (Length(GetNum(NumUp)) = 2)  then
+                Filename := AppPath + 'Sound\Klub.wav'
+              else
+                Filename := AppPath + 'Sound\koon.wav';
+
+              if SoundOn then
+                PlaySound(PChar(filename), 0, SND_ASYNC);
+            end
+            else
+            begin
+              PrErr := true;
+            end;
+
+          end
+          else
+          begin
+            ValidNum := true;
+
+            if IsZeroOnly(GetNum(edPr.Text)) then
+            begin
+              ValidNum := false;
+              PrErr := true;
+            end;
+
+            if IsNumOnly(Numup) then
+            begin
+              if (Length(GetNum(NumUp)) = 3) then
+              begin
+                if (CountOccur('-',edPr.Text) > 0) and (Pos('-',edPr.Text) = Length(edPr.Text)) then  //123=100-
+                begin
+                  ValidNum := false;
+                  PrErr := true;
+                end;
+
+              end
+              else
+              if ((Length(GetNum(NumUp)) = 4) Or (Length(GetNum(NumUp)) = 5)) then
+              begin
+                if (CountOccur('*',edPr.Text) > 0) and Not(IsLastStr(edPr.Text,'*')) then
+                begin
+                  ValidNum := false;
+                  PrErr := true;
+                end;
+
+                if (CountOccur('-',edPr.Text) > 0) and Not(Pos('-',edPr.Text) = 1) then  //1234=100-
+                begin
+                  ValidNum := false;
+                  PrErr := true;
+                end;
+              end;
+            end
+            else
+            if ((Length(NumUp)-Length(GetNum(NumUp))) = 1) and (CountOccur('*',NumUp) > 0)  then
+            begin
+              if (CountOccur('-',edPr.Text) > 0) Or
+                 ((CountOccur('*',edPr.Text) > 0) and Not(IsLastStr(edPr.Text,'*')))
+              then
+              begin
+                ValidNum := false;
+                PrErr := true;
+              end;
+            end;
+          end;
+        end
+        else
+        begin
+          if (CountOccur('*',edPr.Text) > 0) Or (CountOccur('-',edPr.Text) > 0) then
+          begin
+            PrErr := true;
+          end
+          else
+          begin
+            edPr.Text := edPr.Text;
+            ValidNum := true;
+          end;
+        end;
+
+      end
+      else
+      begin
+        if (Length(GetNum(NumDwn)) = 2) and (Pr <> '0') then
+        begin
+          if (CountOccur('*',Pr) = 0) and (edPr.SelLength = 0) then
+          begin
+            edPr.Text := edPr.Text+'*';
+            if (Length(GetNum(NumDwn)) = 2)  then
+              Filename := AppPath + 'Sound\Klub.wav';
+
+            if SoundOn then
+              PlaySound(PChar(filename), 0, SND_ASYNC);
+          end
+          else
+          begin
+            edPr.Text := edPr.Text;
+            ValidNum := true;
+          end;
+        end
+        else
+        if (Length(GetNum(NumDwn)) = 1)  then
+        begin
+            edPr.Text := edPr.Text;
+            ValidNum := true;
+        end
+        else
+        begin
+            edPr.Text := edPr.Text;
+            ValidNum := true;
+        end;
+      end;
+
+    end;
+
+   end; //Key press = #13
+
+    //------------------------------------------------------------------//
+
+    Key := #0;
+    if ValidNum then
+    begin
+      if Not ChkEdit.Checked then
+      begin
+        With Dm,InputGrid do
+        begin
+          TbData := TABSTable.Create(nil);
+          TbData.DatabaseName := Database.DatabaseName;
+          TbData.Close;
+          TbData.TableName := 'Data';
+          TbData.Open;
+
+          if Not(TbData.State in dsEditmodes) then
+          begin
+            if RowCount = 0 then
+              Rowcount := 1
+            else
+              InsertRow(0);
+            TbData.Append;
+          end;
+
+          if (NumUp <> '') then
+          begin
+            TbData.FieldByName('Num').AsString    := NumUp;
+            if (Length(GetNum(NumUp)) = Length(NumUp)) and (Length(NumUp) = 2) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1) then
+            begin
+              Val2Tod := Abs(StrToFloat(Pr))/2;
+              Val2TodStr := IntToStr(Round(Val2Tod))+'*'+IntToStr(Round(Val2Tod));
+              TbData.FieldByName('Up').AsString     := Val2TodStr
+            end
+            else
+            begin
+              if Not(ChkNewInput.Checked) then
+                TbData.FieldByName('Up').AsString     := Pr
+              else
+              begin
+                if Length(NumUp) = 3 then
+                begin
+                  if (Pos('*2*',Pr) > 0) Or (Pos('*5*',Pr) > 0) then
+                  begin
+                    Pr := Replace(Pr,'*2*','*');
+                    Pr := Replace(Pr,'*5*','*');
+                  end
+                  else
+                  if (Pos('*',Pr) < Length(Pr)) then
+                  begin
+                    if (CountOccur('-',NumUp) = 0) then
+                      Pr := Replace(Pr,'*','-')
+                  end;
+
+                  TbData.FieldByName('Up').AsString     := Pr;
+                end
+                else
+                  TbData.FieldByName('Up').AsString     := Pr;
+              end;
+            end;
+          end
+          else
+          begin
+            TbData.FieldByName('Num').AsString    := NumDwn;
+            if (Length(GetNum(NumDwn)) = Length(NumDwn)) and (Length(NumDwn) = 2) and (CountOccur('-',Pr) = 1) and (Pos('-',Pr) = 1) then
+            begin
+              Val2Tod := Abs(StrToFloat(Pr))/2;
+              Val2TodStr := IntToStr(Round(Val2Tod))+'*'+IntToStr(Round(Val2Tod));
+              TbData.FieldByName('Dwn').AsString     := Val2TodStr
+            end
+            else
+              TbData.FieldByName('Dwn').AsString     := Pr;
+          end;
+
+          TbData.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+          TbData.FieldByName('LotType').AsInteger := StrToInt(edLotID.Text);
+          TbData.FieldByName('RefNo').AsString  := edRefNo.Text;
+          TbData.FieldByName('CustNo').AsString := edCustNo.Text;
+          TbData.FieldByName('EmpNo').AsString  := edUsID.Text;
+          TbData.Post;
+          // Insert into Firebird Database
+          try
+            if Dm.ZConnection1.Connected then
+            begin
+              Dm.ZExecQuery.Close;
+              Dm.ZExecQuery.SQL.Text := 
+                'INSERT INTO LOTTO_DATA (LOTTO_DATE, CUST_ID, BOOK_NO, PAGE_NO, LOT_TYPE, NUM, PRICE) ' +
+                'VALUES (:LOTTO_DATE, :CUST_ID, :BOOK_NO, :PAGE_NO, :LOT_TYPE, :NUM, :PRICE)';
+              Dm.ZExecQuery.ParamByName('LOTTO_DATE').AsDate := DatePick.Date;
+              Dm.ZExecQuery.ParamByName('CUST_ID').AsInteger := StrToIntDef(edCustNo.Text, 0);
+              Dm.ZExecQuery.ParamByName('BOOK_NO').AsInteger := StrToIntDef(edRefNo.Text, 0);
+              Dm.ZExecQuery.ParamByName('PAGE_NO').AsInteger := 1;
+              Dm.ZExecQuery.ParamByName('LOT_TYPE').AsInteger := StrToIntDef(edLotID.Text, 0);
+              if (NumUp <> '') then
+              begin
+                Dm.ZExecQuery.ParamByName('NUM').AsString := NumUp;
+                Dm.ZExecQuery.ParamByName('PRICE').AsFloat := StrToFloatDef(TbData.FieldByName('Up').AsString, 0);
+              end
+              else
+              begin
+                Dm.ZExecQuery.ParamByName('NUM').AsString := NumDwn;
+                Dm.ZExecQuery.ParamByName('PRICE').AsFloat := StrToFloatDef(TbData.FieldByName('Dwn').AsString, 0);
+              end;
+              Dm.ZExecQuery.ExecSQL;
+            end;
+          except
+          end;
+
+          TotalRecFree := TotalRecFree+1;
+          
+          if (NumUp <> '') then
+          begin
+            InputGrid[0,0] := Numup;
+            InputGrid[1,0] := TbData.FieldByName('Up').AsString;
+            InputGrid[2,0] := '';
+          end
+          else
+          begin
+            InputGrid[0,0] := NumDwn;
+            InputGrid[1,0] := '';
+            InputGrid[2,0] := TbData.FieldByName('Dwn').AsString;
+          end;
+
+          InputGrid[3,0] := TbData.FieldByName('ID').AsString;
+          InputGrid[4,0] := edCustNo.Text;
+          InputGrid[5,0] := edRefNo.Text;
+          InputGrid[6,0] := edUsID.Text;
+          InputGrid[7,0] := edLotID.Text;
+
+
+          //-----------------------------
+          if ChkShowOverLimt.Checked then
+          begin
+            Application.ProcessMessages;
+            NGridSpecNum.BeginUpdate;
+            if RdNumClose.Checked then
+              CheckSpecNum(InputGrid[0,0],InputGrid[1,0],'',InputGrid[3,0], InputGrid[4,0],True,ChkTotal.Checked,'')
+            else
+            begin
+              if Not((edCor6.text = '') or (edCor2.Text = '')) then
+                CheckCorectNum(InputGrid[0,0],InputGrid[1,0],'',InputGrid[3,0], InputGrid[4,0], InputGrid[5,0],ChkTotal.Checked);
+            end;
+
+            NGridSpecNum.EndUpdate;
+          end;
+          //-----------------------------
+
+
+          lbItems1.Caption := IntToStr(inputGrid.RowCount)+' รายการ';
+          TbData.Free;
+
+          if Not ChkLook.Checked then
+          begin
+            Translate(InputGrid[0,0],InputGrid[1,0],InputGrid[2,0],InputGrid[3,0]);
+            SumNGrid(NiceGrid1,SumGrid,0);
+            SumNGrid(NiceGrid2,SumGrid,7);
+            SumNGrid(NiceGrid3,SumGrid,13);
+            SumNGrid(NiceGrid4,SumGrid,16);
+            SumNGrid(NiceGrid5,SumGrid,18);
+          end;
+          SumsGrid(SumGrid);
+        end;
+
+      end///////////////////
+      else
+      begin
+        With Dm Do
+        begin
+          QrEdInput := TABSQuery.Create(nil);
+          QrEdInput.DatabaseName := Database.DatabaseName;
+
+          QrEdInput.Close;
+          QrEdInput.SQL.Clear;
+          QrEdInput.SQL.Add('Update Data');
+          QrEdInput.SQL.Add('Set Num=:aNum, Up=:aUp, Dwn=:aDwn');
+          QrEdInput.SQL.Add('where ID =:aID');
+
+          if edNumUp.Text <> '' then
+          begin
+            QrEdInput.ParamByName('aNum').Value  := edNumUp.Text;
+            QrEdInput.ParamByName('aUp').Value   := edPr.Text;
+            QrEdInput.ParamByName('aDwn').Value  := '';
+            InputGrid[0,InputGrid.Row] := edNumUp.Text;
+            InputGrid[1,InputGrid.Row] := edPr.Text;
+            InputGrid[2,InputGrid.Row] := '';
+          end
+          else
+          begin
+            QrEdInput.ParamByName('aNum').Value  := edNumDwn.Text;
+            QrEdInput.ParamByName('aUp').Value   := '';
+            QrEdInput.ParamByName('aDwn').Value  := edPr.Text;
+            InputGrid[0,InputGrid.Row] := edNumDwn.Text;
+            InputGrid[1,InputGrid.Row] := '';
+            InputGrid[2,InputGrid.Row] := edPr.Text;
+          end;
+          QrEdInput.ParamByName('aID').Value   := InputGrid[3,InputGrid.Row];
+          QrEdInput.ExecSQL;
+          QrEdInput.Free;
+        end;
+        ChkEdit.Checked := false;
+        ChkEditChange(Sender);
+      end;
+
+      if (NumUp <> '') then
+      begin
+        edNumUp.SetFocus
+      end
+      else
+      begin
+        edNumDwn.SetFocus;
+      end;
+
+      filename := AppPath + 'Sound\save.wav';
+      if SoundOn then
+        PlaySound(PChar(filename), 0, SND_ASYNC);
+
+
+      if ChkTotal.Checked then
+        Btn_RefreshCutClick(Sender);
+    end
+    else
+    begin
+      if Not(ChkNewInput.Checked) then
+      begin
+        filename := AppPath + 'Sound\fail.wav';
+        if SoundOn then
+          PlaySound(PChar(filename), 0, SND_ASYNC);
+
+        edPr.SelectAll;
+      end
+      else
+      begin
+        if Not(IsZeroOnly(GetNum(edPr.Text))) then
+        begin
+
+          if (PrErr) then
+          begin
+            Key := #0;
+            edPr.SelectAll;
+
+            filename := AppPath + 'Sound\fail.wav';
+            if SoundOn then
+              PlaySound(PChar(filename), 0, SND_ASYNC);
+          end
+          else
+            edPr.SelStart := Length(Pr)+1;
+
+        end
+        else
+        begin
+          Key := #0;
+          edPr.SelectAll;
+
+          filename := AppPath + 'Sound\fail.wav';
+          if SoundOn then
+            PlaySound(PChar(filename), 0, SND_ASYNC);
+        end;
+
+      end;
+
+    end;
+  end;
+end;
+
+procedure TfMain.edNumDwnKeyPress(Sender: TObject; var Key: Char);
+Var ValidNum: Boolean;
+    NumDwn,filename: String;
+begin
+  NumDwn := edNumDwn.Text;
+  ValidNum := false;
+
+  if Not(key in [#13,#10,'0'..'9','-','/','.','*',#8,#32]) then
+  begin
+    Key := #0;
+    Filename := AppPath + 'Sound\fail.wav';
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in [#32]) then
+  begin
+    if ChkCanLockPr.Checked then
+    begin
+      Key := #0;
+      ChkNumLock.Checked := Not(ChkNumLock.Checked);
+    end
+    else
+      Key := #0;
+  end
+  else
+  if (key in ['-']) then
+  begin
+    if ((CountOccur('*',NumDwn) = 0) and (CountOccur('/',NumDwn) = 0) and (CountOccur('.',NumDwn) = 0) and
+       (CountOccur('-',NumDwn) = 0)) Or (edNumDwn.SelLength = Length(NumDwn)) then
+    begin
+      if (Length(NumDwn) = 0) Or (edNumDwn.SelLength = Length(NumDwn))  then
+        Filename := AppPath + 'Sound\lang.wav'
+      else
+      if (Length(NumDwn) = 1) then
+        Filename := AppPath + 'Sound\nar.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['*']) then
+  begin
+    if ((CountOccur('*',NumDwn) = 0) and (CountOccur('/',NumDwn) = 0)  and
+        (CountOccur('.',NumDwn) = 0) and (CountOccur('-',NumDwn) = 0)) Or (edNumDwn.SelLength = Length(NumDwn)) then
+    begin
+      if (Length(NumDwn) > 2) and (edNumDwn.SelStart = Length(NumDwn)) then
+        Filename := AppPath + 'Sound\win.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['.']) then
+  begin
+    if ((CountOccur('*',NumDwn) = 0) and (CountOccur('/',NumDwn) = 0)  and
+        (CountOccur('.',NumDwn) < 2) and (CountOccur('-',NumDwn) = 0)) Or (edNumDwn.SelLength = Length(NumDwn)) then
+    begin
+      if (Length(NumDwn) = 0) Or (edNumDwn.SelLength = Length(NumDwn)) then
+        Filename := AppPath + 'Sound\lekkoo.wav'
+      else
+      if (Length(NumDwn) = 1) and (NumDwn = '.')  and (edNumDwn.SelStart = Length(NumDwn)) then
+        Filename := AppPath + 'Sound\peenong.wav'
+      else
+      if (Length(NumDwn) = 2) and ((NumDwn = '19')  Or (NumDwn = '20'))  and (edNumDwn.SelStart = Length(NumDwn)) then
+        Filename := AppPath + 'Sound\ding.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['/']) then
+  begin
+    if ((CountOccur('*',NumDwn) = 0) and (CountOccur('/',NumDwn) = 0)  and
+        (CountOccur('.',NumDwn) = 0) and (CountOccur('-',NumDwn) = 0)) Or (edNumDwn.SelLength = Length(NumDwn)) then
+    begin
+      if (Length(NumDwn) = 0)  Or (edNumDwn.SelLength = Length(NumDwn)) then
+        Filename := AppPath + 'Sound\roodlang.wav'
+      else
+      if ((Length(NumDwn) = 1) and (edNumDwn.SelStart = Length(NumDwn))) then
+        Filename := AppPath + 'Sound\roodnar.wav'
+      else
+      begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+      end;
+    end
+    else
+    begin
+        Key := #0;
+        Filename := AppPath + 'Sound\fail.wav';
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  if (key in ['0'..'9']) then
+  begin
+    if key in ['0'] then
+      Filename := AppPath + 'Sound\0.wav';
+    if key in ['1'] then
+      Filename := AppPath + 'Sound\1.wav';
+    if key in ['2'] then
+      Filename := AppPath + 'Sound\2.wav';
+    if key in ['3'] then
+      Filename := AppPath + 'Sound\3.wav';
+    if key in ['4'] then
+      Filename := AppPath + 'Sound\4.wav';
+    if key in ['5'] then
+      Filename := AppPath + 'Sound\5.wav';
+    if key in ['6'] then
+      Filename := AppPath + 'Sound\6.wav';
+    if key in ['7'] then
+      Filename := AppPath + 'Sound\7.wav';
+    if key in ['8'] then
+      Filename := AppPath + 'Sound\8.wav';
+    if key in ['9'] then
+      Filename := AppPath + 'Sound\9.wav';
+
+    if (((CountOccur('*',NumDwn) > 0) Or (CountOccur('+',NumDwn) > 0) Or (CountOccur('.',NumDwn) > 1)) and (edNumDwn.SelStart = Length(NumDwn))  ) Or
+       ((((Length(NumDwn) = 2) Or (Length(NumDwn) = 3)) and (Pos('-',NumDwn) = Length(NumDwn)) and (Length(GetNum(NumDwn)) = Length(NumDwn)-1) ) and (edNumDwn.SelStart = Length(NumDwn))  ) Or
+       (((CountOccur('.',NumDwn) = 1) and (NumDwn[1] = '1') and (NumDwn[2] = '9') and (NumDwn[3] = '.') and (NumDwn[4] in ['0'..'9']) ) and (edNumDwn.SelStart = Length(NumDwn)) ) Or
+       (((CountOccur('-',NumDwn) = 2) and (NumDwn[1] = '-') and (NumDwn[2] in ['0'..'9']) and (NumDwn[3] = '-') ) and (edNumDwn.SelStart = Length(NumDwn))  ) Or
+       (((CountOccur('/',NumDwn) = 1) and (NumDwn[1] = '/') and (NumDwn[2] in ['0'..'9']) ) and (edNumDwn.SelStart = Length(NumDwn)) ) Or
+       (((CountOccur('/',NumDwn) = 1) and (NumDwn[1] in ['0'..'9']) and (NumDwn[2] = '/') ) and (edNumDwn.SelStart = Length(NumDwn)) ) Or
+       (((CountOccur('-',NumDwn) = 1) and (NumDwn[1] = '-') and (NumDwn[2] in ['0'..'9']) and (Length(NumDwn) = 2)  ) and (edNumDwn.SelStart = Length(NumDwn)) ) Or
+       ((CountOccur('.',NumDwn) = 1) and (Length(NumDwn) = 1) and (edNumDwn.SelStart = Length(NumDwn)) )
+    then
+    begin
+      Key := #0;
+      Filename := AppPath + 'Sound\fail.wav';
+
+    end;
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+  end
+  else
+  //if Key = #13 then
+  if ((Key = #13) Or ((key=#10) and (GetKeyState(VK_CONTROL) < 0)) ) then
+  begin
+   if Not(ChkNumLock.Checked) then
+   begin
+    if (Key = #13) then
+    begin
+      Key := #0;
+  
+      if (Length(NumDwn) = 1)  then
+      begin
+        if IsNumOnly(NumDwn) then
+          ValidNum := true;
+  
+        if NumDwn = '.' then
+          ValidNum := true;
+      end
+      else
+      if (Length(NumDwn) = 2)  then
+      begin
+        if IsNumOnly(NumDwn) then
+          ValidNum := true;
+  
+        if (NumDwn[1] in ['0'..'9']) and (NumDwn[2] in ['-']) then
+          ValidNum := true;
+  
+        if (NumDwn[1] in ['0'..'9']) and (NumDwn[2] in ['/']) then
+          ValidNum := true;
+  
+        if (NumDwn[1] in ['-']) and (NumDwn[2] in ['0'..'9']) then
+          ValidNum := true;
+  
+        if (NumDwn[1] in ['/']) and (NumDwn[2] in ['0'..'9']) then
+          ValidNum := true;
+  
+        if (NumDwn[1] in ['.']) and (NumDwn[2] in ['.']) then
+          ValidNum := true;
+      end
+      else
+      if (Length(NumDwn) = 3)  then
+      begin
+        if IsNumOnly(NumDwn) then
+          ValidNum := true;
+  
+      end
+      else
+      if (Length(NumDwn) > 3)  then
+      begin
+        if (Length(NumDwn) = 4)  then
+        begin
+          if (NumDwn[1] in ['1']) and (NumDwn[2] in ['9']) and (NumDwn[3] in ['.']) and (NumDwn[4] in ['0'..'9']) then
+            ValidNum := true;
+
+          if (NumDwn[1] in ['2']) and (NumDwn[2] in ['0']) and (NumDwn[3] in ['.']) and (NumDwn[4] in ['0'..'9']) then
+            ValidNum := true;
+        end;
+
+        if (Length(GetNum(NumDwn)) = (Length(NumDwn)-1)) and (NumDwn[Length(NumDwn)] in ['*']) then
+          ValidNum := true;
+
+      end;
+  
+  
+  
+      if ValidNum then
+        edPr.SetFocus
+      else
+      begin
+        filename := AppPath + 'Sound\fail.wav';
+        if SoundOn then
+          PlaySound(PChar(filename), 0, SND_ASYNC);
+  
+        edNumDwn.SelectAll;
+      end;
+    end
+    else
+    begin
+      edPrKeyPress(Sender,Key);
+      edNumDwn.SelectAll;
+    end;
+
+   end
+   else
+   begin
+    edPrKeyPress(Sender,Key);
+    edNumDwn.SelectAll;
+   end;
+  end;
+end;
+
+procedure TfMain.edNumUpKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+Var Num,filename: String;
+begin
+  if Key = VK_Down then
+  begin
+    filename := ExtractFilePath(Application.ExeName) + 'Sound\down.wav';
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+
+    Num := EdNumUp.Text;
+    edNumDwn.SetFocus;
+    if (length(edNumDwn.text)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Not (Num[3] in ['0'..'9'])) then
+    begin
+      edNumDwn.Text := Num[1]+Num[2];
+      edNumDwn.SelectAll;
+    end;
+    if (length(edNumDwn.text)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['-']) and (Num[3] in ['0'..'9']) then
+    begin
+      edNumDwn.Text := Num[1]+Num[3];
+      edNumDwn.SelectAll;
+    end;
+    if (length(edNumDwn.text)=3) and (Num[1] in ['-']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) then
+    begin
+      edNumDwn.Text := Num[2]+Num[3];
+      edNumDwn.SelectAll;
+    end;
+
+    Key := 0;
+  end;
+end;
+
+procedure TfMain.edNumDwnKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+Var filename: String;
+begin
+  if Key = VK_Up then
+  begin
+    filename := ExtractFilePath(Application.ExeName) + 'Sound\up.wav';
+
+    if SoundOn then
+      PlaySound(PChar(filename), 0, SND_ASYNC);
+
+    EdNumUp.SetFocus;
+    Key := 0;
+  end;
+end;
+
+procedure TfMain.edNumDwnEnter(Sender: TObject);
+Var filename: String;
+begin
+  //isup := false;
+  if edNumUp.Text <> '' then
+  begin
+    edNumDwn.Text := edNumUp.Text;
+    edNumUp.Clear;
+    edNumDwn.SelectAll;
+  end;
+
+  if ChkEdit.Checked then
+  begin
+    edPr.sStyle.Painting.Color := clRed;
+    edPr.sStyle.Selection.Color:= clRed;
+  end
+  else
+  begin
+    edPr.sStyle.Painting.Color := $00ECFFFF;
+    edPr.sStyle.Selection.Color:= clWindow;
+  end;
+
+  edNumUp.sStyle.Painting.Color := clWhite;
+  edNumDwn.sStyle.Painting.Color := $0080FFFF;
+
+end;
+
+procedure TfMain.edNumUpEnter(Sender: TObject);
+Var fileName: String;
+begin
+  Isup := true;
+  if edNumDwn.Text <> '' then
+  begin
+    edNumUp.Text := edNumDwn.Text;
+    edNumDwn.Clear;
+    edNumUp.SelectAll;
+  end;
+
+  if ChkEdit.Checked then
+  begin
+    edPr.sStyle.Painting.Color := clRed;
+    edPr.sStyle.Selection.Color:= clRed;
+  end
+  else
+  begin
+    edPr.sStyle.Painting.Color := $00ECFFFF;
+    edPr.sStyle.Selection.Color:= clWindow;
+  end;
+
+  edNumUp.sStyle.Painting.Color := $0080FFFF;
+  edNumDwn.sStyle.Painting.Color := clWhite;
+
+end;
+
+procedure TfMain.edPrEnter(Sender: TObject);
+Var filename: String;
+begin
+  filename := ExtractFilePath(Application.ExeName) + 'Sound\Buy.wav';
+
+  if SoundOn then
+    PlaySound(PChar(filename), 0, SND_ASYNC);
+end;
+
+procedure TfMain.edPrChange(Sender: TObject);
+begin
+  if edPr.Text = '' then
+  begin
+    edPr.Text := '0';
+    edPr.SelectAll;
+  end;
+end;
+
+procedure TfMain.lbHlpInputClick(Sender: TObject);
+begin
+  //ShellExecute(Handle, 'open', PChar('https://sites.google.com/view/thailottosoft/%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B9%83%E0%B8%8A%E0%B8%87%E0%B8%B2%E0%B8%99%E0%B9%82%E0%B8%9B%E0%B8%A3%E0%B9%81%E0%B8%81%E0%B8%A3%E0%B8%A1/%E0%B9%82%E0%B8%9B%E0%B8%A3%E0%B9%81%E0%B8%81%E0%B8%A3%E0%B8%A1-big-lotto'), nil, nil, SW_SHOW);
+  ShellExecute(Handle, 'open', PChar('https://sites.google.com/view/thailottosoft/การใชงานโปรแกรม/การปอนขอมล-biglotto'), nil, nil, SW_SHOW);
+end;
+
+procedure TfMain.lbHlpInputMouseEnter(Sender: TObject);
+begin
+  lbHlpInput.Font.Style := [fsUnderline,fsBold];
+end;
+
+procedure TfMain.lbHlpInputMouseLeave(Sender: TObject);
+begin
+  lbHlpInput.Font.Style := [fsBold];
+end;
+
+procedure TfMain.edPrKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+Var Num: String;
+begin
+  if Key = VK_Up then
+  begin
+    EdNumUp.SetFocus;
+    Key := 0;
+  end;
+
+  if Key = VK_Down then
+  begin
+    Num := EdNumUp.Text;
+    edNumDwn.SetFocus;
+    if (length(edNumDwn.text)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['0'..'9']) and (Not (Num[3] in ['0'..'9'])) then
+    begin
+      edNumDwn.Text := Num[1]+Num[2];
+      edNumDwn.SelectAll;
+    end;
+    if (length(edNumDwn.text)=3) and (Num[1] in ['0'..'9']) and (Num[2] in ['-']) and (Num[3] in ['0'..'9']) then
+    begin
+      edNumDwn.Text := Num[1]+Num[3];
+      edNumDwn.SelectAll;
+    end;
+    if (length(edNumDwn.text)=3) and (Num[1] in ['-']) and (Num[2] in ['0'..'9']) and (Num[3] in ['0'..'9']) then
+    begin
+      edNumDwn.Text := Num[2]+Num[3];
+      edNumDwn.SelectAll;
+    end;
+
+    Key := 0;
+  end;
+end;
+
+procedure TfMain.ChkNewInputChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Input','InputType',ChkNewInput.Checked);
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.ChkCutAllChange(Sender: TObject);
+begin
+  ChkCutAll1.Checked  := ChkCutAll.Checked;
+  ChkCutAll2.Checked  := ChkCutAll.Checked;
+  ChkCutAll3.Checked  := ChkCutAll.Checked;
+  ChkCutAll45.Checked := ChkCutAll.Checked;
+  ChkCutAll1Change(Sender);
+  ChkCutAll2Change(Sender);
+  ChkCutAll3Change(Sender);
+  ChkCutAll45Change(Sender);
+end;
+
+procedure TfMain.SeSkinButton8Click(Sender: TObject);
+Var i: integer;
+begin
+  With frmChart,ChartListData do
+  begin
+    NiceData2 := NiceGrid2;
+    NiceData3 := NiceGrid3;
+
+    if Showmodal = mrOk then
+    begin
+      With ChartListData do
+      begin
+        EdfindData.Text := Items[selected.index].Caption;
+        BtnFindDataClick(Sender);
+      end;
+    end;
+
+  end;
+end;
+
+procedure TfMain.SeSkinButton11Click(Sender: TObject);
+begin
+  CustAllGrid.CopyToClipboard;
+  Showmessage('คัดลอกข้อมูล '+IntToStr(CustAllGrid.RowCount)+' รายการลงคลิปบอร์ดเรียบร้อยแล้ว');
+end;
+
+procedure TfMain.ChkEditChange(Sender: TObject);
+begin
+  if ChkEdit.Checked then
+  begin
+    edPr.sStyle.Painting.Color := clRed;
+    edPr.sStyle.Selection.Color:= clRed;
+  end
+  else
+  begin
+    edPr.sStyle.Painting.Color := $00ECFFFF;
+    edPr.sStyle.Selection.Color:= clWindow;
+  end;
+end;
+
+procedure TfMain.BtnFindDealerRepClick(Sender: TObject);
+begin
+  if MainPageControl.TabIndex = 2 then
+  begin
+    with DealerList do
+    begin
+      if (RdbDealerRepAll.Checked) or (RdbRepByDealer.Checked) then
+      begin
+        try
+          if RdbRepByDealer.Checked then
+            Panel104.Caption := Items[itemindex].Caption+' '+ Items[Itemindex].SubItems[0]
+          else
+            Panel104.Caption := 'ยอดตีออกรวม';
+
+          //if MainPageControl.TabIndex = 2 then
+          DealerRepTotals;
+
+          if ChkDealerRepPrint.Checked then
+            BtnPrintRepByDealerClick(Sender);
+        except
+          //if (RdbRepByDealer.Checked) then
+            //Showmessage('กรุณาเลือกเจ้ามือที่ต้องการรายงาน');
+        end;
+      end
+      else
+        Showmessage('กรุณาเลือกหัวข้อที่ต้องการรายงาน');
+    end;
+  end;
+end;
+
+procedure TfMain.BtnPrintRepByDealerClick(Sender: TObject);
+begin
+  with ComboLotType do
+  begin
+    frmPrintPrev.Date := DatePick.Date;// Dm.ADOCorrectDatehuad.value;
+    if RdbDealerRepAll.Checked then
+      frmPrintPrev.RenderGrids(TotalDealerGrid,Items[itemindex],' [ยอดตีออกทั้งหมด]')
+    else
+    begin
+    {
+      if CustListRep.SelCount > 0 then
+        frmPrintPrev.RenderGrids(TotalGrid,Items[itemindex],'- ['+CustListRep.Items[CustListRep.itemindex].SubItems[0]+']')
+      else
+      begin
+        Showmessage('กรุณากดค้นข้อมูลที่ต้องการรายงานใหม่');
+        exit;
+      end;
+      }
+
+      if (Panel104.Caption <> '') then
+        frmPrintPrev.RenderGrids(TotalDealerGrid,Items[itemindex],'[ยอดตีออก '+Panel104.Caption+']')
+      else
+      begin
+        Showmessage('กรุณากดค้นข้อมูลที่ต้องการรายงานใหม่');
+        exit;
+      end;
+
+
+    end;
+    frmPrintPrev.Showmodal;
+  end;
+end;
+
+procedure TfMain.TabByDealerNumRepShow(Sender: TObject);
+var QrFindCust,QrData : TABSQuery;
+    TbDealer: TABSTable;
+    SortBySQL,DealerID: String;
+    i: integer;
+    foundDlID: Boolean;
+begin
+  with Dm, DealerList do
+  begin
+    Application.ProcessMessages;
+    Items.Clear;
+    Items.BeginUpdate;
+    
+    TbDealer := TABSTable.Create(nil);
+    TbDealer.DatabaseName := Database.DatabaseName;
+    TbDealer.TableName := 'Dealer';
+    TbDealer.Close;
+    TbDealer.Open;
+
+    Application.ProcessMessages;
+    QrData := TABSQuery.Create(nil);
+    QrData.DatabaseName := Database.DatabaseName;
+    QrData.Close;
+    QrData.SQL.Clear;
+    QrData.SQL.Add('Select DISTINCT DealerID from Cut');
+    QrData.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+    QrData.SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
+    QrData.SQL.Add('ORDER BY DealerID ASC');
+    QrData.Open;
+
+    QrData.First;
+    for i := 0 to QrData.RecordCount-1 do
+    begin
+      DealerID := QrData.fieldByName('DealerID').AsString;
+      foundDlID := TbDealer.Locate('Code',DealerID,[]);
+      if foundDlID then
+      begin
+        with Items.Add do
+        begin
+          if TbDealer.FieldByName('bfName').AsString = 'นาย' then
+            Items[i].ImageIndex := 0
+          else
+          if TbDealer.FieldByName('bfName').AsString = 'นาง' then
+            Items[i].ImageIndex := 1
+          else
+          if (TbDealer.FieldByName('bfName').AsString = 'ด.ช.')or(TbDealer.FieldByName('bfName').AsString = 'ด.ญ.') then
+            Items[i].ImageIndex := 2
+          else
+          if TbDealer.FieldByName('bfName').AsString = 'นางสาว' then
+            Items[i].ImageIndex := 3
+          else
+          if TbDealer.FieldByName('bfName').AsString = '' then
+            Items[i].ImageIndex := 4;
+
+          Caption := TbDealer.FieldByName('Code').AsString;
+          SubItems.Add(TbDealer.fieldByName('FName').AsString+' '+TbDealer.fieldByName('LName').AsString);
+        end;
+      end;
+      QrData.Next;
+    end;
+    Items.EndUpdate;
+    QrData.Free;
+    TbDealer.Free;
+
+    if RdbRepByDealer.Checked then
+    begin
+      DealerList.SetFocus;
+      DealerList.ItemIndex := 0;
+    end;
+    //if RdbDealerRepAll.Checked then
+    BtnFindDealerRepClick(Sender);
+  end;
+end;
+
+procedure TfMain.RdbRepByDealerClick(Sender: TObject);
+begin
+  if DealerList.Items.Count > 0 then
+  begin
+    DealerList.Enabled := true;
+    DealerList.SetFocus;
+    DealerList.ItemIndex := 0;
+    BtnFindDealerRepClick(Sender);
+  end;
+end;
+
+procedure TfMain.RdbDealerRepAllClick(Sender: TObject);
+begin
+  DealerList.Enabled := false;
+  BtnFindDealerRepClick(Sender);
+end;
+
+procedure TfMain.DealerListDblClick(Sender: TObject);
+begin
+  With DealerList do
+  begin
+    if Selcount > 0 then
+    begin
+      Panel104.Caption := Items[itemindex].Caption+' '+ Items[Itemindex].SubItems[0];
+      //DealerRepTotals;
+      BtnFindDealerRepClick(Sender);
+    end;
+    //if ChkDealerRepPrint.Checked then
+      //BtnPrintRepByDealerClick(Sender);
+  end;
+end;
+
+procedure TfMain.edPercentChange(Sender: TObject);
+begin
+  if edPercent.Text = '' then
+  begin
+    edPercent.Text := '0';
+    edPercent.SelectAll;
+  end;
+end;
+
+procedure TfMain.edLimPrice2Change(Sender: TObject);
+begin
+  if edLimPrice2.Text = '' then
+  begin
+    edLimPrice2.Text := '0';
+    edLimPrice2.SelectAll;
+  end;
+end;
+
+procedure TfMain.edPercent2Change(Sender: TObject);
+begin
+  if edPercent2.Text = '' then
+  begin
+    edPercent2.Text := '0';
+    edPercent2.SelectAll;
+  end;
+end;
+
+procedure TfMain.NewRefreshBtnClick(Sender: TObject);
+Var foundCust,FoundNumPay,FoundNum,Is3ToTeng,Is4ToTeng,Is5ToTeng,FoundInp: Boolean;
+    i,j,k,CustNoInt,Ns,Nms,ANs,CntPmu,LastAr4,LastAr5: integer;
+    SumItem1,SumItem2,SumItem3,SumItem4,SumItem5,SumfootItem: Integer;
+    Num,CustNo,StrNumLmt,PmuStr,AltNum,CbItems,DateCopy,SpecNumStr: String;
+    IsLmt1,IsLmt2,IsLmt3,IsLmt4,IsLmt5,IsLmt6,IsLmt7: Boolean;
+    LmtPr1,LmtPr2,LmtPr3,LmtPr4,LmtPr5,LmtPr6,LmtPr7,PrPmu,footSum,SumWin: Real;
+    ArInp5,ArInp4,ArInp3,ArInp2,ArInp1: Array of array of string;
+    QrDataRep: TDataSet;
+    ZQDataRep: TZQuery;
+    ABSDataRep: TABSQuery;
+    QrDataCut,QrLotto,QrLimitNum: TABSQuery;
+    Numb,Nums,NumCut,PU,PD,P1,P2,ID,RefID: String;
+    Sum1: Array of array of Real;
+    SumItem: Array of array of Integer;
+    PrU,PrD: Array of String;
+    GrpNum,fndGrpNum: TStringList;
+begin
+  fndGrpNum := TStringList.Create;
+  Application.ProcessMessages;
+  edFindData.Clear; //ช่องค้นข้อมูลเลขที่ป้อน
+  NiceGrid1.BeginUpdate;
+  NiceGrid2.BeginUpdate;
+  NiceGrid3.BeginUpdate;
+  NiceGrid4.BeginUpdate;
+  NiceGrid5.BeginUpdate;
+  InputGrid.BeginUpdate;
+
+  NiceGrid1.RowCount := 0;
+  NiceGrid2.RowCount := 0;
+  NiceGrid3.RowCount := 0;
+  NiceGrid4.RowCount := 0;
+  NiceGrid5.RowCount := 0;
+  InputGrid.RowCount := 0;
+  NGridSpecNum.RowCount := 0;
+
+  NiceGrid1.Clear;
+  NiceGrid2.Clear;
+  NiceGrid3.Clear;
+  NiceGrid4.Clear;
+  NiceGrid5.Clear;
+  InputGrid.Clear;
+
+  Application.ProcessMessages;
+  With Dm,CutListNum do
+  begin
+    Limit3.Close;
+    Limit3.Open;
+
+    if ZConnection1.Connected then
+    begin
+      ZQDataRep := TZQuery.Create(nil);
+      ZQDataRep.Connection := ZConnection1;
+      ZQDataRep.SQL.Add('Select * from Data');
+      ZQDataRep.SQL.Add('Where (LotType = ' + IntToStr(ComboLotType.ItemIndex) + ' or LotType = ' + QuotedStr(edLotID.Text) + ')');
+      ZQDataRep.SQL.Add('and (Period_Date = :pDate)');
+
+      if Not ChkTotal.Checked then
+      begin
+        if Not ChkSumBook.Checked then
+          ZQDataRep.SQL.Add('and (RefNo = ' + QuotedStr(edRefNo.Text) + ')');
+        if Not ChkSumCust.Checked then
+          ZQDataRep.SQL.Add('and (CustNo = ' + QuotedStr(edCustNo.Text) + ')');
+      end;
+
+      if Not ChkSortInput.Checked then
+        ZQDataRep.SQL.Add('Order By ID DESC')
+      else
+        ZQDataRep.SQL.Add('Order By ID ASC');
+
+      ZQDataRep.ParamByName('pDate').AsDate := DatePick.Date;
+      try ZQDataRep.Open; except end;
+      QrDataRep := ZQDataRep;
+    end
+    else
+    begin
+      ABSDataRep := TABSQuery.Create(nil);
+      ABSDataRep.DatabaseName := Database.DatabaseName;
+      ABSDataRep.Close;
+      ABSDataRep.SQL.Clear;
+
+      ABSDataRep.SQL.Add('Select * from Data');
+      ABSDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      ABSDataRep.SQL.Add('and (Period_Date = "'+DateToStr(Datepick.Date)+'")');
+
+      if Not ChkTotal.Checked then
+      begin
+        if Not ChkSumBook.Checked then
+          ABSDataRep.SQL.Add('and (RefNo = "'+edRefNo.Text +'")');
+        if Not ChkSumCust.Checked then
+          ABSDataRep.SQL.Add('and (CustNo = "'+edCustNo.Text+'")');
+      end;
+
+      if Not ChkSortInput.Checked then
+        ABSDataRep.SQL.Add('Order By ID DESC')
+      else
+        ABSDataRep.SQL.Add('Order By ID ASC');
+      try ABSDataRep.Open; except end;
+      QrDataRep := ABSDataRep;
+    end;
+
+    //---------------------------------------------------------------//
+
+    if QrDataRep.RecordCount > 0 then
+    begin
+      {
+      QrLocateNum.Close;
+      QrLocateNum.ParamByName('mDate').Value  := DateToStr(Datepick.Date);
+      QrLocateNum.ParamByName('mLotID').Value := edLotID.Text;
+      QrLocateNum.Open;
+
+      SpecNumStr := '';
+      QrLocateNum.First;
+      for i := 0 to QrLocateNum.RecordCount-1 do
+      begin
+        SpecNumStr := SpecNumStr + QrLocateNum.fieldByName('Num').AsString+#13#10;;
+        QrLocateNum.Next;
+      end;
+
+      }
+
+      //------------------------------
+
+      if ChkShowOverLimt.Checked then
+      begin
+        QrLocateNum.Close;
+        QrLocateNum.ParamByName('mDate').Value  := DateToStr(Datepick.Date);
+        QrLocateNum.ParamByName('mLotID').Value := edLotID.Text;
+        QrLocateNum.Open;
+
+        SpecNumStr := '';
+        QrLocateNum.First;
+        for i := 0 to QrLocateNum.RecordCount-1 do
+        begin
+          SpecNumStr := SpecNumStr + QrLocateNum.fieldByName('Num').AsString+#13#10;;
+          QrLocateNum.Next;
+        end;
+      end;
+
+      Progressbar2.MaxValue := QrDataRep.RecordCount;
+      Setlength(PrU,2);
+      Setlength(PrD,2);
+      Setlength(ArInp1,10,8);
+      Setlength(ArInp2,101,7);
+      Setlength(ArInp3,1000,4);
+
+      for i := 0 to High(ArInp1) do
+        for j := 0 to 7 do
+          if j <> 0 then
+            ArInp1[i,j] := '0';
+
+      for i := 0 to High(ArInp2) do
+        for j := 0 to 6 do
+          if j <> 0 then
+            ArInp2[i,j] := '0';
+
+      for i := 0 to High(ArInp3) do
+        for j := 0 to 3 do
+          if j <> 0 then
+            ArInp3[i,j] := '0';
+
+      Pbar.Visible := true;
+      Application.ProcessMessages;
+
+      QrDataRep.First;
+      for i := 0 to QrDataRep.RecordCount-1 do
+      begin
+        Progressbar2.Progress := Progressbar2.Progress +1;
+        Num      := QrDataRep.fieldByName('Num').AsString;
+        PU       := QrDataRep.fieldByName('Up').AsString;
+        PD       := QrDataRep.fieldByName('Dwn').AsString;
+        FoundInp := false;
+
+        if (Length(GetNum(Num)) = CbNumLen.ItemIndex) Or (CbNumLen.ItemIndex = 0) then
+        begin
+          if edFindData.Text = '' then
+          begin
+            if CbUpDwn.ItemIndex = 0 then
+            begin
+              FoundInp := true;
+              InputGrid.AddRow;
+              InputGrid[0,InputGrid.RowCount-1] := QrDataRep.fieldByName('Num').AsString;
+              InputGrid[1,InputGrid.RowCount-1] := QrDataRep.fieldByName('Up').AsString;
+              InputGrid[2,InputGrid.RowCount-1] := QrDataRep.fieldByName('Dwn').AsString;
+              InputGrid[3,InputGrid.RowCount-1] := QrDataRep.fieldByName('ID').AsString;
+              InputGrid[4,InputGrid.RowCount-1] := QrDataRep.fieldByName('CustNo').AsString;
+              InputGrid[5,InputGrid.RowCount-1] := QrDataRep.fieldByName('RefNo').AsString;
+              InputGrid[6,InputGrid.RowCount-1] := QrDataRep.fieldByName('EmpNo').AsString;
+              InputGrid[7,InputGrid.RowCount-1] := QrDataRep.fieldByName('LotType').AsString;
+
+              Numb   := QrDataRep.fieldByName('Num').AsString;
+              P1     := QrDataRep.fieldByName('Up').AsString;
+
+              PrU[0] := LeftPr(P1);
+              PrU[1] := RightPr(P1);
+
+              P2     := QrDataRep.fieldByName('Dwn').AsString;
+              PrD[0] := LeftPr(P2);
+              PrD[1] := RightPr(P2);
+
+              ID  := QrDataRep.fieldByName('ID').AsString;
+              RefID := QrDataRep.fieldByName('RefNo').AsString;
+              CustNo := QrDataRep.fieldByName('CustNo').AsString;
+              CustNoInt := StrToInt(CustNo);
+
+              if ChkShowOverLimt.Checked then
+              begin
+                if RdNumClose.Checked then
+                  CheckSpecNum(Numb,P1,P2,ID,CustNo,false,ChkTotal.Checked,SpecNumStr)
+                else
+                if Not((LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='')) then
+                  CheckCorectNum(Numb,P1,P2,ID,CustNo,RefID,ChkTotal.Checked);
+              end;
+            end;
+
+            if CbUpDwn.ItemIndex = 1 then
+            begin
+              if PU <> '' then
+              begin
+                FoundInp := true;
+                InputGrid.AddRow;
+                InputGrid[0,InputGrid.RowCount-1] := QrDataRep.fieldByName('Num').AsString;
+                InputGrid[1,InputGrid.RowCount-1] := QrDataRep.fieldByName('Up').AsString;
+                InputGrid[2,InputGrid.RowCount-1] := QrDataRep.fieldByName('Dwn').AsString;
+                InputGrid[3,InputGrid.RowCount-1] := QrDataRep.fieldByName('ID').AsString;
+                InputGrid[4,InputGrid.RowCount-1] := QrDataRep.fieldByName('CustNo').AsString;
+                InputGrid[5,InputGrid.RowCount-1] := QrDataRep.fieldByName('RefNo').AsString;
+                InputGrid[6,InputGrid.RowCount-1] := QrDataRep.fieldByName('EmpNo').AsString;
+                InputGrid[7,InputGrid.RowCount-1] := QrDataRep.fieldByName('LotType').AsString;
+
+                Numb   := QrDataRep.fieldByName('Num').AsString;
+                P1     := QrDataRep.fieldByName('Up').AsString;
+                PrU[0] := LeftPr(P1);
+                PrU[1] := RightPr(P1);
+
+                P2     := QrDataRep.fieldByName('Dwn').AsString;
+                PrD[0] := LeftPr(P2);
+                PrD[1] := RightPr(P2);
+
+                ID  := QrDataRep.fieldByName('ID').AsString;
+                RefID := QrDataRep.fieldByName('RefNo').AsString;
+                CustNo := QrDataRep.fieldByName('CustNo').AsString;
+                CustNoInt := StrToInt(CustNo);
+
+                if ChkShowOverLimt.Checked then
+                begin
+                  if RdNumClose.Checked then
+                    CheckSpecNum(Numb,P1,P2,ID,CustNo,false,ChkTotal.Checked,SpecNumStr)
+                  else
+                  if Not((LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='')) then
+                    CheckCorectNum(Numb,P1,P2,ID,CustNo,RefID,ChkTotal.Checked);
+                end;
+              end;
+            end;
+
+            if CbUpDwn.ItemIndex = 2 then
+            begin
+              if PD <> '' then
+              begin
+                FoundInp := true;
+                InputGrid.AddRow;
+                InputGrid[0,InputGrid.RowCount-1] := QrDataRep.fieldByName('Num').AsString;
+                InputGrid[1,InputGrid.RowCount-1] := QrDataRep.fieldByName('Up').AsString;
+                InputGrid[2,InputGrid.RowCount-1] := QrDataRep.fieldByName('Dwn').AsString;
+                InputGrid[3,InputGrid.RowCount-1] := QrDataRep.fieldByName('ID').AsString;
+                InputGrid[4,InputGrid.RowCount-1] := QrDataRep.fieldByName('CustNo').AsString;
+                InputGrid[5,InputGrid.RowCount-1] := QrDataRep.fieldByName('RefNo').AsString;
+                InputGrid[6,InputGrid.RowCount-1] := QrDataRep.fieldByName('EmpNo').AsString;
+                InputGrid[7,InputGrid.RowCount-1] := QrDataRep.fieldByName('LotType').AsString;
+
+                Numb   := QrDataRep.fieldByName('Num').AsString;
+                P1     := QrDataRep.fieldByName('Up').AsString;
+                PrU[0] := LeftPr(P1);
+                PrU[1] := RightPr(P1);
+
+                P2     := QrDataRep.fieldByName('Dwn').AsString;
+                PrD[0] := LeftPr(P2);
+                PrD[1] := RightPr(P2);
+
+                ID  := QrDataRep.fieldByName('ID').AsString;
+                RefID := QrDataRep.fieldByName('RefNo').AsString;
+                CustNo := QrDataRep.fieldByName('CustNo').AsString;
+                CustNoInt := StrToInt(CustNo);
+
+                if ChkShowOverLimt.Checked then
+                begin
+                  if RdNumClose.Checked then
+                    CheckSpecNum(Numb,P1,P2,ID,CustNo,false,ChkTotal.Checked,SpecNumStr)
+                  else
+                  if Not((LotNum6.Text='')and(LotNum2.Text='')and(LotNum31.Text='')and(LotNum32.Text='')and(LotNum33.Text='')and(LotNum34.Text='')) then
+                    CheckCorectNum(Numb,P1,P2,ID,CustNo,RefID,ChkTotal.Checked);
+                end;
+              end;
+            end;
+          end
+          else
+          begin
+            //fndGrpNum.Text := PermutationStr(Num);
+            //if edFindData.Text in fndGrpNum then
+            //begin
+
+            //end;
+          end;
+
+          if Not(FoundInp) then
+          begin
+            QrDataRep.Next;
+            Continue;
+          end;
+
+          Nums := GetNum(Numb); //เอาเฉพาะตัวเลข ไม่เอาเครื่องหมายเข่น 25+ --> 25, 1-2 --> 12
+          if Nums <> '' then
+            Ns := StrToInt(Nums);
+
+          if InputGrid.RowCount > 0 then
+          begin
+            if (Length(Nums) >= 3) and (Pos('*',Numb) = Length(Numb)) then  // 1234* = 100, 1234* = 100* เลขวิน
+            begin
+              if ((P1 <> '') Or (P2 <> '')) then
+              begin
+                for j := 1 to (Length(Nums)-1) do
+                begin
+                  for k := j+1 to Length(Nums) do
+                  begin
+                    Num := IntToStr(j)+IntToStr(k);
+                    Nms := StrToInt(Num);
+                    ArInp2[Nms,0] := Num;
+                    if P1 <> '' then
+                      ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(PrU[0]))
+                    else
+                      ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(PrD[0]));
+                  end;
+                end;
+
+                if ((Pos('*',P1) > 0) Or (Pos('*',P2) > 0)) then
+                begin
+                  for j := 1 to (Length(Nums)-1) do
+                  begin
+                    for k := j+1 to Length(Nums) do
+                    begin
+                      Num := IntToStr(k)+IntToStr(j);
+                      Nms := StrToInt(Num);
+                      ArInp2[Nms,0] := Num;
+                      if P1 <> '' then
+                      begin
+                        if (Pos('*',P1) = Length(P1)) then
+                          ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(PrU[0]))
+                        else
+                          ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(PrU[1]));
+                      end
+                      else
+                      begin
+                        if (Pos('*',P2) = Length(P2)) then
+                          ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(PrD[0]))
+                        else
+                          ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(PrD[1]));
+                      end;
+                    end;
+                  end;
+                end;
+              end;
+            end;
+
+            if (Length(Nums) = 0) then
+            begin
+              if ((Length(Numb) = 1) and ((P1 <> '') Or (P2 <> '')) and (Numb[1] in ['.'])) then // . เลขเหมือน
+              begin
+                for j := 0 to 9 do
+                begin
+                  Num := IntToStr(j)+IntToStr(j);
+                  Nms := StrToInt(Num);
+                  ArInp2[Nms,0] := Num;
+                  if P1 <> '' then
+                    ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                  else
+                    ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+              end;
+
+              if ((Length(Numb) = 2) and ((P1 <> '') Or (P2 <> '')) and ((Numb[1] in ['.']) and (Numb[2] in ['.']))) then // .. เลขพี่น้อง
+              begin
+                for j := 0 to 9 do
+                begin
+                    if j = 9 then
+                      Num := '90'
+                    else
+                      Num := IntToStr(j)+IntToStr(j+1);
+                    Nms := StrToInt(Num);
+                    ArInp2[Nms,0] := Num;
+                    if P1 <> '' then
+                      ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                    else
+                      ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+
+                for j := 9 Downto 0 do
+                begin
+                    if j = 0 then
+                      Num := '09'
+                    else
+                      Num := IntToStr(j)+IntToStr(j-1);
+                    Nms := StrToInt(Num);
+                    ArInp2[Nms,0] := Num;
+                    if P1 <> '' then
+                      ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                    else
+                      ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+              end;
+
+            end;
+
+            if (Length(Nums) = 1) then
+            begin
+              With CutGrid1 do
+              begin
+                ArInp1[Ns,0]  := Nums;
+                if ((P1 <> '') and (Length(Numb) = 1) and (Numb[1] in ['0'..'9'])) then  // 1, 2, 3  ลอยบน
+                  ArInp1[Ns,1] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,1])+ StrToFloatDef(P1,0));
+                if ((P1 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) then // 1-
+                  ArInp1[Ns,2] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,2])+ StrToFloatDef(P1,0));
+                if ((P1 <> '') and (Length(Numb) = 3) and (Numb[1] in ['-']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // -1-
+                  ArInp1[Ns,3] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,3])+ StrToFloatDef(P1,0));
+                if ((P1 <> '') and (Length(Numb) = 2) and (Numb[1] in ['-']) and (Numb[2] in ['0'..'9'])) then  // -1
+                  ArInp1[Ns,4] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,4] )+ StrToFloatDef(P1,0));
+                if ((P2 <> '') and (Length(Numb) = 1) and (Numb[1] in ['0'..'9'])) then  // 1, 2, 3  //ลอยล่าง
+                  ArInp1[Ns,5] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,5])+ StrToFloatDef(P2,0));
+                if ((P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) then // 1-
+                  ArInp1[Ns,6] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,6])+ StrToFloatDef(P2,0));
+                if ((P2 <> '') and (Length(Numb) = 2) and (Numb[1] in ['-']) and (Numb[2] in ['0'..'9'])) then  // -1
+                  ArInp1[Ns,7] := FormatFloat('###,###;#',TxtToFloat(ArInp1[Ns,7])+ StrToFloatDef(P2,0));
+              end;
+
+              if ((Length(Numb) = 2) and ((P1 <> '') Or (P2 <> '')) and ((Numb[1] in ['/']) Or (Numb[2] in ['/']))) then // 1/, 2/
+              begin
+                for j := 0 to 9 do
+                begin
+                  if (Numb[1] in ['/']) then
+                  begin
+                    Nms := StrToInt(Nums+IntToStr(j));
+                    ArInp2[Nms,0] := Nums+IntToStr(j);
+                  end
+                  else
+                  begin
+                    Nms := StrToInt(IntToStr(j)+Nums);
+                    ArInp2[Nms,0] := IntToStr(j)+Nums;
+                  end;
+                  if P1 <> '' then
+                    ArInp2[Nms,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                  else
+                    ArInp2[Nms,6] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+              end;
+            end;
+
+            if (Length(Nums) = 2) then
+            begin
+              GrpNum := TStringList.Create;
+              GrpNum.Text := PerMuTationStr(Nums);
+              if ((P1 <> '') and IsNumOnly(P1)) Or ((P2 <> '') and IsNumOnly(P2)) then // 12=20, 28=50, 34=30
+              begin
+                Ns := StrToInt(GrpNum[0]);
+                ArInp2[Ns,0]  := Nums;
+                if ((Length(Numb) = Length(Nums)) and IsNumOnly(P1)) then // 12=20, 28=50, 34=30   บน
+                  ArInp2[Ns,1] := FormatFloat('###,###;#',TxtToFloat(ArInp2[Ns,1]) + TxtToFloat(P1));
+
+                //2 ตัวโต๊ด ยกเลิก
+                  ArInp2[Ns,2] := '0';
+
+                if ((Length(Numb) = 3) and  (P1 <> '') and (Pos('+',Numb) = Length(Numb)) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9']))  then // 25+
+                  ArInp2[Ns,3] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,3]) + TxtToFloat(P1));
+
+                if ((Length(Numb) = 3) and IsNumOnly(P1) and  (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25- = 100
+                  ArInp2[Ns,4] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,4]) + TxtToFloat(P1));
+
+                if ((Length(Numb) = 3) and IsNumOnly(P1) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 100
+                  ArInp2[Ns,5] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,5]) + TxtToFloat(P1));
+
+                if ((Length(Numb) = Length(Nums)) and IsNumOnly(P2)) then // ล่าง 12, 28, 34 = 100
+                  ArInp2[Ns,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,6]) + TxtToFloat(P2));
+              end
+              else
+              begin
+                if (CountOccur('*',P1) = 1) Or (CountOccur('*',P2) = 1) then //12=100*
+                begin
+                  for j := 0 to 1 do
+                  begin
+                    if GrpNum.Count = 1 then
+                    begin
+                      Ns := StrToInt(Nums);
+                      ArInp2[Ns,0]  := Nums;
+                    end
+                    else
+                    begin
+                      Ns := StrToInt(GrpNum[j]);
+                      ArInp2[Ns,0]  := GrpNum[j];
+                    end;
+
+                    //2 ตัวบนคูณ
+                    if ((Length(Numb) = Length(Nums)) and (Pos('*',P1) > 0) and (Pos('*',P1) = Length(P1))) then  //12=100*  บน
+                    ArInp2[Ns,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,1]) + TxtToFloat(PrU[0]));
+
+                    //2 ตัวบนกลับ
+                    if ((Length(Numb) = Length(Nums)) and (Pos('*',P1) > 1) and (Pos('*',P1) < Length(P1)) and (Numb[1] in ['0'..'9']) and
+                       (Numb[2] in ['0'..'9']) and (Pos('*',P1) <> Length(P1)) and Not(IsLastStr(P1,'*3') Or IsLastStr(P1,'*6'))) then // 12=100*20
+                      ArInp2[Ns,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,1]) + TxtToFloat(PrU[j]));
+
+                    //2 ตัวบน, 2 ตัวหน้าบน, 2 ตัวถ่างบน
+                    if ((Length(Numb) = Length(Nums)) and (Pos('*',P1) > 1) and (Pos('*',P1) < Length(P1)) and (Numb[1] in ['0'..'9']) and
+                       (Numb[2] in ['0'..'9']) and (Pos('*',P1) <> Length(P1)) and (IsLastStr(P1,'*3') Or IsLastStr(P1,'*6'))) then // 12=100*3, 45=100*6
+                    begin
+                      ArInp2[Ns,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,1]) + TxtToFloat(PrU[0]));
+                      ArInp2[Ns,4] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,4]) + TxtToFloat(PrU[0]));
+                      ArInp2[Ns,5] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,5]) + TxtToFloat(PrU[0]));
+                    end;
+
+                     // 2 ตัวโต๊ด ยกเลิก
+                      ArInp2[Ns,2] := '0';
+
+                    if ((Length(Numb) = 3) and (Pos('*',P1) = Length(P1)) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25- =100*
+                      ArInp2[Ns,4] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,4]) + TxtToFloat(PrU[0]));
+
+                    if ((Length(Numb) = 3) and (Pos('*',P1) > 1) and (Pos('*',P1) < Length(P1)) and (Numb[1] in ['0'..'9']) and (Numb[2] in ['0'..'9'])) and (Numb[3] in ['-']) then // 25- =100*50
+                      ArInp2[Ns,4] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,4]) + TxtToFloat(PrU[j]));
+
+                    if ((Length(Numb) = 3) and (Pos('*',P1) = Length(P1))  and  (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 100*
+                      ArInp2[Ns,5] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,5]) + TxtToFloat(PrU[0]));
+
+                    if ((Length(Numb) = 3) and (Pos('*',P1) > 1) and (Pos('*',P1) < Length(P1)) and  (Numb[1] in ['0'..'9']) and (Numb[2] in ['-'])) and (Numb[3] in ['0'..'9']) then // 2-5 = 10*20
+                      ArInp2[Ns,5] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,5]) + TxtToFloat(PrU[j]));
+
+                    if ((Length(Numb) = Length(Nums)) and (Pos('*',P2) > 0) and (Pos('*',P2) = Length(P2))) then  //12=100*  ล่าง
+                    ArInp2[Ns,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,6]) + TxtToFloat(PrD[0]));
+
+                    if ((Length(Numb) = Length(Nums)) and (Pos('*',P2) > 1) and (Pos('*',P2) < Length(P2)) and (Pos('*',P2) <> Length(p2))) then // ล่าง 12=100*20
+                      ArInp2[Ns,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Ns,6]) + TxtToFloat(PrD[j]));
+                  end;
+
+
+                end;
+              end;
+              GrpNum.Free;
+            end;
+            //--------------------------------------------------------------------------//
+
+            if (Length(Nums) = 3) and (Length(Numb) = 3) then
+            begin
+              if ((Length(Numb) = 4) and ((P1 <> '') Or (P2 <> '')) and (Numb[1]+Numb[2]+Numb[3]='20.')) then
+              begin
+                for j := 0 to 9 do
+                begin
+                  Num := Numb[4]+IntToStr(j);
+                  Nms := StrToInt(Num);
+                  ArInp2[Nms,0]  := Num;
+                  if P1 <> '' then
+                    ArInp2[Nms,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                  else
+                    ArInp2[Nms,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+                for j := 9 Downto 0 do
+                begin
+                  Num := IntToStr(j)+Numb[4];
+                  Nms := StrToInt(Num);
+                  ArInp2[Nms,0]  := Num;
+                  if P1 <> '' then
+                    ArInp2[Nms,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                  else
+                    ArInp2[Nms,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+              end;
+
+              if ((Length(Numb) = 4) and ((P1 <> '') Or (P2 <> '')) and (Numb[1]+Numb[2]+Numb[3]='19.')) then
+              begin
+                for j := 0 to 9 do
+                begin
+                    Num := Numb[4]+IntToStr(j);
+                    Nms := StrToInt(Num);
+                    ArInp2[Nms,0]  := Num;
+                    if P1 <> '' then
+                      ArInp2[Nms,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                    else
+                      ArInp2[Nms,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                end;
+                for j := 9 Downto 0 do
+                begin
+                  if Numb[4] <> IntToStr(j) then
+                  begin
+                    Num := IntToStr(j)+Numb[4];
+                    Nms := StrToInt(Num);
+                    ArInp2[Nms,0]  := Num;
+                    if P1 <> '' then
+                      ArInp2[Nms,1] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,1]) + TxtToFloat(P1))
+                    else
+                      ArInp2[Nms,6] := FormatFloat('###,##0',TxtToFloat(ArInp2[Nms,6]) + TxtToFloat(P2));
+                  end;
+                end;
+              end;
+
+
+              if IsNumOnly(Numb) then
+              begin
+
+              GrpNum := TStringList.Create;
+              if ((P1 <> '') and IsNumOnly(P1)) Or ((P2 <> '') and IsNumOnly(P2)) then
+              begin
+                Ns := StrToInt(Nums);
+                ArInp3[Ns,0]  := Nums;
+                if IsNumOnly(P1) then //and (Pos('-',P1) = 0) and (Pos('*',P1) = 0) then  //123 = 20
+                begin
+                  ArInp3[Ns,1] := FormatFloat('###,###;#',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(P1));
+                end;
+
+                if IsNumOnly(P2) then // 3 ตัวล่าง
+                begin
+                  ArInp3[Ns,3] := FormatFloat('###,###;#',TxtToFloat(ArInp3[Ns,3]) + TxtToFloat(P2));
+                end;
+              end
+              else
+              begin
+                GrpNum.Text := PerMuTationStr(Nums);
+
+                if (Pos('*',P1) > 0) then
+                begin
+                  for j := 0 to GrpNum.Count-1 do
+                  begin
+                    Ns := StrToInt(GrpNum[j]);
+                    ArInp3[Ns,0]  := GrpNum[j];
+                    if (Pos('*',P1) = Length(P1)) then  //123 = 100*
+                    begin
+                      ArInp3[Ns,1] := FormatFloat('###,###',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(PrU[0]));
+                    end;
+
+                    if (Pos('*',P1) > 1) and (Pos('*',P1) < Length(P1)) then  //123 = 100*20
+                    begin
+                      if j = 0 then
+                      begin
+                        ArInp3[Ns,1] := FormatFloat('###,###',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(PrU[0]));
+                      end
+                      else
+                      begin
+                        ArInp3[Ns,1] := FormatFloat('###,###',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(PrU[1]));
+                      end;
+                    end;
+                  end;
+                end
+                else
+                begin
+                  Ns := StrToInt(Nums);
+                  AltNum := AlterNum(Nums);
+                  ANs := StrToInt(AltNum);
+    
+                  if (Pos('-',P1) > 1) and (Pos('-',P1) < Length(P1)) then  //123 = 100-20
+                  begin
+                    ArInp3[Ns,0]  := Nums;
+                    ArInp3[Ns,1]  := FormatFloat('###,###',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(PrU[0]));
+
+                    ArInp3[ANs,0] := AltNum;
+                    ArInp3[ANs,2] := FormatFloat('###,###',TxtToFloat(ArInp3[ANs,2]) + TxtToFloat(PrU[1]));
+                  end;
+
+                  if  (Pos('-',P1) = 1) then  //456 = -30
+                  begin
+                    ArInp3[ANs,0] := AltNum;
+                    ArInp3[ANs,2] := FormatFloat('###,###',TxtToFloat(ArInp3[ANs,2]) + TxtToFloat(PrU[1]));
+                  end
+                end;
+              end;
+              GrpNum.Free;
+              end;
+            end;
+            //--------------------------------------------------------------------------//
+
+            if (Length(Nums) = 4) then
+            begin
+              //---------------------------4 ตัวบน ----------------------------//
+              //if (Length(Numb)=Length(Nums)) and (Not(foundChar(P1,'*'))) and (Not(foundChar(P1,'-'))) then
+              if (Length(Numb)=Length(Nums)) and (GetNum(P1) = P1) and (P1 <> '') then
+              begin
+                foundNum := false;
+                if length(ArInp4) > 0 then
+                begin
+                  for j := 0 to length(ArInp4)-1 do
+                  begin
+                    if  ArInp4[j,0] = Nums then
+                    begin
+                      ArInp4[j,1] :=  FormatFloat('##0.##0',StrToFloatDef(ArInp4[j,1],0)+TxtToFloat(P1));
+                      foundNum := true;
+                      break;
+                    end;
+                  end;
+
+                  if Not(foundNum) then
+                  begin
+                    setlength(ArInp4,length(ArInp4)+1,3);
+                    ArInp4[length(ArInp4)-1,0] := Nums;
+                    ArInp4[length(ArInp4)-1,1] := P1;
+                  end;
+                end
+                else
+                begin
+                    setlength(ArInp4,length(ArInp4)+1,3);
+                    ArInp4[length(ArInp4)-1,0] := Nums;
+                    ArInp4[length(ArInp4)-1,1] := P1;
+                end;
+              end;
+              //---------------------------------------------------------------//
+
+              //---------------------------4 ตัวโต๊ด ----------------------------//
+              if (Length(Numb)=Length(Nums)) and (foundChar(P1,'-')) then
+              begin
+                AltNum := AlterNum(Nums);
+                foundNum := false;
+                if length(ArInp4) > 0 then
+                begin
+                  for j := 0 to length(ArInp4)-1 do
+                  begin
+                    if  ArInp4[j,0] = AltNum then
+                    begin
+                      ArInp4[j,2] :=  FormatFloat('##0.##0',StrToFloatDef(ArInp4[j,2],0)+TxtToFloat(PrU[1]));
+                      foundNum := true;
+                      break;
+                    end;
+                  end;
+
+                  if Not(foundNum) then
+                  begin
+                    setlength(ArInp4,length(ArInp4)+1,3);
+                    ArInp4[length(ArInp4)-1,0] := AltNum;
+                    ArInp4[length(ArInp4)-1,2] := PrU[1];
+                  end;
+                end
+                else
+                begin
+                  setlength(ArInp4,length(ArInp4)+1,3);
+                  ArInp4[length(ArInp4)-1,0] := AltNum;
+                  ArInp4[length(ArInp4)-1,2] := PrU[1];
+                end;
+              end;
+              //---------------------------------------------------------------//
+
+              //---------------------------4 ตัวแปลงเป็น 3 เต็ง----------------------------//
+              if (Length(Numb)=Length(Nums)) and (foundChar(P1,'*')) then
+              begin
+                GrpNum := TStringList.Create;
+                GrpNum.Text := PerMuTationStr(Nums);
+                for j := 0 to GrpNum.Count-1 do
+                begin
+                  Ns := StrToInt(GrpNum[j]);
+                  ArInp3[Ns,0]  := GrpNum[j];
+                  if (Pos('*',P1) = Length(P1)) then  //1234 = 100*
+                    ArInp3[Ns,1] := FormatFloat('###,###;#',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(PrU[0]));
+                end;
+                GrpNum.Free;
+              end;
+              //---------------------------------------------------------------//
+            end;
+            //--------------------------------------------------------------------------//
+            if (Length(Nums) = 5) then
+            begin
+              //---------------------------5 ตัวบน ----------------------------//
+              //if (Length(Numb)=Length(Nums)) and (Not(foundChar(P1,'*'))) and (Not(foundChar(P1,'-'))) then
+              if (Length(Numb)=Length(Nums)) and (GetNum(P1) = P1) and (P1 <> '') then
+              begin
+                foundNum := false;
+                if length(ArInp5) > 0 then
+                begin
+                  for j := 0 to length(ArInp5)-1 do
+                  begin
+                    if  ArInp5[j,0] = Nums then
+                    begin
+                      ArInp5[j,1] :=  FormatFloat('##0.##0',StrToFloatDef(ArInp5[j,1],0)+TxtToFloat(P1));
+                      foundNum := true; 
+                      break;
+                    end;
+                  end;
+
+                  if Not(foundNum) then
+                  begin
+                    setlength(ArInp5,length(ArInp5)+1,3);
+                    ArInp5[length(ArInp5)-1,0] := Nums;
+                    ArInp5[length(ArInp5)-1,1] := P1;
+                  end;
+                end
+                else
+                begin
+                  setlength(ArInp5,length(ArInp5)+1,3);
+                  ArInp5[length(ArInp5)-1,0] := Nums;
+                  ArInp5[length(ArInp5)-1,1] := P1;
+                end;
+              end;
+              //---------------------------------------------------------------//
+
+              //---------------------------5 ตัวโต๊ด ----------------------------//
+              if (Length(Numb)=Length(Nums)) and (foundChar(P1,'-')) then
+              begin
+                AltNum := AlterNum(Nums);
+                foundNum := false;
+                if length(ArInp5) > 0 then
+                begin
+                  for j := 0 to length(ArInp5)-1 do
+                  begin
+                    if  ArInp5[j,0] = AltNum then
+                    begin
+                      ArInp5[j,2] :=  FormatFloat('##0.##0',StrToFloatDef(ArInp5[j,2],0)+TxtToFloat(PrU[1]));
+                      foundNum := true;
+                      break;
+                    end;
+                  end;
+
+                  if Not(foundNum) then
+                  begin
+                    setlength(ArInp5,length(ArInp5)+1,3);
+                    ArInp5[length(ArInp5)-1,0] := AltNum;
+                    ArInp5[length(ArInp5)-1,2] := PrU[1];
+                  end;
+                end
+                else
+                begin
+                  setlength(ArInp5,length(ArInp5)+1,3);
+                  ArInp5[length(ArInp5)-1,0] := AltNum;
+                  ArInp5[length(ArInp5)-1,2] := PrU[1];
+                end;
+              end;
+              //---------------------------------------------------------------//
+
+              //---------------------------5 ตัวแปลงเป็น 3 เต็ง----------------------------//
+              if (Length(Numb)=Length(Nums)) and  (foundChar(P1,'*')) then
+              begin
+                GrpNum := TStringList.Create;
+                GrpNum.Text := PerMuTationStr(Nums);
+                for j := 0 to GrpNum.Count-1 do
+                begin
+                  Ns := StrToInt(GrpNum[j]);
+                  ArInp3[Ns,0]  := GrpNum[j];
+                  if (Pos('*',P1) = Length(P1)) then  //12345 = 100*
+                    ArInp3[Ns,1] := FormatFloat('###,###;#',TxtToFloat(ArInp3[Ns,1]) + TxtToFloat(PrU[0]));
+                end;
+                GrpNum.Free;
+              end;
+              //---------------------------------------------------------------//
+            end;
+          end; // dgSell.ItemIndex = 0
+
+        end;// Cust
+        
+        QrDataRep.Next;
+      end; //for
+      lbItems1.Caption := IntToStr(InputGrid.RowCount)+' รายการ';
+      
+      //-----------------------------------------------------------------------------------------------------//
+      if ChkShowOverLimt.Checked and RdNumCor.Checked then
+      begin
+        SumWin := 0;
+        for i := 0 to NGridSpecNum.RowCount-1 do
+          if NGridSpecNum[8,i] <> '' then
+            SumWin := SumWin + StrToInt(NGridSpecNum[8,i]);
+
+        lbSumWin.Caption :=  FormatFloat('###,##0',SumWin)+' บาท';
+        lbItems1.Caption := IntToStr(inputGrid.RowCount)+' รายการ';
+      end;
+
+      SetLength(Sum1,5,8);
+      SetLength(SumItem,5,7);
+      for i := 9 Downto 0 do
+      begin
+        if ArInp1[i,0] <> '' then
+        begin
+          With NiceGrid1 do
+          begin
+            if (TxtToFloat(ArInp1[i,1]) > 0) Or (TxtToFloat(ArInp1[i,2]) > 0) Or (TxtToFloat(ArInp1[i,3]) > 0) Or
+               (TxtToFloat(ArInp1[i,4]) > 0) Or (TxtToFloat(ArInp1[i,5]) > 0) Or (TxtToFloat(ArInp1[i,6]) > 0) Or (TxtToFloat(ArInp1[i,7]) > 0) then
+            begin
+              if RowCount = 0 then
+                RowCount := 1
+              else
+                InsertRow(0);
+
+              NiceGrid1[0,0] := ArInp1[i,0];
+              if (TxtToFloat(ArInp1[i,1]) > 0) then
+              begin
+                NiceGrid1[1,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,1]));
+                SumItem[0,0]  := SumItem[0,0]+1;
+              end;
+              if (TxtToFloat(ArInp1[i,2]) > 0) then
+              begin
+                NiceGrid1[2,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,2]));
+                SumItem[0,1]  := SumItem[0,1]+1;
+              end;
+              if (TxtToFloat(ArInp1[i,3]) > 0) then
+              begin
+                NiceGrid1[3,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,3]));
+                SumItem[0,2]  := SumItem[0,2]+1;
+              end;
+              if (TxtToFloat(ArInp1[i,4]) > 0) then
+              begin
+                NiceGrid1[4,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,4]));
+                SumItem[0,3]  := SumItem[0,3]+1;
+              end;
+              if (TxtToFloat(ArInp1[i,5]) > 0) then
+              begin
+                NiceGrid1[5,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,5]));
+                SumItem[0,4]  := SumItem[0,4]+1;
+              end;
+              if (TxtToFloat(ArInp1[i,6]) > 0) then
+              begin
+                NiceGrid1[6,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,6]));
+                SumItem[0,5]  := SumItem[0,5]+1;
+              end;
+              if (TxtToFloat(ArInp1[i,7]) > 0) then
+              begin
+                NiceGrid1[7,0] := FormatFloat('###,###',TxtToFloat(ArInp1[i,7]));
+                SumItem[0,6]  := SumItem[0,6]+1;
+              end;
+
+              Sum1[0,1] := Sum1[0,1] + TxtToFloat(ArInp1[i,1]);
+              Sum1[0,2] := Sum1[0,2] + TxtToFloat(ArInp1[i,2]);
+              Sum1[0,3] := Sum1[0,3] + TxtToFloat(ArInp1[i,3]);
+              Sum1[0,4] := Sum1[0,4] + TxtToFloat(ArInp1[i,4]);
+              Sum1[0,5] := Sum1[0,5] + TxtToFloat(ArInp1[i,5]);
+              Sum1[0,6] := Sum1[0,6] + TxtToFloat(ArInp1[i,6]);
+              Sum1[0,7] := Sum1[0,7] + TxtToFloat(ArInp1[i,7]);
+            end;
+          end
+        end;
+      end;
+      ArInp1 := nil;
+      //----------------------------------------------------//
+
+      for i := 99 Downto 0 do
+      begin
+        if ArInp2[i,0] <> '' then
+        begin
+          With NiceGrid2 do
+          begin
+            if (TxtToFloat(ArInp2[i,1]) > 0) Or (TxtToFloat(ArInp2[i,2]) > 0) Or (TxtToFloat(ArInp2[i,3]) > 0) Or
+               (TxtToFloat(ArInp2[i,4]) > 0) Or (TxtToFloat(ArInp2[i,5]) > 0) Or (TxtToFloat(ArInp2[i,6]) > 0) then
+            begin
+              if RowCount = 0 then
+                RowCount := 1
+              else
+                InsertRow(0);
+
+              NiceGrid2[0,0] := ArInp2[i,0];
+              if (TxtToFloat(ArInp2[i,1]) > 0) then
+              begin
+                NiceGrid2[1,0] := FormatFloat('###,###',TxtToFloat(ArInp2[i,1]));
+                SumItem[1,0]  := SumItem[1,0]+1;
+              end;
+
+              NiceGrid2[2,0] := '';//FormatFloat('###,###',TxtToFloat(ArInp2[i,2]));
+
+              if (TxtToFloat(ArInp2[i,3]) > 0) then
+              begin
+                NiceGrid2[3,0] := FormatFloat('###,###',TxtToFloat(ArInp2[i,3]));
+                SumItem[1,2]  := SumItem[1,2]+1;
+              end;
+
+              if (TxtToFloat(ArInp2[i,4]) > 0) then
+              begin
+                NiceGrid2[4,0] := FormatFloat('###,###',TxtToFloat(ArInp2[i,4]));
+                SumItem[1,3]  := SumItem[1,3]+1;
+              end;
+
+              if (TxtToFloat(ArInp2[i,5]) > 0) then
+              begin
+                NiceGrid2[5,0] := FormatFloat('###,###',TxtToFloat(ArInp2[i,5]));
+                SumItem[1,4]  := SumItem[1,4]+1;
+              end;
+
+              if (TxtToFloat(ArInp2[i,6]) > 0) then
+              begin
+                NiceGrid2[6,0] := FormatFloat('###,###',TxtToFloat(ArInp2[i,6]));
+                SumItem[1,5] := SumItem[1,5]+1;
+              end;
+
+              Sum1[1,1] := Sum1[1,1] + TxtToFloat(ArInp2[i,1]);
+              Sum1[1,2] := 0;//Sum1[1,2] + TxtToFloat(ArInp2[i,2]);
+              Sum1[1,3] := Sum1[1,3] + TxtToFloat(ArInp2[i,3]);
+              Sum1[1,4] := Sum1[1,4] + TxtToFloat(ArInp2[i,4]);
+              Sum1[1,5] := Sum1[1,5] + TxtToFloat(ArInp2[i,5]);
+              Sum1[1,6] := Sum1[1,6] + TxtToFloat(ArInp2[i,6]);
+            end;
+          end;
+        end;
+      end;
+      ArInp2 := nil;
+      //----------------------------------------------------//
+
+      for i := 999 Downto 0 do
+      begin
+        if ArInp3[i,0] <> '' then
+        begin
+          With NiceGrid3 do
+          begin
+
+            if (TxtToFloat(ArInp3[i,1]) > 0) Or (TxtToFloat(ArInp3[i,2]) > 0) Or (TxtToFloat(ArInp3[i,3]) > 0) then
+            begin
+              if RowCount = 0 then
+                RowCount := 1
+              else
+               InsertRow(0);
+
+              NiceGrid3[0,0] := ArInp3[i,0];
+              if (TxtToFloat(ArInp3[i,1]) > 0) then
+              begin
+                NiceGrid3[1,0] := FormatFloat('###,###',TxtToFloat(ArInp3[i,1]));
+                SumItem[2,0]  := SumItem[2,0]+1;
+              end;
+              if (TxtToFloat(ArInp3[i,2]) > 0) then
+              begin
+                NiceGrid3[2,0] := FormatFloat('###,###',TxtToFloat(ArInp3[i,2]));
+                SumItem[2,1]  := SumItem[2,1]+1;
+              end;
+              if (TxtToFloat(ArInp3[i,3]) > 0) then
+              begin
+                NiceGrid3[3,0] := FormatFloat('###,###',TxtToFloat(ArInp3[i,3]));
+                SumItem[2,2]  := SumItem[2,2]+1;
+              end;
+
+              Sum1[2,1] := Sum1[2,1] + TxtToFloat(ArInp3[i,1]);
+              Sum1[2,2] := Sum1[2,2] + TxtToFloat(ArInp3[i,2]);
+              Sum1[2,3] := Sum1[2,3] + TxtToFloat(ArInp3[i,3]);
+            end;
+          end
+        end;
+      end;
+      ArInp3 := nil;
+      //----------------------------------------------------//
+
+      for i := Length(ArInp4)-1 Downto 0 do
+      begin
+        if ArInp4[i,0] <> '' then
+        begin
+          With NiceGrid4 do
+          begin
+            if (TxtToFloat(ArInp4[i,1]) > 0) Or (TxtToFloat(ArInp4[i,2]) > 0) then
+            begin
+              if RowCount = 0 then
+                RowCount := 1
+              else
+                InsertRow(0);
+
+              NiceGrid4[0,0] := ArInp4[i,0];
+              if (TxtToFloat(ArInp4[i,1]) > 0) then
+              begin
+                NiceGrid4[1,0] := FormatFloat('###,###',TxtToFloat(ArInp4[i,1]));
+                SumItem[3,0]  := SumItem[3,0]+1;
+              end;
+              if (TxtToFloat(ArInp4[i,2]) > 0) then
+              begin
+                NiceGrid4[2,0] := FormatFloat('###,###',TxtToFloat(ArInp4[i,2]));
+                SumItem[3,1]  := SumItem[3,1]+1;
+              end;
+
+              Sum1[3,1] := Sum1[3,1] + TxtToFloat(ArInp4[i,1]);
+              Sum1[3,2] := Sum1[3,2] + TxtToFloat(ArInp4[i,2]);
+            end;
+          end
+        end;
+      end;
+      ArInp4 := nil;
+      //----------------------------------------------------//
+
+      for i := Length(ArInp5)-1 Downto 0 do
+      begin
+        if ArInp5[i,0] <> '' then
+        begin
+          With NiceGrid5 do
+          begin
+            if (TxtToFloat(ArInp5[i,1]) > 0) Or (TxtToFloat(ArInp5[i,2]) > 0) then
+            begin
+              if RowCount = 0 then
+                RowCount := 1
+              else
+                InsertRow(0);
+
+              NiceGrid5[0,0] := ArInp5[i,0];
+              if (TxtToFloat(ArInp5[i,1]) > 0) then
+              begin
+                NiceGrid5[1,0] := FormatFloat('###,###',TxtToFloat(ArInp5[i,1]));
+                SumItem[4,0]  := SumItem[4,0]+1;
+              end;
+              if (TxtToFloat(ArInp5[i,2]) > 0) then
+              begin
+                NiceGrid5[2,0] := FormatFloat('###,###',TxtToFloat(ArInp5[i,2]));
+                SumItem[4,1]  := SumItem[4,1]+1;
+              end;
+
+              Sum1[4,1] := Sum1[4,1] + TxtToFloat(ArInp5[i,1]);
+              Sum1[4,2] := Sum1[4,2] + TxtToFloat(ArInp5[i,2]);
+            end;
+          end
+        end;
+      end;
+      ArInp5 := nil;
+      //----------------------------------------------------//
+
+      ClearSumGrid(SumGrid);
+      footSum := 0;
+      SumfootItem := 0;
+      for i := 1 to 7 do
+      begin
+        if Sum1[0,i] > 0 then
+        begin
+          SumGrid[0,i-1] := FormatFloat('###,###',Sum1[0,i]);
+          SumGrid[1,i-1] := FormatFloat('###,###',SumItem[0,i-1]);
+          footSum := footSum + Sum1[0,i];
+          SumfootItem := SumfootItem + SumItem[0,i-1];
+        end;
+      end;
+
+      for i := 1 to 6 do
+      begin
+        if Sum1[1,i] > 0 then
+        begin
+          SumGrid[0,i+7-1] := FormatFloat('###,###',Sum1[1,i]);
+          SumGrid[1,i+7-1] := FormatFloat('###,###',SumItem[1,i-1]);
+          footSum := footSum + Sum1[1,i];
+          SumfootItem := SumfootItem + SumItem[1,i-1];
+        end;
+      end;
+
+      for i := 1 to 3 do
+      begin
+        if Sum1[2,i] > 0 then
+        begin
+          SumGrid[0,i+7+6-1] := FormatFloat('###,###',Sum1[2,i]);
+          SumGrid[1,i+7+6-1] := FormatFloat('###,###',SumItem[2,i-1]);
+          footSum := footSum + Sum1[2,i];
+          SumfootItem := SumfootItem + SumItem[2,i-1];
+        end;
+      end;
+
+      for i := 1 to 2 do
+      begin
+        if Sum1[3,i] > 0 then
+        begin
+          SumGrid[0,i+7+6+3-1] := FormatFloat('###,###',Sum1[3,i]);
+          SumGrid[1,i+7+6+3-1] := FormatFloat('###,###',SumItem[3,i-1]);
+          footSum := footSum + Sum1[3,i];
+          SumfootItem := SumfootItem + SumItem[3,i-1];
+        end;
+      end;
+
+      for i := 1 to 2 do
+      begin
+        if Sum1[4,i] > 0 then
+        begin
+          SumGrid[0,i+7+6+3+2-1] := FormatFloat('###,###',Sum1[4,i]);
+          SumGrid[1,i+7+6+3+2-1] := FormatFloat('###,###',SumItem[4,i-1]);
+          footSum := footSum + Sum1[4,i];
+          SumfootItem := SumfootItem + SumItem[4,i-1];
+        end;
+      end;
+      SumGrid.Columns[0].Footer := FormatFloat('###,###',footsum);
+      SumGrid.Columns[1].Footer := FormatFloat('###,###',SumfootItem);
+      //--------------------------------------------------------------------//
+      Sum1 := nil;
+
+      NiceGrid1.EndUpdate;
+      NiceGrid2.EndUpdate;
+      NiceGrid3.EndUpdate;
+      NiceGrid4.EndUpdate;
+      NiceGrid5.EndUpdate;
+      InputGrid.EndUpdate;
+      SumGrid.EndUpdate;
+      if ((ChkTotal.Checked) Or (ChkSumBook.Checked and ChkSumCust.Checked)) then
+        Btn_RefreshCutClick(Sender);
+      Pbar.Visible := false;
+      Progressbar2.Progress := 0;
+      Application.ProcessMessages;
+
+      PrU := nil;
+      PrD := nil;
+      ArInp1 := nil;
+      ArInp2 := nil;
+      ArInp3 := nil;
+      ArInp4 := nil;
+      ArInp5 := nil;
+      SumItem := nil;
+      Sum1 := nil;
+
+    end //record.count > 0
+    else
+    begin
+      NiceGrid1.EndUpdate;
+      NiceGrid2.EndUpdate;
+      NiceGrid3.EndUpdate;
+      NiceGrid4.EndUpdate;
+      NiceGrid5.EndUpdate;
+      InputGrid.EndUpdate;
+      ClearSumGrid(SumGrid);
+      SumGrid.EndUpdate;
+
+      Items.BeginUpdate;
+      Items.Clear;
+      Items.EndUpdate;
+      lbItm.Caption := '0 ประตู';
+      lbSum.Caption := '0';
+    end;
+  end; //dm
+  QrDataRep.Free;
+  QrLimitNum.Free;
+end;
+
+procedure TfMain.InputGridKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+Var QrDelete: TABSQuery;
+    QrFindCust: TABSQuery;
+    i: Integer;
+    found: Boolean;
+begin
+  if (Key = VK_Up) or (Key = VK_Down) then
+  begin
+    if ChkTotal.Checked then
+    begin
+      with InputGrid,Dm do
+      begin
+        i := SelectArea.Top;// to SelectArea.Bottom do
+
+        QrFindCust := TABSQuery.Create(nil);
+        QrFindCust.DatabaseName := Database.DatabaseName;
+        QrFindCust.Close;
+        QrFindCust.SQL.Clear;
+        QrFindCust.SQL.Add('Select * from Cust Where CustID Like "%'+InputGrid[4,i]+'%"');
+        QrFindCust.Open;
+
+        Label25.Caption := (InputGrid[4,i]+' '+QrFindCust.FieldByName('FName').AsString+' '+QrFindCust.FieldByName('LName').AsString);
+
+        QrFindCust.Free;
+      end;
+    end
+    else
+      Label25.Caption := (edCustNo.Text+' '+PanelCustName.Caption);
+  end;
+
+  if Key = VK_Delete then
+  begin
+    DeleteBtnClick(Sender);
+  end;
+
+
+  if Key = VK_F2 then
+  begin
+    with InputGrid do
+    begin
+      if InputGrid[1,Row] <> '' then
+      begin
+        ChkEdit.Checked := Not ChkLook.Checked;
+        edNumup.Text := InputGrid[0,Row];
+        edNumDwn.Text := '';
+        edPr.Text  := InputGrid[1,Row];
+        edNumUp.SetFocus;
+      end
+      else
+      begin
+        ChkEdit.Checked := Not ChkLook.Checked;
+        edNumDwn.Text := InputGrid[0,Row];
+        edNumUp.Text := '';
+        edPr.Text  := InputGrid[2,Row];
+        edNumDwn.SetFocus;
+      end;
+    end;
+    Key := 0;
+  end;
+  
+end;
+
+procedure TfMain.InputGridMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+Var i: Integer;
+    found: Boolean;
+    QrFindCust: TABSQuery;
+begin
+  if ChkTotal.Checked then
+  begin
+    with InputGrid,Dm do
+    begin
+      i := SelectArea.Top;// to SelectArea.Bottom do
+
+      QrFindCust := TABSQuery.Create(nil);
+      QrFindCust.DatabaseName := Database.DatabaseName;
+      QrFindCust.Close;
+      QrFindCust.SQL.Clear;
+      QrFindCust.SQL.Add('Select * from Cust Where CustID Like "%'+InputGrid[4,i]+'%"');
+      QrFindCust.Open;
+
+      Label25.Caption := (InputGrid[4,i]+' '+QrFindCust.FieldByName('FName').AsString+' '+QrFindCust.FieldByName('LName').AsString);
+
+      QrFindCust.Free;
+    end;
+  end
+  else
+    Label25.Caption := (edCustNo.Text+' '+PanelCustName.Caption);
+
+end;
+
+procedure TfMain.InputGridDblClick(Sender: TObject);
+begin
+  BtnGetDataClick(Sender);
+end;
+
+procedure TfMain.SeSkinSpeedButton8Click(Sender: TObject);
+Var FolderPath: String;
+begin
+  FolderPath := edImportFolder.Text;
+  if DirectoryExists(FolderPath) then
+    ShellExecute(0, 'open', 'explorer.exe', PChar(FolderPath), nil, SW_SHOWNORMAL)
+  else
+    ShowMessage('ไม่พบโฟลเดอร์ที่ระบุ: ' + FolderPath);
+end;
+
+procedure TfMain.SeSkinSpeedButton9Click(Sender: TObject);
+Var FolderPath: String;
+begin
+  FolderPath := edExportFolder.Text;
+  if DirectoryExists(FolderPath) then
+    ShellExecute(0, 'open', 'explorer.exe', PChar(FolderPath), nil, SW_SHOWNORMAL)
+  else
+    ShowMessage('ไม่พบโฟลเดอร์ที่ระบุ: ' + FolderPath);
+end;
+
+function ExtractFolderPath(const FilePath: string): string;
+begin
+  if DirectoryExists(FilePath) then
+    Result := FilePath  // ถ้าเป็นโฟลเดอร์อยู่แล้ว
+  else if FileExists(FilePath) then
+    Result := ExtractFilePath(FilePath)  // ถ้าเป็นไฟล์ ดึง path ของโฟลเดอร์
+  else
+    Result := ExtractFilePath(FilePath);  // ถ้าไม่มีอยู่จริง พยายามดึง path
+end;
+
+procedure TfMain.SeSkinSpeedButton10Click(Sender: TObject);
+var
+  Path: string;
+begin
+  Path := ExtractFolderPath(edServerDB.text);
+  
+  if DirectoryExists(Path) then
+    ShellExecute(0, 'open', 'explorer.exe', PChar(Path), nil, SW_SHOWNORMAL)
+  else
+    ShowMessage('ไม่พบโฟลเดอร์ที่ระบุ: ' + Path);
+end;
+
+procedure TfMain.SeSkinSpeedButton14Click(Sender: TObject);
+Var IniFile : TInifile;
+    Importtext: String;
+begin
+  IniFile := TIniFile.Create(ChangeFileExt(Application.ExeName,'.ini'));
+  IniFile.WriteString('DB','WorkFolder',edWorkFolder.Text);
+  IniFile.Free;
+  Showmessage('บันทึกโฟลเดอร์ทำงานแล้ว');
+end;
+
+procedure TfMain.SeSkinSpeedButton15Click(Sender: TObject);
+Var FolderPath: String;
+begin
+  FolderPath := edWorkFolder.Text;
+  if DirectoryExists(FolderPath) then
+    ShellExecute(0, 'open', 'explorer.exe', PChar(FolderPath), nil, SW_SHOWNORMAL)
+  else
+    ShowMessage('ไม่พบโฟลเดอร์ที่ระบุ: ' + FolderPath);
+end;
+
+procedure TfMain.SeSkinSpeedButton12Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+   BrowseFolder.Title := 'เลือกโฟลเดอร์ท่านต้องการทำงาน';
+   BrowseFolder.Path := edWorkFolder.Text;
+   if BrowseFolder.Execute then
+   begin
+      edWorkFolder.Text := BrowseFolder.Path;
+      IniFile := TIniFile.Create(ChangeFileExt(Application.ExeName,'.ini'));
+      IniFile.WriteString('DB','WorkFolder',edWorkFolder.Text);
+
+      IniFile.Free;
+   end;
+
+end;
+
+procedure TfMain.SeSkinSpeedButton11Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  edWorkFolder.Clear;
+  IniFile := TIniFile.Create(ChangeFileExt(Application.ExeName,'.ini'));
+  IniFile.WriteString('DB','WorkFolder','');
+  IniFile.Free;
+end;
+
+procedure TfMain.ChkCanLockPrChange(Sender: TObject);
+Var IniFile : TInifile;
+begin
+  Try
+    IniFile := TIniFile.Create(
+             ChangeFileExt(Application.ExeName,'.ini'));
+    IniFile.WriteBool('Setting','LockMoney',ChkCanLockPr.Checked);
+  finally
+    IniFile.Free;
+  end;
+
+end;
+
+procedure TfMain.LoadError1Click(Sender: TObject);
+var
+  QrError: TABSQuery;
+  TempStr: string;
+begin
+  Pbar.Visible := false;
+  QrError := TABSQuery.Create(nil);
+  QrError.ReadOnly := false;
+  QrError.RequestLive := true;
+  try
+    with Dm do
+    begin
+      QrError.DatabaseName := Database.DatabaseName;
+      QrError.Close;
+      QrError.SQL.Clear;
+      QrError.SQL.Add('SELECT * FROM Data');
+      QrError.SQL.Add('WHERE LotType = ' + QuotedStr(edLotID.Text));
+      QrError.SQL.Add('AND Period_Date = ' + QuotedStr(DateToStr(Date)));
+      
+      // ใช้ Open เพราะต้องการดึงข้อมูลมาใช้งาน (Select)
+      QrError.Open;
+
+      while not QrError.Eof do
+      begin
+        // ตรวจสอบเงื่อนไข: ใน field 'up' หรือ 'dwn' มีทั้ง '-' และ '*'
+        if ((Pos('-', QrError.FieldByName('up').AsString) > 0) and (Pos('*', QrError.FieldByName('up').AsString) > 0)) or
+           ((Pos('-', QrError.FieldByName('dwn').AsString) > 0) and (Pos('*', QrError.FieldByName('dwn').AsString) > 0)) then
+        begin
+          QrError.Edit; // เริ่มโหมดแก้ไข
+          
+          // ลบเครื่องหมาย - ออกจาก field 'up'
+          TempStr := QrError.FieldByName('up').AsString;
+          QrError.FieldByName('up').AsString := StringReplace(TempStr, '-', '', [rfReplaceAll]);
+          
+          // ลบเครื่องหมาย - ออกจาก field 'dwn'
+          TempStr := QrError.FieldByName('dwn').AsString;
+          QrError.FieldByName('dwn').AsString := StringReplace(TempStr, '-', '', [rfReplaceAll]);
+          
+          QrError.Post; // บันทึกการแก้ไขลง Database
+        end;
+        
+        QrError.Next; // เลื่อนไป Record ถัดไป
+      end;
+    end;
+  finally
+    QrError.Free; // คืน Memory เสมอไม่ว่าจะเกิด Error หรือไม่
+    NewRefreshBtnClick(Sender);
+  end;
+end;
+
+end.
+
+
+
+
+(ZConnection1.Connected) and (QrLotType <> nil) then QrLotType.Free;
+  end;
+
+  ComboLotType.Clear;
+  if ZConnection1.Connected then
+  begin
+    ZExecQuery.Close;
+    ZExecQuery.SQL.Text := 'SELECT LOTNAME FROM LOTTO ORDER BY ID';
+    try ZExecQuery.Open; except end;
+    if ZExecQuery.Active then
+    begin
+      ZExecQuery.First;
+      while not ZExecQuery.Eof do
+      begin
+        ComboLotType.Items.Add(ZExecQuery.FieldByName('LOTNAME').AsString);
+        ZExecQuery.Next;
+      end;
+    end;
+  end
+  else
+  begin
+    ABSLotType := TABSQuery.Create(nil);
+    ABSLotType.DatabaseName := Database.DatabaseName;
+    ABSLotType.SQL.Text := 'Select LotName from Lotto Order By ID';
+    try ABSLotType.Open; except end;
+    if ABSLotType.Active then
+    begin
+      ABSLotType.First;
+      while not ABSLotType.Eof do
+      begin
+        ComboLotType.Items.Add(ABSLotType.FieldByName('LotName').AsString);
+        ABSLotType.Next;
+      end;
+    end;
+    ABSLotType.Free;
+  end;
+  if ComboLotType.Items.Count = 0 then
+    ComboLotType.Items.Add('สลากกินแบ่งรัฐบาล');
+  ComboLotType.ItemIndex := 0;DataSet;
+    ZQLotType: TZQuery;
+    ABSLotType: TABSQuery;
+begin
+  Application.ProcessMessages;
+  with Dm,LotTypeGrid do
+  begin
+    if ZConnection1.Connected then
+    begin
+      ZQLotType := TZQuery.Create(nil);
+      ZQLotType.Connection := ZConnection1;
+      ZQLotType.SQL.Text := 'SELECT * FROM LOTTO ORDER BY ID';
+      try ZQLotType.Open; except end;
+      QrLotType := ZQLotType;
+    end
+    else
+    begin
+      ABSLotType := TABSQuery.Create(nil);
+      ABSLotType.DatabaseName := Database.DatabaseName;
+      ABSLotType.Close;
+      ABSLotType.SQL.Clear;
+      ABSLotType.SQL.Add('Select * from Lotto Order By ID');
+      try ABSLotType.Open; except end;
+      QrLotType := ABSLotType;
+    end;
+
+    LotTypeGrid.Clear;
+    LotTypeGrid.RowCount := 0;
+    LotTypeGrid.BeginUpdate;
+    if (QrLotType <> nil) and QrLotType.Active then QrLotType.First;
+    while (QrLotType <> nil) and (QrLotType.Active) and (not QrLotType.Eof) do
+    begin
+      AddRow;
+      LotTypeGrid[0,RowCount-1] := QrLotType.fieldByName('LotName').asString;
+      LotTypeGrid[1,RowCount-1] := QrLotType.fieldByName('ID').asString;
+
+      LotTypeGrid[2,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('LimitRnUp').AsFloat);
+      LotTypeGrid[3,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('PayRnUp').AsFloat);
+      LotTypeGrid[4,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('ComRnUp').AsFloat);
+
+      LotTypeGrid[5,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('LimitPos').AsFloat);
+      LotTypeGrid[6,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('PayPos').AsFloat);
+      LotTypeGrid[7,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('ComPos').AsFloat);
+
+      LotTypeGrid[8,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('LimitRnDwn').AsFloat);
+      LotTypeGrid[9,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('PayRnDwn').AsFloat);
+      LotTypeGrid[10,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('ComRnDwn').AsFloat);
+
+      LotTypeGrid[11,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('LimitPosDwn').AsFloat);
+      LotTypeGrid[12,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('PayPosDwn').AsFloat);
+      LotTypeGrid[13,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('ComPosDwn').AsFloat);
+
+      LotTypeGrid[14,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit2Up').AsFloat);
+      LotTypeGrid[15,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay2Up').AsFloat);
+      LotTypeGrid[16,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com2Up').AsFloat);
+
+      LotTypeGrid[17,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit2Tod').AsFloat);
+      LotTypeGrid[18,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay2Tod').AsFloat);
+      LotTypeGrid[19,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com2Tod').AsFloat);
+
+      LotTypeGrid[20,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit2mee').AsFloat);
+      LotTypeGrid[21,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay2mee').AsFloat);
+      LotTypeGrid[22,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com2mee').AsFloat);
+
+      LotTypeGrid[23,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit2Pos').AsFloat);
+      LotTypeGrid[24,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay2Pos').AsFloat);
+      LotTypeGrid[25,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com2Pos').AsFloat);
+
+      LotTypeGrid[26,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit2Dwn').AsFloat);
+      LotTypeGrid[27,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay2Dwn').AsFloat);
+      LotTypeGrid[28,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com2Dwn').AsFloat);
+
+      LotTypeGrid[29,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit3Up').AsFloat);
+      LotTypeGrid[30,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay3Up').AsFloat);
+      LotTypeGrid[31,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com3Up').AsFloat);
+
+      LotTypeGrid[32,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit3Tod').AsFloat);
+      LotTypeGrid[33,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay3Tod').AsFloat);
+      LotTypeGrid[34,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com3Tod').AsFloat);
+
+      LotTypeGrid[35,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit3Dwn').AsFloat);
+      LotTypeGrid[36,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay3Dwn').AsFloat);
+      LotTypeGrid[37,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com3Dwn').AsFloat);
+
+      LotTypeGrid[38,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit4').AsFloat);
+      LotTypeGrid[39,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay4').AsFloat);
+      LotTypeGrid[40,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com4').AsFloat);
+
+      LotTypeGrid[41,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit4Tod').AsFloat);
+      LotTypeGrid[42,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay4Tod').AsFloat);
+      LotTypeGrid[43,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com4Tod').AsFloat);
+
+      LotTypeGrid[44,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit5').AsFloat);
+      LotTypeGrid[45,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay5').AsFloat);
+      LotTypeGrid[46,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com5').AsFloat);
+
+      LotTypeGrid[47,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Limit5Tod').AsFloat);
+      LotTypeGrid[48,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Pay5Tod').AsFloat);
+      LotTypeGrid[49,RowCount-1] := FormatFloat('###,##0;0',QrLotType.fieldByName('Com5Tod').AsFloat);
+
+      QrLotType.Next;
+    end;
+    LotTypeGrid.EndUpdate;
+    ShowSetting;
+    QrLotType.Free;
+  end;
+end;
+
+procedure TfMain.ShowSetting;
+begin
+  with LotTypeGrid do
+  begin
+    SetGrid[0,0] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[2,Row]));
+    SetGrid[1,0] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[3,Row]));
+    SetGrid[2,0] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[4,Row]));
+
+    SetGrid[0,1] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[5,Row]));
+    SetGrid[1,1] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[6,Row]));
+    SetGrid[2,1] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[7,Row]));
+
+    SetGrid[0,2] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[8,Row]));
+    SetGrid[1,2] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[9,Row]));
+    SetGrid[2,2] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[10,Row]));
+
+    SetGrid[0,3] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[11,Row]));
+    SetGrid[1,3] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[12,Row]));
+    SetGrid[2,3] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[13,Row]));
+
+    SetGrid[0,4] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[14,Row]));
+    SetGrid[1,4] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[15,Row]));
+    SetGrid[2,4] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[16,Row]));
+
+    SetGrid[0,5] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[17,Row]));
+    SetGrid[1,5] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[18,Row]));
+    SetGrid[2,5] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[19,Row]));
+
+    SetGrid[0,6] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[20,Row]));
+    SetGrid[1,6] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[21,Row]));
+    SetGrid[2,6] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[22,Row]));
+
+    SetGrid[0,7] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[23,Row]));
+    SetGrid[1,7] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[24,Row]));
+    SetGrid[2,7] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[25,Row]));
+
+    SetGrid[0,8] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[26,Row]));
+    SetGrid[1,8] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[27,Row]));
+    SetGrid[2,8] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[28,Row]));
+
+    SetGrid[0,9] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[29,Row]));
+    SetGrid[1,9] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[30,Row]));
+    SetGrid[2,9] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[31,Row]));
+
+    SetGrid[0,10] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[32,Row]));
+    SetGrid[1,10] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[33,Row]));
+    SetGrid[2,10] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[34,Row]));
+
+    SetGrid[0,11] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[35,Row]));
+    SetGrid[1,11] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[36,Row]));
+    SetGrid[2,11] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[37,Row]));
+
+    SetGrid[0,12] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[38,Row]));
+    SetGrid[1,12] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[39,Row]));
+    SetGrid[2,12] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[40,Row]));
+
+    SetGrid[0,13] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[41,Row]));
+    SetGrid[1,13] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[42,Row]));
+    SetGrid[2,13] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[43,Row]));
+
+    SetGrid[0,14] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[44,Row]));
+    SetGrid[1,14] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[45,Row]));
+    SetGrid[2,14] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[46,Row]));
+
+    SetGrid[0,15] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[47,Row]));
+    SetGrid[1,15] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[48,Row]));
+    SetGrid[2,15] := FormatFloat('###,##0;0',TxtToFloat(LotTypeGrid[49,Row]));
+  end;
+end;
+
+procedure TfMain.LotTypeGridClick(Sender: TObject);
+begin
+  ShowSetting;
+end;
+
+procedure TfMain.LotTypeGridKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if (Key = VK_Up)or(Key = VK_Down) then
+  begin
+    ShowSetting;
+    Key := 0;
+  end;
+
+  if (Key = VK_Delete) then
+  begin
+    with LotTypeGrid do
+    begin
+      BtnDelLotClick(Self);
+      //DeleteRow(Row);
+    end;
+    //ShowSetting;
+    Key := 0;
+  end;
+end;
+
+procedure TfMain.SeSkinButton7Click(Sender: TObject);
+Var QrUpDateSet: TABSQuery;
+    i,j,k: integer;
+begin
+   with Dm, LotTypeGrid do
+   begin
+      QrUpDateSet := TABSQuery.Create(nil);
+      QrUpDateSet.DatabaseName := Database.DatabaseName;
+      QrUpDateSet.Close;
+      QrUpDateSet.SQL.Clear;
+      QrUpDateSet.SQL.Add('Update Lotto');
+      QrUpDateSet.SQL.Add('Set LotName=:aLotname, ' +
+                           'LimitRnUp=:aLRnU, LimitPos=:aLPU, LimitRnDwn=:aLRnD, LimitPosDwn=:aLPD, Limit2Up=:aL2U, Limit2Tod=:aL2T, Limit2Mee=:aL2M, Limit2Dwn=:aL2D, '+
+                           'Limit2Pos=:aL2P, Limit3Up=:aL3U, Limit3Tod=:aL3T, Limit3Dwn=:aL3D, Limit4=:aL4, Limit4Tod=:aL4Tod, Limit5=:aL5, Limit5Tod=:aL5Tod, '+
+
+                           'ComRnUp=:aCRnU, ComPos=:aCPU, ComRnDwn=:aCRnD, ComPosDwn=:aCPD, Com2Up=:aC2U, Com2Tod=:aC2T, Com2Mee=:aC2M, Com2Dwn=:aC2D, '+
+                           'Com2Pos=:aC2P, Com3Up=:aC3U, Com3Tod=:aC3T, Com3Dwn=:aC3D, Com4=:aC4, Com4Tod=:aC4Tod, Com5=:aC5, Com5Tod=:aC5Tod, '+
+
+                           'PayRnUp=:aPRnU, PayPos=:aPPU, PayRnDwn=:aPRnD, PayPosDwn=:aPPD, Pay2Up=:aP2U, Pay2Tod=:aP2T, Pay2Mee=:aP2M, Pay2Dwn=:aP2D, '+
+                           'Pay2Pos=:aP2P, Pay3Up=:aP3U, Pay3Tod=:aP3T, Pay3Dwn=:aP3D, Pay4=:aP4, Pay4Tod=:aP4Tod, Pay5=:aP5, Pay5Tod=:aP5Tod ');
+
+      QrUpDateSet.SQL.Add('where ID =:aID');
+
+      QrUpDateSet.ParamByName('aLotName').Value  := LotTypeGrid[0,Row];
+      QrUpDateSet.ParamByName('aID').Value  := LotTypeGrid[1,Row];
+
+      QrUpDateSet.ParamByName('aLRnU').Value := TxtToFloat(SetGrid[0,0]);
+      QrUpDateSet.ParamByName('aLPU').Value  := TxtToFloat(SetGrid[0,1]);
+      QrUpDateSet.ParamByName('aLRnD').Value := TxtToFloat(SetGrid[0,2]);
+      QrUpDateSet.ParamByName('aLPD').Value  := TxtToFloat(SetGrid[0,3]);
+      QrUpDateSet.ParamByName('aL2U').Value  := TxtToFloat(SetGrid[0,4]);
+      QrUpDateSet.ParamByName('aL2T').Value  := TxtToFloat(SetGrid[0,5]);
+      QrUpDateSet.ParamByName('aL2M').Value  := TxtToFloat(SetGrid[0,6]);
+      QrUpDateSet.ParamByName('aL2P').Value  := TxtToFloat(SetGrid[0,7]);
+      QrUpDateSet.ParamByName('aL2D').Value  := TxtToFloat(SetGrid[0,8]);
+      QrUpDateSet.ParamByName('aL3U').Value  := TxtToFloat(SetGrid[0,9]);
+      QrUpDateSet.ParamByName('aL3T').Value  := TxtToFloat(SetGrid[0,10]);
+      QrUpDateSet.ParamByName('aL3D').Value  := TxtToFloat(SetGrid[0,11]);
+      QrUpDateSet.ParamByName('aL4').Value   := TxtToFloat(SetGrid[0,12]);
+      QrUpDateSet.ParamByName('aL4Tod').Value:= TxtToFloat(SetGrid[0,13]);
+      QrUpDateSet.ParamByName('aL5').Value   := TxtToFloat(SetGrid[0,14]);
+      QrUpDateSet.ParamByName('aL5Tod').Value:= TxtToFloat(SetGrid[0,15]);
+
+      QrUpDateSet.ParamByName('aPRnU').Value := TxtToFloat(SetGrid[1,0]);
+      QrUpDateSet.ParamByName('aPPU').Value  := TxtToFloat(SetGrid[1,1]);
+      QrUpDateSet.ParamByName('aPRnD').Value := TxtToFloat(SetGrid[1,2]);
+      QrUpDateSet.ParamByName('aPPD').Value  := TxtToFloat(SetGrid[1,3]);
+      QrUpDateSet.ParamByName('aP2U').Value  := TxtToFloat(SetGrid[1,4]);
+      QrUpDateSet.ParamByName('aP2T').Value  := TxtToFloat(SetGrid[1,5]);
+      QrUpDateSet.ParamByName('aP2M').Value  := TxtToFloat(SetGrid[1,6]);
+      QrUpDateSet.ParamByName('aP2P').Value  := TxtToFloat(SetGrid[1,7]);
+      QrUpDateSet.ParamByName('aP2D').Value  := TxtToFloat(SetGrid[1,8]);
+      QrUpDateSet.ParamByName('aP3U').Value  := TxtToFloat(SetGrid[1,9]);
+      QrUpDateSet.ParamByName('aP3T').Value  := TxtToFloat(SetGrid[1,10]);
+      QrUpDateSet.ParamByName('aP3D').Value  := TxtToFloat(SetGrid[1,11]);
+      QrUpDateSet.ParamByName('aP4').Value   := TxtToFloat(SetGrid[1,12]);
+      QrUpDateSet.ParamByName('aP4Tod').Value:= TxtToFloat(SetGrid[1,13]);
+      QrUpDateSet.ParamByName('aP5').Value   := TxtToFloat(SetGrid[1,14]);
+      QrUpDateSet.ParamByName('aP5Tod').Value:= TxtToFloat(SetGrid[1,15]);
+
+      QrUpDateSet.ParamByName('aCRnU').Value:= TxtToFloat(SetGrid[2,0]);
+      QrUpDateSet.ParamByName('aCPU').Value := TxtToFloat(SetGrid[2,1]);
+      QrUpDateSet.ParamByName('aCRnD').Value:= TxtToFloat(SetGrid[2,2]);
+      QrUpDateSet.ParamByName('aCPD').Value := TxtToFloat(SetGrid[2,3]);
+      QrUpDateSet.ParamByName('aC2U').Value := TxtToFloat(SetGrid[2,4]);
+      QrUpDateSet.ParamByName('aC2T').Value := TxtToFloat(SetGrid[2,5]);
+      QrUpDateSet.ParamByName('aC2M').Value := TxtToFloat(SetGrid[2,6]);
+      QrUpDateSet.ParamByName('aC2P').Value := TxtToFloat(SetGrid[2,7]);
+      QrUpDateSet.ParamByName('aC2D').Value := TxtToFloat(SetGrid[2,8]);
+      QrUpDateSet.ParamByName('aC3U').Value := TxtToFloat(SetGrid[2,9]);
+      QrUpDateSet.ParamByName('aC3T').Value := TxtToFloat(SetGrid[2,10]);
+      QrUpDateSet.ParamByName('aC3D').Value := TxtToFloat(SetGrid[2,11]);
+      QrUpDateSet.ParamByName('aC4').Value  := TxtToFloat(SetGrid[2,12]);
+      QrUpDateSet.ParamByName('aC4Tod').Value:= TxtToFloat(SetGrid[2,13]);
+      QrUpDateSet.ParamByName('aC5').Value  := TxtToFloat(SetGrid[2,14]);
+      QrUpDateSet.ParamByName('aC5Tod').Value  := TxtToFloat(SetGrid[2,15]);
+
+      QrUpDateSet.ExecSQL;
+
+   try
+    if ChkSaveTemp.Checked then // อัพเดท ค่าเริ่มต้น
+    begin
+      QrUpDateSet.Close;
+      QrUpDateSet.SQL.Clear;
+      QrUpDateSet.SQL.Add('Update TempLotto');
+      QrUpDateSet.SQL.Add('Set ComRnUp=:aCRnU, ComRnDwn=:aCRnD, ComPosUp=:aCPU, ComPosDwn=:aCPD, Com2Up=:aC2U, Com2Tod=:aC2T, Com2Dwn=:aC2D, Com2Mee=:aC2M, '+
+                          'Com2Pos=:aC2P, Com3Up=:aC3U, Com3Tod=:aC3T, Com3Dwn=:aC3D, Com4=:aC4, Com4Tod=:aC4Tod, Com5=:aC5, Com5Tod=:aC5Tod, '+
+                          'PayRnUp=:aPRnU, PayRnDwn=:aPRnD, PayPosUp=:aPPU, PayPosDwn=:aPPD, Pay2Up=:aP2U, Pay2Tod=:aP2T, Pay2Dwn=:aP2D, Pay2Mee=:aP2M, '+
+                          'Pay2Pos=:aP2P, Pay3Up=:aP3U, Pay3Tod=:aP3T, Pay3Dwn=:aP3D, Pay4=:aP4, Pay4Tod=:aP4Tod, Pay5=:aP5, Pay5Tod=:aP5Tod ');
+
+      QrUpDateSet.ParamByName('aCRnU').Value  := StrToFloat(SetGrid[2,0]);
+      QrUpDateSet.ParamByName('aCPU').Value   := StrToFloat(SetGrid[2,1]);
+      QrUpDateSet.ParamByName('aCRnD').Value  := StrToFloat(SetGrid[2,2]);
+      QrUpDateSet.ParamByName('aCPD').Value   := StrToFloat(SetGrid[2,3]);
+      QrUpDateSet.ParamByName('aC2U').Value   := StrToFloat(SetGrid[2,4]);
+      QrUpDateSet.ParamByName('aC2T').Value   := StrToFloat(SetGrid[2,5]);
+      QrUpDateSet.ParamByName('aC2M').Value   := StrToFloat(SetGrid[2,6]);
+      QrUpDateSet.ParamByName('aC2P').Value   := StrToFloat(SetGrid[2,7]);
+      QrUpDateSet.ParamByName('aC2D').Value   := StrToFloat(SetGrid[2,8]);
+      QrUpDateSet.ParamByName('aC3U').Value   := StrToFloat(SetGrid[2,9]);
+      QrUpDateSet.ParamByName('aC3T').Value   := StrToFloat(SetGrid[2,10]);
+      QrUpDateSet.ParamByName('aC3D').Value   := StrToFloat(SetGrid[2,11]);
+      QrUpDateSet.ParamByName('aC4').Value    := StrToFloat(SetGrid[2,12]);
+      QrUpDateSet.ParamByName('aC4Tod').Value := StrToFloat(SetGrid[2,13]);
+      QrUpDateSet.ParamByName('aC5').Value    := StrToFloat(SetGrid[2,14]);
+      QrUpDateSet.ParamByName('aC5Tod').Value := StrToFloat(SetGrid[2,15]);
+
+      QrUpDateSet.ParamByName('aPRnU').Value  := StrToFloat(SetGrid[1,0]);
+      QrUpDateSet.ParamByName('aPPU').Value   := StrToFloat(SetGrid[1,1]);
+      QrUpDateSet.ParamByName('aPRnD').Value  := StrToFloat(SetGrid[1,2]);
+      QrUpDateSet.ParamByName('aPPD').Value   := StrToFloat(SetGrid[1,3]);
+      QrUpDateSet.ParamByName('aP2U').Value   := StrToFloat(SetGrid[1,4]);
+      QrUpDateSet.ParamByName('aP2T').Value   := StrToFloat(SetGrid[1,5]);
+      QrUpDateSet.ParamByName('aP2M').Value   := StrToFloat(SetGrid[1,6]);
+      QrUpDateSet.ParamByName('aP2P').Value   := StrToFloat(SetGrid[1,7]);
+      QrUpDateSet.ParamByName('aP2D').Value   := StrToFloat(SetGrid[1,8]);
+      QrUpDateSet.ParamByName('aP3U').Value   := StrToFloat(SetGrid[1,9]);
+      QrUpDateSet.ParamByName('aP3T').Value   := StrToFloat(SetGrid[1,10]);
+      QrUpDateSet.ParamByName('aP3D').Value   := StrToFloat(SetGrid[1,11]);
+      QrUpDateSet.ParamByName('aP4').Value    := StrToFloat(SetGrid[1,12]);
+      QrUpDateSet.ParamByName('aP4Tod').Value := StrToFloat(SetGrid[1,13]);
+      QrUpDateSet.ParamByName('aP5').Value    := StrToFloat(SetGrid[1,14]);
+      QrUpDateSet.ParamByName('aP5Tod').Value := StrToFloat(SetGrid[1,15]);
+
+
+      QrUpDateSet.ExecSQL;
+    end;
+   except
+    QrUpDateSet.Free;
+    Showmessage('ไม่สามารถบันทึกค่าเริ่มต้นได้');
+   end;
+
+      j := -1;
+      for i := 2 to LotTypeGrid.ColCount-1 do
+      begin
+        k := ((i-2) mod 3);
+        if ((i-2) mod 3) = 0 then
+        begin
+          j := j+1;
+        end;
+        LotTypeGrid[i,Row] := SetGrid[k,j];
+      end;
+
+      Showmessage('ข้อมูลได้รับการบันทึกแก้ไขเรียบร้อยแล้ว');
+      ShowSetting;
+   end;  
+end;
+
+procedure TfMain.FormResize(Sender: TObject);
+begin
+  {
+  Try
+    PayGrid.DefRowHeight := ((PayGrid.Height) div 18);
+    if PayGrid.DefRowHeight < 17 then
+      PayGrid.DefRowHeight := 17;
+    Panel6.Height := PayGrid.DefRowHeight;
+
+    TotalGrid.DefRowHeight := TotalGrid.Height div 23;
+    if TotalGrid.DefRowHeight < 15 then
+       TotalGrid.DefRowHeight :=15;
+    Panel42.Height := TotalGrid.DefRowHeight+1;
+
+    TotalDealerGrid.DefRowHeight := TotalDealerGrid.Height div 23;
+    if TotalDealerGrid.DefRowHeight < 15 then
+       TotalDealerGrid.DefRowHeight :=15;
+    Panel105.Height := TotalDealerGrid.DefRowHeight+1;
+
+    SetGrid.DefRowHeight := ((SetGrid.Height) div 18);
+    Panel26.Height := SetGrid.DefRowHeight;
+
+    SumGrid.DefRowHeight := ((SumGrid.Height-30) div 21);
+    if SumGrid.DefRowHeight < 25 then
+      SumGrid.DefRowHeight := 25;
+    Panel25.Height := SumGrid.DefRowHeight;
+
+    Panel7Resize(Sender);
+  Except
+
+  End;
+  }
+
+  Try
+    PayGrid.DefRowHeight := ((PayGrid.Height) div 18);
+    if PayGrid.DefRowHeight < 25 then
+      PayGrid.DefRowHeight := 25;
+    Panel6.Height := PayGrid.DefRowHeight;
+
+    SumGrid.DefRowHeight := ((SumGrid.Height-30) div 21);
+    if SumGrid.DefRowHeight < 25 then
+      SumGrid.DefRowHeight := 25;
+    Panel25.Height := SumGrid.DefRowHeight;
+  
+    SumCutGrid.DefRowHeight := ((SumCutGrid.Height-30) div 21);
+    if SumCutGrid.DefRowHeight < 25 then
+      SumCutGrid.DefRowHeight := 25;
+    Panel52.Height := SumCutGrid.DefRowHeight;
+  
+    TotalGrid.DefRowHeight := TotalGrid.Height div 23;
+    if TotalGrid.DefRowHeight < 15 then
+       TotalGrid.DefRowHeight :=15;
+  
+    Panel42.Height := TotalGrid.DefRowHeight+1;
+  
+    SetGrid.DefRowHeight := ((SetGrid.Height) div 18);
+    if SumGrid.DefRowHeight < 25 then
+      SumGrid.DefRowHeight := 25;
+  
+    Panel26.Height := SetGrid.DefRowHeight;
+
+    Panel7Resize(Sender);
+  Except
+
+  End;
+  
+
+  
+
+end;
+
+procedure TfMain.Panel60Resize(Sender: TObject);
+begin
+  try
+    Panel61.Width := (Panel60.Width-4) div 2;
+  except
+
+  end;
+end;
+
+procedure TfMain.InputBtnClick(Sender: TObject);
+begin
+  MainPageControl.TabIndex := 0;
+end;
+
+procedure TfMain.CutBtnClick(Sender: TObject);
+begin
+  MainPageControl.TabIndex := 1;
+end;
+
+procedure TfMain.CalBtnClick(Sender: TObject);
+begin
+  if Not processExists('calc.exe') then
+  begin
+    try
+      WinExec(Pchar('CALC.EXE'),WS_MAXIMIZE);
+    except
+      Showmessage('เครื่องคิดเลขเสียกำลังส่งซ่อมครับ');
+    end;
+  end;
+end;
+
+procedure TfMain.N5Click(Sender: TObject);
+begin
+  //ShellExecute(Handle, 'open', PChar('http://www.thailottosoft.com'), nil, nil, SW_SHOW);
+  ShellExecute(Handle, 'open', PChar('https://sites.google.com/view/thailottosoft'), nil, nil, SW_SHOW);
+
+end;
+
+procedure TfMain.RdgSellClick(Sender: TObject);
+Var QrItemsCut: TABSQuery;
+    i: integer;
+begin
+  Case RdgSell.ItemIndex of
+    0:  begin
+          XLSExportBtn.Hint := 'ส่งออกข้อมูลยอดขายทั้งหมดไปยังแฟ้ม Excel';
+          CutPrintBtn.Hint  := 'พิมพ์รายงานยอดขายทั้งหมดออกเครื่องพิมพ์';
+        end;
+
+    1:  begin
+          XLSExportBtn.Hint := 'ส่งออกข้อมูลยอดเหลือในมือไปยังแฟ้ม Excel';
+          CutPrintBtn.Hint  := 'พิมพ์รายงานยอดเหลือในมือออกเครื่องพิมพ์';
+        end;
+    2:  begin
+          XLSExportBtn.Hint := 'ส่งออกข้อมูลยอดเกินอั้นไปยังแฟ้ม Excel';
+          CutPrintBtn.Hint  := 'พิมพ์รายงานยอดเกินอั้นออกเครื่องพิมพ์';
+        end;
+    3:  begin
+          XLSExportBtn.Hint := 'ส่งออกข้อมูลยอดตัดส่งเจ้ามือไปยังแฟ้ม Excel';
+          CutPrintBtn.Hint  := 'พิมพ์รายงานยอดตัดส่งเจ้ามือออกเครื่องพิมพ์';
+        end;
+  end;
+
+  Case RdgSell.ItemIndex of
+    2:  begin
+          ChkCut11.Visible   := true;
+          ChkCut12.Visible   := true;
+          ChkCut13.Visible   := true;
+          ChkCut14.Visible   := true;
+          ChkCut15.Visible   := true;
+          ChkCut16.Visible   := true;
+          ChkCut17.Visible   := true;
+          ChkCutAll1.Visible := true;
+
+          ChkCut21.Visible   := true;
+          ChkCut22.Visible   := true;
+          ChkCut23.Visible   := true;
+          ChkCut24.Visible   := true;
+          ChkCut25.Visible   := true;
+          ChkCut26.Visible   := true;
+          ChkCutAll2.Visible := true;
+
+          ChkCut31.Visible   := true;
+          ChkCut32.Visible   := true;
+          ChkCut33.Visible   := true;
+          ChkCutAll3.Visible := true;
+
+          ChkCut41.Visible   := true;
+          ChkCut42.Visible   := true;
+          ChkCut51.Visible   := true;
+          ChkCut52.Visible   := true;
+          ChkCutAll45.Visible := true;
+        end
+    else
+    begin
+          ChkCut11.Visible   := false;
+          ChkCut12.Visible   := false;
+          ChkCut13.Visible   := false;
+          ChkCut14.Visible   := false;
+          ChkCut15.Visible   := false;
+          ChkCut16.Visible   := false;
+          ChkCut17.Visible   := false;
+          ChkCutAll1.Visible := false;
+
+          ChkCut21.Visible   := false;
+          ChkCut22.Visible   := false;
+          ChkCut23.Visible   := false;
+          ChkCut24.Visible   := false;
+          ChkCut25.Visible   := false;
+          ChkCut26.Visible   := false;
+          ChkCutAll2.Visible := false;
+
+          ChkCut31.Visible   := false;
+          ChkCut32.Visible   := false;
+          ChkCut33.Visible   := false;
+          ChkCutAll3.Visible := false;
+
+          ChkCut41.Visible   := false;
+          ChkCut42.Visible   := false;
+          ChkCut51.Visible   := false;
+          ChkCut52.Visible   := false;
+          ChkCutAll45.Visible := false;
+    end;
+  end;
+
+  ChkTod2Teng.Visible := RdgSell.ItemIndex = 3;
+  GroupBox1.Visible   := RdgSell.ItemIndex = 3;
+  Application.ProcessMessages;
+
+  if rdgSell.ItemIndex = 3 then
+  with Dm do
+  begin
+    QrItemsCut := TABSQuery.Create(nil);
+    QrItemsCut.DatabaseName := Database.DatabaseName;
+    QrItemsCut.SQL.Add('Select DealerID, CutDate from Cut');
+    QrItemsCut.SQL.Add('Where ((DateCut = :aDate)');
+    QrItemsCut.SQL.Add('And (LottoType = :aLotType))');
+    QrItemsCut.SQL.Add('Group By DealerID, CutDate');
+    QrItemsCut.SQL.Add('Order By CutDate DESC');
+    QrItemsCut.ParamByName('aDate').Value    := DateToStr(DatePick.Date);
+    QrItemsCut.ParamByName('aLotType').Value := StrToInt(edLotID.Text);
+    QrItemsCut.Open;
+
+    QrItemsCut.First;
+    CbCutlist.Clear;
+    
+    for i := 0 to QrItemsCut.RecordCount-1 do
+    begin
+      CbCutList.Items.Add(QrItemsCut.fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:mm:ss',QrItemsCut.fieldByName('CutDate').AsDateTime));
+      QrItemsCut.Next;
+    end;
+    QrItemsCut.Free;
+    CbCutList.Items.Add('ยอดตีออกทั้งหมด');
+    CbCutList.ItemIndex := 0;
+  end;
+
+  Totalsales;
+
+end;
+
+procedure TfMain.CbCutListChange(Sender: TObject);
+begin
+  if CbCutList.ItemIndex <> CbCutList.Items.Count-1 then
+    Rdb2.Checked := true
+  else
+    Rdb1.Checked := true;
+
+  Totalsales;
+
+end;
+
+procedure TfMain.PrintCustBtnClick(Sender: TObject);
+Var i,y,x,txtHigh,MidPage: integer;
+    PriceLen: Array[1..2] of integer;
+    LastPage,RmLine : integer;
+begin
+
+   if InputGrid.RowCount > 0 then
+   begin
+      if (Not ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.InputItems(InputGrid, DatePick.Date, ComboLotType, ComboCutType, EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,0)
+      else
+      if (ChkSumbook.Checked)and(Not ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.InputItems(InputGrid, DatePick.Date, ComboLotType, ComboCutType, EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,1)
+      else
+      if (Not ChkSumbook.Checked)and(ChkSumCust.Checked)and(Not ChkTotal.Checked) then
+        frmPrintCutPrev.InputItems(InputGrid, DatePick.Date, ComboLotType, ComboCutType, EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,2)
+      else
+      if ((ChkSumbook.Checked)and(ChkSumCust.Checked))or(ChkTotal.Checked) then
+        frmPrintCutPrev.InputItems(InputGrid, DatePick.Date, ComboLotType, ComboCutType, EdCustNo.Text+' '+PanelCustName.Caption,EdRefNo.Text,3);
+
+      frmPrintCutPrev.Showmodal;
+   end
+   else Showmessage('ไม่พบข้อมูลเลขที่ต้องการพิมพ์');
+end;
+
+procedure TfMain.ApplicationEvents1Message(var Msg: tagMSG;
+  var Handled: Boolean);
+begin
+  with RdgSell do
+  begin
+
+    BtnCutByChart.Enabled:= (ItemIndex = 1)and((CutGrid1.RowCount > 0)or(CutGrid2.RowCount > 0)or
+                            (CutGrid3.RowCount > 0)or(CutGrid4.RowCount > 0)or(CutGrid5.RowCount > 0));
+    BtnCut.Enabled       := (ItemIndex = 2)and((CutGrid1.RowCount > 0)or(CutGrid2.RowCount > 0)or
+                            (CutGrid3.RowCount > 0)or(CutGrid4.RowCount > 0)or(CutGrid5.RowCount > 0));
+    BtnBack.Enabled      := (ItemIndex = 3)and((CutGrid1.RowCount > 0)or(CutGrid2.RowCount > 0)or
+                            (CutGrid3.RowCount > 0)or(CutGrid4.RowCount > 0)or(CutGrid5.RowCount > 0));
+    XlsExportBtn.Enabled := (CutGrid1.RowCount > 0)or(CutGrid2.RowCount > 0)or
+                            (CutGrid3.RowCount > 0)or(CutGrid4.RowCount > 0)or(CutGrid5.RowCount > 0);
+    CutPrintBtn.Enabled  := (CutGrid1.RowCount > 0)or(CutGrid2.RowCount > 0)or
+                            (CutGrid3.RowCount > 0)or(CutGrid4.RowCount > 0)or(CutGrid5.RowCount > 0);
+    BtnCopy.Enabled      := (CutGrid1.RowCount > 0)or(CutGrid2.RowCount > 0)or
+                            (CutGrid3.RowCount > 0)or(CutGrid4.RowCount > 0)or(CutGrid5.RowCount > 0);
+
+  end;
+
+  if ChkTotal.Checked then
+  begin
+    With ComboCutType do
+    begin
+      Case ItemIndex Of
+      14,17,19: ChkTransTo3Top.Enabled := true;
+      else
+        ChkTransTo3Top.Checked := false;
+        ChkTransTo3Top.Enabled := false;
+      end;
+    end;
+  end;
+
+  if Not (ChkTotal.Checked) then
+    Label25.Caption := (edCustNo.Text+' '+PanelCustName.Caption);
+
+  //SpinBook.Enabled := InputGrid.RowCount > 0;
+
+  ChkCutAll.Visible     := RdgSell.ItemIndex = 2;
+  Chk3TodToTeng.Visible := RdgSell.ItemIndex = 2;
+  Chk4TodToTeng.Visible := RdgSell.ItemIndex = 2;
+  Chk5TodToTeng.Visible := RdgSell.ItemIndex = 2;
+
+  Chk4Tod2Teng.Visible := RdgSell.ItemIndex = 3;
+  Chk5Tod2Teng.Visible := RdgSell.ItemIndex = 3;
+  NGridSpecNum.Columns[8].Visible := RdNumCor.Checked;
+  NGridSpecNum.Columns[5].Visible := RdNumCor.Checked;
+  lbSumWin.Visible := RdNumCor.Checked;
+  Label26.Caption := IntToStr(Dm.Limit3.RecordCount)+' รายการ'; //จำนวนรายการเลขอั้นเฉพาะเลข
+  edFindNumSel.Enabled := Not ChkAll.Checked; //ตัดออกไม่เกินอั้นที่กำหนด
+
+  ChkPlusTeng.Enabled   := ChkTod2Teng.Checked;
+  ChkIncludeCom.Enabled := ChkTod2Teng.Checked;
+
+  //PnTod2Teng.Visible := Not ChkPlusTeng.Checked;
+  Label25.Visible := InputGrid.RowCount > 0;
+  N38.Enabled := InputGrid.RowCount > 0;
+  N29.Enabled := InputGrid.RowCount > 0;
+  N35.Enabled := InputGrid.RowCount > 0;
+  N36.Enabled := InputGrid.RowCount > 0;
+  N30.Enabled := InputGrid.RowCount > 0;
+  BtnSaveHostIni.Enabled := (Trim(edHostName.Text) <> '') and Not ChkHost.Checked;
+  DeleteBtn.Enabled      := InputGrid.RowCount > 0;
+  MoveBtn.Enabled        := InputGrid.RowCount > 0;
+  BtnGetData.Enabled     := InputGrid.RowCount > 0;
+
+  if IsHost then
+    ExportBtn.Enabled     := false
+  else
+    ExportBtn.Enabled     := InputGrid.RowCount > 0;
+  SaveBtn.Enabled       := InputGrid.RowCount > 0;
+  ChkLook.Enabled := Not ChkEdit.Checked;
+  PrintCustBtn.Enabled  := InputGrid.RowCount > 0;
+
+  BtnEdit.Enabled     := UserListRep.SelCount > 0;
+  BtnDelete.Enabled   := UserListRep.SelCount > 0;
+  BtnKeepCut.Enabled  := (RdgSell.ItemIndex = 0)or(RdgSell.ItemIndex = 1);
+
+  BtnPrintRepByCust.Enabled := ((RdbRepAll.Checked)and(TotalGrid.Columns[0].Footer <> '0.00'))or((RdbRepByCust.Checked) and (CustListRep.SelCount > 0) and (TotalGrid.Columns[0].Footer <> '0.00'));
+  SoundBtn.Visible := SoundOn;
+  MuteBtn.Visible  := Not SoundOn;
+
+  DelImportFileBtn.Enabled := length(Trim(edImportFolder.Text)) > 0;
+
+  
+
+  if Not(ChkClient.Checked) then
+  begin
+    //BtnUpdateAll.Visible := false;
+
+    Panel65.Visible := (ChkSumbook.Checked and ChkSumCust.Checked) or ChkTotal.Checked;
+
+    if Regis then
+      Caption := 'BigLOTTO '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'
+    else
+      Caption := 'BigLOTTO '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'+' - (ไม่ลงทะเบียน)';
+
+    BtnSaveLotNum.Enabled := true;
+    RepPageControl.Enabled := true;
+  end
+  else
+  begin
+    //BtnUpdateAll.Visible := true;
+    Panel65.Visible := false;
+
+    if Regis then
+      Caption := 'BigLOTTO-Client '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'
+    else
+      Caption := 'BigLOTTO-Client '+GetAppVersion+' - '+'Firebird Database ('+Dm.ZConnection1.HostName+')'+' - (ไม่ลงทะเบียน)';
+
+    BtnSaveLotNum.Enabled := false;
+    RepPageControl.Enabled := false;
+
+    ChkHost.Checked := false;
+    ChkHost.Enabled := false;  
+  end;
+
+  BtnDelLmtNum.Enabled := Dm.Limit3.RecordCount > 0;
+end;
+
+procedure TfMain.TabNumSpecShow(Sender: TObject);
+VAr Limit3: TABSQuery;
+    NumLen,i: Integer;
+    Num: String;
+    Pr1,Pr2,Pr3,Pr4,Pr5,Pr6,Pr7: Real;
+begin
+  Application.ProcessMessages;
+  with dm do
+  begin
+    Limit3.Close;
+    Limit3.DatabaseName := Database.DatabaseName;
+    Limit3.ParamByName('LNum').Value   := PageControlLimit.TabIndex+1;
+    Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
+    Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text);
+    Limit3.Open;
+  end;
+end;
+
+procedure TfMain.DatePickChange(Sender: TObject);
+begin
+  DateSpecNum := DatePick.Date;
+  lbDueDate.Caption := DateToStr(DatePick.Date);
+end;
+
+procedure TfMain.TabL3Show(Sender: TObject);
+begin
+  DateSpecNum := DatePick.Date;
+  with dm do
+  begin
+    Limit3.Close;
+    Limit3.DatabaseName := Database.DatabaseName;
+    Limit3.ParamByName('LNum').Value   := 3;
+    Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
+    Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text);
+    Limit3.Open;
+  end;
+  Maxlen := 3;
+end;
+
+procedure TfMain.TabL2Show(Sender: TObject);
+begin
+  DateSpecNum := DatePick.Date;
+  with dm do
+  begin
+    Limit3.Close;
+    Limit3.DatabaseName := Database.DatabaseName;
+    Limit3.ParamByName('LNum').Value   := 2;
+    Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
+    Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text);
+    Limit3.Open;
+  end;
+  Maxlen := 2;
+end;
+
+procedure TfMain.TabL1Show(Sender: TObject);
+begin
+  DateSpecNum := DatePick.Date;
+  with dm do
+  begin
+    Limit3.Close;
+    Limit3.DatabaseName := Database.DatabaseName;
+    Limit3.ParamByName('LNum').Value   := 1;
+    Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
+    Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text);
+    Limit3.Open;
+  end;
+  Maxlen := 1;
+end;
+
+procedure TfMain.TabL4Show(Sender: TObject);
+begin
+  DateSpecNum := DatePick.Date;
+  with dm do
+  begin
+    Limit3.Close;
+    Limit3.DatabaseName := Database.DatabaseName;
+    Limit3.ParamByName('LNum').Value   := 4;
+    Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
+    Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text);
+    Limit3.Open;
+  end;
+  Maxlen := 4;
+end;
+
+procedure TfMain.TabL5Show(Sender: TObject);
+begin
+  DateSpecNum := DatePick.Date;
+  with dm do
+  begin
+    Limit3.Close;
+    Limit3.DatabaseName := Database.DatabaseName;
+    Limit3.ParamByName('LNum').Value   := 5;
+    Limit3.ParamByName('aDate').Value  := DateToStr(DatePick.Date);
+    Limit3.ParamByName('aLotID').Value := StrToInt(edLotID.Text);    
+    Limit3.Open;
+  end;
+  Maxlen := 5;
+end;
+
+procedure TfMain.AltGridL3KeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = Vk_Delete then
+  begin
+    if Dm.Limit3.RecordCount > 0 then
+    begin
+      Dm.Limit3.Delete;
+      Key := 0;
+    end;
+  end;
+end;
+
+procedure TfMain.DatePickKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key = #13 then
+  begin
+    Application.ProcessMessages;
+    ComboLotTypeChange(Sender);
+    Key := #0;
+  end;
+end;
+
+procedure TfMain.TabSettingShow(Sender: TObject);
+begin
+  Application.ProcessMessages;
+  DateSpecNum := DatePick.Date;
+end;
+
+procedure TfMain.ConfigBtnClick(Sender: TObject);
+begin
+  MainPageControl.TabIndex := 3;
+end;
+
+procedure TfMain.Panel50Resize(Sender: TObject);
+begin
+  try
+    ChkSortInput.Left := Panel50.Width-ChkSortInput.Width-5;
+  except
+
+  end;
+end;
+
+function TfMain.findDealer(Code: String): Boolean;
+Var QrFindDealer : TABSQuery;
+    i,j: integer;
+begin
+ with Dm do
+ begin
+  Result := false;
+  QrFindDealer := TABSQuery.Create(nil);
+  QrFindDealer.DatabaseName := Database.DatabaseName;
+  QrFindDealer.Close;
+  QrFindDealer.SQL.Clear;
+  if EditDealer.Text <> '' then
+    QrFindDealer.SQL.Add('Select * from Dealer Where Code like "%'+Code+'%"')
+  else
+    QrFindDealer.SQL.Add('Select * from Dealer Where Code = "'+Code+'"');// :aCode');
+
+  QrFindDealer.Open;
+
+  If QrFindDealer.Eof then
+  begin
+    PanelCustName.Caption := '';
+    Showmessage('รหัสเจ้ามือไม่ถูกต้อง กรุณากรอกรหัสเจ้ามือใหม่ให้ถูกต้อง');
+    for i:= 0 to PayGrid.Rowcount-1 do
+    begin
+      for j := 0 to PayGrid.ColCount-1 do
+      begin
+          PayGrid.Cells[j,i] := '0';
+      end;
+    end;
+    EditDealer.SetFocus;
+    EditDealer.SelectAll;
+    Exit;
+  end;
+  PayGrid[0,0]   := QrFindDealer.FieldByName('ComRnUp').AsString;
+  PayGrid[0,1]   := QrFindDealer.FieldByName('ComRnDwn').AsString;
+  PayGrid[0,2]   := QrFindDealer.FieldByName('ComPosUp').AsString;
+  PayGrid[0,3]   := QrFindDealer.FieldByName('ComPosDwn').AsString;
+  PayGrid[0,4]   := QrFindDealer.FieldByName('Com2Up').AsString;
+  PayGrid[0,5]   := QrFindDealer.FieldByName('Com2Tod').AsString;
+  PayGrid[0,6]   := QrFindDealer.FieldByName('Com2Dwn').AsString;
+  PayGrid[0,7]   := QrFindDealer.FieldByName('Com2Mee').AsString;
+  PayGrid[0,8]   := QrFindDealer.FieldByName('Com2Pos').AsString;
+  PayGrid[0,9]   := QrFindDealer.FieldByName('Com3Up').AsString;
+  PayGrid[0,10]  := QrFindDealer.FieldByName('Com3Tod').AsString;
+  PayGrid[0,11]  := QrFindDealer.FieldByName('Com3Dwn').AsString;
+  PayGrid[0,12]  := QrFindDealer.FieldByName('Com4').AsString;
+  PayGrid[0,13]  := QrFindDealer.FieldByName('Com4Tod').AsString;
+  PayGrid[0,14]  := QrFindDealer.FieldByName('Com5').AsString;
+  PayGrid[0,15]  := QrFindDealer.FieldByName('Com5Tod').AsString;
+
+  PayGrid[1,0]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('PayRnUp').AsFloat);
+  PayGrid[1,1]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('PayRnDwn').AsFloat);
+  PayGrid[1,2]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('PayPosUp').AsFloat);
+  PayGrid[1,3]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('PayPosDwn').AsFloat);
+  PayGrid[1,4]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay2Up').AsFloat);
+  PayGrid[1,5]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay2Tod').AsFloat);
+  PayGrid[1,6]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay2Dwn').AsFloat);
+  PayGrid[1,7]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay2Mee').AsFloat);
+  PayGrid[1,8]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay2Pos').AsFloat);
+  PayGrid[1,9]   := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay3Up').AsFloat);
+  PayGrid[1,10]  := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay3Tod').AsFloat);
+  PayGrid[1,11]  := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay3Dwn').AsFloat);
+  PayGrid[1,12]  := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay4').AsFloat);
+  PayGrid[1,13]  := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay4Tod').AsFloat);
+  PayGrid[1,14]  := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay5').AsFloat);
+  PayGrid[1,15]  := FormatFloat('###,##0.##',QrFindDealer.FieldByName('Pay5Tod').AsFloat);
+
+  EditDealer.Text := QrFindDealer.FieldByName('Code').AsString;
+  PnDealerName.Caption := ' '+QrFindDealer.FieldByName('FName').AsString+' '+QrFindDealer.FieldByName('LName').AsString;
+  EditDealer.SetFocus;
+  EditDealer.SelectAll;
+  Result := true;
+ end;
+end;
+
+procedure TfMain.editDealerButtonClick(Sender: TObject);
+begin
+  with frmFindDealer do
+  begin
+    if Showmodal = mrOk then
+    begin
+      with DealerList do
+      begin
+          findDealer(Items[selected.index].Caption);
+      end;
+    end;
+  end;
+end;
+
+procedure TfMain.editDealerKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key = #13 then
+  begin
+    if Not findDealer(EditDealer.Text) then
+      PnDealerName.Caption := '';
+    Key := #0;
+  end;
+end;
+
+procedure TfMain.TabByCustRepShow(Sender: TObject);
+var QrFindCust,QrData : TABSQuery;
+    SortBySQL,CustNo: String;
+    i: integer;
+    foundCust: Boolean;
+begin
+  with Dm, CustListRep do
+  begin
+    Application.ProcessMessages;
+    QrData := TABSQuery.Create(nil);
+    QrData.DatabaseName := Database.DatabaseName;
+    QrData.Close;
+    QrData.SQL.Clear;
+    QrData.SQL.Add('Select DISTINCT CustNo from Data');
+    QrData.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+    QrData.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+    QrData.SQL.Add('ORDER BY CustNo ASC');
+    QrData.Open;
+    TbCust.Close;
+    TbCust.Open;
+
+    Items.Clear;
+    Items.BeginUpdate;
+    QrData.First;
+    for i := 0 to QrData.RecordCount-1 do
+    begin
+      CustNo := QrData.fieldByName('CustNo').AsString;
+      foundCust := TbCust.Locate('CustID',CustNo,[]);
+      if foundCust then
+      begin
+        with Items.Add do
+        begin
+          if TbCust.FieldByName('bfName').AsString = 'นาย' then
+            Items[i].ImageIndex := 0
+          else
+          if TbCust.FieldByName('bfName').AsString = 'นาง' then
+            Items[i].ImageIndex := 1
+          else
+          if (TbCust.FieldByName('bfName').AsString = 'ด.ช.')or(TbCust.FieldByName('bfName').AsString = 'ด.ญ.') then
+            Items[i].ImageIndex := 2
+          else
+          if TbCust.FieldByName('bfName').AsString = 'นางสาว' then
+            Items[i].ImageIndex := 3
+          else
+          if TbCust.FieldByName('bfName').AsString = '' then
+            Items[i].ImageIndex := 4;
+
+          Caption := TbCust.FieldByName('CustID').AsString;
+          SubItems.Add(TbCust.fieldByName('FName').AsString+' '+TbCust.fieldByName('LName').AsString);
+        end;
+      end;
+      QrData.Next;
+    end;
+    Items.EndUpdate;
+    QrData.Free;
+
+    if RdbRepByCust.Checked then
+    begin
+      CustListRep.SetFocus;
+      CustListRep.ItemIndex := 0;
+    end;
+
+    //if RdbRepAll.Checked then
+      BtnFindByNumtRepClick(Sender);
+
+    //if CustListRep.Items.Count > 0 then
+      //if RdbRepAll.Checked then
+        //RepTotals;
+
+  end;
+end;
+
+procedure TfMain.BtnSaveLotNumClick(Sender: TObject);
+var QrUpDateCorNum,QrFindCorNum : TABSQuery;
+    year,month,day: Word;
+    aDate,bDate: TDateTime;
+    i: integer;
+begin
+  if ((Length(trim(LotNum6.Text)) < 3) Or (Length(trim(LotNum2.Text)) < 2)) then
+  begin
+    Showmessage('ป้อนเลขไม่ถูกต้อง กรุณาป้อนเลขที่ออกลงลงในช่องให้ถูกต้อง');
+    exit;
+  end;
+
+  with Dm do
+  begin
+        QrUpDateCorNum := TABSQuery.Create(nil);
+        QrUpDateCorNum.DatabaseName := Database.DatabaseName;
+        QrUpDateCorNum.Close;
+        QrUpDateCorNum.SQL.Clear;
+
+        Try
+          if Not foundCorNum then // สถานะเพิ่ม
+          begin
+            QrUpDateCorNum.SQL.Add('INSERT INTO CorrectNum (CrDate, LotType,Num2,Num31,Num32,Num33,Num34,Num6)');
+            QrUpDateCorNum.SQL.Add('VALUES (:aCrDate, :aLotType, :aNum2, :aNum31, :aNum32, :aNum33, :aNum34, :aNum6)');
+
+            QrUpDateCorNum.ParamByName('aCrDate').Value  := DateToStr(DatePick.Date);
+            QrUpDateCorNum.ParamByName('aLotType').Value := StrToInt(edLotID.Text);
+            QrUpDateCorNum.ParamByName('aNum2').Value    := LotNum2.text;
+            QrUpDateCorNum.ParamByName('aNum31').Value   := LotNum31.text;
+            QrUpDateCorNum.ParamByName('aNum32').Value   := LotNum32.text;
+            QrUpDateCorNum.ParamByName('aNum33').Value   := LotNum33.text;
+            QrUpDateCorNum.ParamByName('aNum34').Value   := LotNum34.text;
+            QrUpDateCorNum.ParamByName('aNum6').Value    := LotNum6.text;
+            QrUpDateCorNum.ExecSQL;
+            Showmessage('ข้อมูลได้รับการบันทึกเพิ่มเรียบร้อยแล้ว');
+          end
+          else
+          begin
+            QrUpDateCorNum.SQL.Add('UpDate CorrectNum');
+            QrUpDateCorNum.SQL.Add('Set Num2=:aNum2, Num31=:aNum31, Num32=:aNum32, Num33=:aNum33, Num34=:aNum34, Num6=:aNum6');
+            QrUpDateCorNum.SQL.Add('Where (CrDate = :aCrDate) and (LotType = :aLotType)');
+
+            QrUpDateCorNum.ParamByName('aCrDate').Value    := DateTostr(DatePick.Date);
+            QrUpDateCorNum.ParamByName('aLotType').Value   := StrToInt(edLotID.Text);
+            QrUpDateCorNum.ParamByName('aNum2').Value    := LotNum2.text;
+            QrUpDateCorNum.ParamByName('aNum31').Value   := LotNum31.text;
+            QrUpDateCorNum.ParamByName('aNum32').Value   := LotNum32.text;
+            QrUpDateCorNum.ParamByName('aNum33').Value   := LotNum33.text;
+            QrUpDateCorNum.ParamByName('aNum34').Value   := LotNum34.text;
+            QrUpDateCorNum.ParamByName('aNum6').Value    := LotNum6.text;
+            QrUpDateCorNum.ExecSQL;
+            Showmessage('ข้อมูลได้รับการบันทึกแก้ไขเรียบร้อยแล้ว');
+          end;
+
+        except
+          Showmessage('เกิดปัญหาในการบันทึกข้อมูล ไม่สามารถบันทึกข้อมูลได้');
+        end;
+        QrFindCorNum.Free;
+        LotNum6.SetFocus;
+
+        Case RepPageControl.TabIndex of
+          0: BtnFindByNumtRepClick(Sender);
+          1: FindCustAllRepBtnClick(Sender);
+          2: BtnFindDealerRepClick(Sender);
+        end;
+
+  end;
+
+end;
+
+procedure TfMain.ExitBtnClick(Sender: TObject);
+begin
+  //if MessageDlg('ต้องการออกจากโปรแกรมใช่หรือไม่? ',mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+    Close;
+end;
+
+procedure TfMain.LogoutBtnClick(Sender: TObject);
+begin
+  Self.Hide;
+  frmLogin.Show;
+  frmLogin.EditUser.SetFocus;
+end;
+
+procedure TfMain.TabUsersShow(Sender: TObject);
+var QrUser : TABSQuery;
+    SortBySQL: String;
+    i: integer;
+begin
+  Application.ProcessMessages;
+  with Dm, UserListRep do
+  begin
+    SortBySQL := ' ORDER BY UsID ASC';
+    QrUser := TABSQuery.Create(nil);
+    QrUser.DatabaseName := Database.DatabaseName;
+    QrUser.Close;
+    QrUser.SQL.Clear;
+    QrUser.SQL.Add('Select * from Users '+SortBySQL);
+    QrUser.Open;
+
+    QrUser.First;
+    Items.Clear;
+    Items.BeginUpdate;
+    While Not QrUser.Eof do
+    begin
+      with Items.Add do
+      begin
+          Caption := QrUser.FieldByName('UsID').AsString;// findfileData.cFileName;
+          SubItems.Add(QrUser.fieldByName('UsName').AsString);
+          QrUser.Next;
+      end;
+    end;
+    Items.EndUpdate;
+    QrUser.Free;
+    UserListRep.SetFocus;
+ end;
+end;
+
+procedure TfMain.DatePickDropDown(Sender: TObject);
+begin
+  MainDate := DatePick.Date;
+end;
+
+procedure TfMain.TabRepShow(Sender: TObject);
+begin
+  ShowCorNum;
+  //ComboLotTypeChange(Sender);
+  //RepPageControl.TabIndex := 0;
+  {
+  if RepPageControl.TabIndex = 0 then
+  begin
+    TabByCustRepShow(Sender);
+  end
+  else
+  if RepPageControl.TabIndex = 1 then
+  begin
+    FindCustAllRepBtnClick(Sender);
+  end
+  else
+  if RepPageControl.TabIndex = 2 then
+  begin
+    TabByDealerNumRepShow(Sender);
+  end;
+  }
+end;
+
+procedure TfMain.TabDBShow(Sender: TObject);
+begin
+  Application.ProcessMessages;
+end;
+
+procedure TfMain.SeSkinButton5Click(Sender: TObject);
+Var
+   QrClearData : TABSQuery;
+begin
+   if (ChkSale.Checked = false)and(ChkCut.Checked = false)and(ChkCorrect.Checked = false)and(ChkLimitNum.Checked = false)and(ChkCust.Checked = false) then
+   begin
+      MessageDlg('กรุณาเลือกข้อมูลที่ต้องการลบออกจากฐานข้อมูล',mtInformation, [mbOk], 0);
+      exit;
+   end;
+
+   with Dm do
+   begin
+      if MessageDlg('ข้อมูลที่ถูกเลือกจะถูกลบออกจากฐานข้อมูล ต้องการลบข้อมูลใช่หรือไม่!',mtWarning, [mbYes, mbNo], 0) = mrYes then
+      begin
+         try
+            QrClearData := TABSQuery.Create(nil);
+            QrClearData.DatabaseName := Database.DatabaseName;
+
+            if ChkSale.Checked then
+            begin
+               QrClearData.SQL.Clear;
+               QrClearData.SQL.Add('Delete from Data');
+               QrClearData.ExecSQL;
+            end;
+
+            if ChkCut.Checked then
+            begin
+               QrClearData.SQL.Clear;
+               QrClearData.SQL.Add('Delete from Cut');
+               QrClearData.ExecSQL;
+            end;
+
+            if ChkCorrect.Checked then
+            begin
+               QrClearData.SQL.Clear;
+               QrClearData.SQL.Add('Delete from CorrectNum');
+               QrClearData.ExecSQL;
+            end;
+
+            if ChkLimitNum.Checked then
+            begin
+               QrClearData.SQL.Clear;
+               QrClearData.SQL.Add('Delete from LimitNum');
+               QrClearData.ExecSQL;
+            end;
+
+            if ChkCust.Checked then
+            begin
+               QrClearData.SQL.Clear;
+               QrClearData.SQL.Add('Delete from Cust');
+               QrClearData.SQL.Add('Where FName <> "เงินสด"');
+               QrClearData.ExecSQL;
+            end;
+
+            MessageDlg('ข้อมูลในฐานข้อมูลถูกลบเรียบร้อยแล้ว',mtInformation, [mbOk], 0);
+            //RefreshBtnClick(Sender);
+            NewRefreshBtnClick(Sender);
+         finally
+            QrClearData.Free;
+         end;
+      end;
+   end;
+end;
+
+procedure TfMain.N8Click(Sender: TObject);
+begin
+  if fAbout.Showmodal = mrOk then
+end;
+
+procedure TfMain.N6Click(Sender: TObject);
+Var Key, RegKey, SerialNo: String;
+    i: integer;
+    DriveNumber: Byte;
+    SerialInfo: TSerialInfo;
+begin
+  with fRegis do
+  begin
+    EdCode.Text := GetHardwareID;
+    SerialNo    := ReadSerialNo;
+
+    if Regis then
+    begin
+      edKey.PasswordChar := '#';
+      edKey.Text := SerialNo;
+      edKey.ReadOnly := true;
+    end
+    else
+    begin
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;//edKey.Visible := true;
+    end;
+
+    if Showmodal = mrOk then
+    begin
+      UpdateSerialNo(edKey.Text);
+      UpdateLastDate(Date);
+      UpdateLastRun(Date);
+      UpDateRPD(1);
+      AppKey := EdKey.text;
+      LastInputDate := Date;
+
+      Regis := true;
+      MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
+      SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+      lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+    end;
+  end
+end;
+
+procedure TfMain.SetGridFilterChar(Sender: TObject; Col, Row: Integer;
+  Chr: Char; var Allowed: Boolean);
+begin
+  if Col in [0..2] then
+    if Chr in ['0'..'9'] then
+      Allowed := true
+    else
+      Allowed := false;
+
+end;
+
+procedure TfMain.BtnSaveSpecNumClick(Sender: TObject);
+begin
+  with Dm do
+  begin
+    if Limit3.State in dsEditmodes then
+    begin
+      Limit3.Post;
+      Showmessage('ข้อมูลได้รับการบันทึกแล้ว');
+    end;
+  end;
+end;
+
+procedure TfMain.DataSource1StateChange(Sender: TObject);
+begin
+  with Dm do
+  begin
+    BtnSaveSpecNum.Enabled := Limit3.State in dsEditModes;
+    BtnCancelSpec.Enabled  := Limit3.State in dsEditModes;
+    BtnDelLmtNum.Enabled   := Limit3.State = dsBrowse;
+  end;
+end;
+
+
+procedure TfMain.BtnCancelSpecClick(Sender: TObject);
+begin
+  With Dm do
+    Limit3.Cancel;
+end;
+
+procedure TfMain.ExportBtnClick(Sender: TObject);
+Var
+   i,j,GCnt1,GCnt2,GCnt3,GCnt4,GCnt5,Col,Row,Lastrow: Integer;
+   QrDelete : TABSQuery;
+   ServerPath,XLSFileName: String;
+   QrCount : TABSQuery;
+   DriveNumber: Byte;
+   HDDInfo: THDDInfo;
+   SerialInfo: TSerialInfo;
+begin
+  with Dm, fRegis do
+  begin
+    if not Regis then
+    begin
+      EdCode.Text := GetHardwareID;
+      edKey.Clear;
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;
+
+      if Showmodal = mrOk then
+      begin
+        UpdateSerialNo(edKey.Text);
+        UpdateLastDate(Date);
+        UpdateLastRun(Date);
+        UpDateRPD(1);
+        AppKey := EdKey.text;
+        LastInputDate := Date;
+
+        Regis := true;
+        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
+        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+        exit;
+      end
+      else exit;
+    end;
+  end;
+
+
+  ServerPath := edExportFolder.Text;//'Z:\Public\Biglotto\Import\';
+  If DirectoryExists('Z:\') = false then
+  begin
+    try
+      //ConnectDrive('z:', '\\KKD7V30325NGU\Users', True, True);
+      ConnectDrive('z:','\\'+edHostName.Text+'\Users', True, True);
+    except
+    end;
+  end;
+
+  If DirectoryExists(ServerPath) = false then
+  begin
+    Showmessage('เกิดปัญหาในการเชื่อมต่อ กรุณาตรวจสอบเครือข่าย');
+    exit;
+  end;
+
+  GCnt1 := InputGrid.RowCount;
+  SaveXLSDialog.InitialDir := edExportFolder.Text;
+
+  if (ChkTotal.Checked) or (ChkSumCust.Checked) then
+  begin
+    if edExportFolder.Text[length(edExportFolder.Text)] <> '\' then
+      XLS.Filename := ServerPath+'\'+ GetComputerName+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now)+'.xls'
+    else
+      XLS.FileName := ServerPath+ GetComputerName+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now)+'.xls';
+  end
+  else
+  begin
+    if edExportFolder.Text[length(edExportFolder.Text)] <> '\' then
+      XLS.FileName := ServerPath+'\'+ GetComputerName+'_'+PanelCustName.Caption+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now)+'.xls'
+    else
+      XLS.FileName := ServerPath+ GetComputerName+'_'+PanelCustName.Caption+'_'+formatDateTime('dd-mm-yy',DatePick.Date)+'_'+formatDateTime('HH-MM-SS',Now)+'.xls';
+  end;
+
+  XLSFileName := ExtractFileName(XLS.Filename);
+  if MessageDlg('ต้องการส่งไฟล์ข้อมูล '+XLSFileName+' ไปยัง '+edHostName.Text+': '+ServerPath,
+          mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    //ServerPath := edExportFolder.Text;//'Z:\Public\Biglotto\Import\';
+  end
+  else exit;
+
+  XLS.Clear;
+  // Add format #0
+   with XLS.Formats.Add do begin
+    FontIndex := XLS.Fonts.AddIndex;
+    XLS.Fonts[FontIndex].Name := 'Courier new';
+    XLS.Fonts[FontIndex].Size := 12;
+    XLS.Fonts[FontIndex].Color := xcRed;
+    HorizAlignment := chaCenter;
+  end;
+
+  // Add format #1
+  with XLS.Formats.Add do begin
+    FontIndex := XLS.Fonts.AddIndex;
+    XLS.Fonts[FontIndex].AssignTFont(Font);
+    BorderTopColor := xcBlue;
+    BorderTopStyle := cbsThin;
+  end;
+
+  // Add format #2
+  with XLS.Formats.Add do begin
+    //FontIndex := XLS.Fonts.AddIndex;
+    //XLS.Fonts[FontIndex].Name := 'CordiaUPC';   
+    BorderTopColor := xcBlue;
+    BorderBottomColor := xcBlue;
+    BorderTopStyle := cbsThin;
+    BorderBottomStyle := cbsThin;
+    FillPatternForeColor := xcLilac;
+    HorizAlignment := chaCenter;
+  end;
+
+  // Add format #3
+  with XLS.Formats.Add do begin
+    BorderTopColor := xcBlue;
+    BorderBottomColor := xcBlue;
+    BorderTopStyle := cbsThin;
+    BorderBottomStyle := cbsThin;
+  end;
+
+  // Add format #4
+  with XLS.Formats.Add do begin
+    NumberFormat := '#,##0.00_);[Red](#,##0.00)';
+  end;
+
+ LastRow := 0;
+ Row := 0;
+ if InputGrid.RowCount > 0 then
+ begin
+
+  XLS.Sheets[0].WriteString(0,0,1,'Num');
+  XLS.Sheets[0].WriteString(1,0,1,'Up');
+  XLS.Sheets[0].WriteString(2,0,1,'Down');
+  XLS.Sheets[0].WriteString(3,0,1,'ID');
+  XLS.Sheets[0].WriteString(4,0,1,'CustID');
+  XLS.Sheets[0].WriteString(5,0,1,'BookNo');
+  XLS.Sheets[0].WriteString(6,0,1,'UserID');
+  XLS.Sheets[0].WriteString(7,0,1,'LottoID');
+
+  for Col := 0 to InputGrid.ColCount - 1 do
+  begin
+   for Row := 0 To GCnt1 -1 do
+   begin
+    XLS.Sheets[0].WriteString(Col,Row+1,2,InputGrid[Col,Row])
+   end;
+  end;
+  
+  LastRow := Row+1;
+ end;
+ try
+  XLS.Write;
+  if ChkDelExport.Checked then
+  begin
+    with Dm do
+    begin
+      QrDelete := TABSQuery.Create(nil);
+      QrDelete.DatabaseName := Database.DatabaseName;
+
+      QrDelete.Close;
+      QrDelete.SQL.Clear;
+      QrDelete.SQL.Add('Delete From Data');
+
+      if ChkTotal.Checked then
+      begin
+        QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
+        QrDelete.SQL.Add('and (LotType =:aLotType)');
+        QrDelete.SQL.Add(')');
+
+        QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
+        QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+      end
+      else
+      begin
+        QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
+        QrDelete.SQL.Add('and (LotType =:aLotType)');
+        if Not ChkSumCust.Checked then
+          QrDelete.SQL.Add('and (CustNo =:aCustNo)');
+        if Not ChkSumBook.Checked then
+          QrDelete.SQL.Add('and (RefNo =:aBookNo)');
+        QrDelete.SQL.Add(')');
+
+        QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
+        QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+        if Not ChkSumCust.Checked then
+          QrDelete.ParamByName('aCustNo').Value := edCustNo.Text;
+        if Not ChkSumbook.Checked then
+          QrDelete.ParamByName('aBookNo').Value := edRefNo.Text;
+      end;
+      QrDelete.ExecSQL;
+      QrDelete.Free;
+      NewRefreshBtnClick(Sender);
+    end;
+  end;
+  Showmessage('ข้อมูลได้ส่งออกไปยังไฟล์  '+XLS.FileName+' เรียบร้อยแล้ว');
+ except
+  Showmessage('เกิดปัญหาในการส่งออก ไม่สามารถส่งออกไปยังไฟล์ '+XLS.FileName+' ได้');
+ end;
+end;
+
+procedure TfMain.ImPortBtnClick(Sender: TObject);
+var
+  Col,Row,LastRow,NumCount,NCount,i,j,k,TotalCount,FileCount,DelCnt: integer;
+  TbImport: TABSTable;
+  years,months,dates: word;
+  aNow: TDateTime;
+  Num: String;
+  QrCount : TABSQuery;
+  SR: TSearchRec;
+  Dir,OldName,NewName,PrUp,PrDwn,ErrStr,CustNo,BookNo,EmpNo,LotNo: String;
+  DriveNumber: Byte;
+  //HDDInfo: THDDInfo;
+  SerialInfo: TSerialInfo;
+begin
+  TotalCount := 0;
+  FileCount := 0;
+
+  with Dm, fRegis do
+  begin
+    if not Regis then
+    begin
+      EdCode.Text := GetHardwareID;
+      edKey.Clear;
+      edKey.ReadOnly := false;
+      edKey.PasswordChar := #0;
+
+      if Showmodal = mrOk then
+      begin
+        UpdateSerialNo(edKey.Text);
+        UpdateLastDate(Date);
+        UpdateLastRun(Date);
+        UpDateRPD(1);
+        AppKey := EdKey.text;
+        LastInputDate := Date;
+
+        Regis := true;
+        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
+        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
+        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
+        exit;
+      end
+      else exit;
+    end;
+
+    TbImport := TABSTable.Create(nil);
+    TbImport.DatabaseName := Database.DatabaseName;
+    TbImport.TableName := 'Data';
+    TbImport.Close;
+    TbImport.Open;
+  end;
+
+  With fIptFileList,FileList do
+  begin
+    edDir.Text := edImportFolder.Text;
+    if ShowModal = mrOk then
+    begin
+      for j := 0 to Items.Count - 1 do
+      begin
+        if items[j].Checked = true then
+        begin
+         try
+          XLS.Filename :=  edDir.Text +'\'+ Items[j].Caption;
+          XLS.Clear;
+          XLS.Read;
+          NumCount := 0;
+          NCount := 0;
+          DelCnt := 0;
+          row := 0;
+          ErrStr := '';
+
+          if (XLS.Sheets[0].AsString[0,0] = 'Num')or(XLS.Sheets[0].AsString[0,0] = 'Num1')or(XLS.Sheets[0].AsString[0,0] = 'Num2')or
+             (XLS.Sheets[0].AsString[0,0] = 'Num3')or(XLS.Sheets[0].AsString[0,0] = 'Num4')or(XLS.Sheets[0].AsString[0,0] = 'Num5') then
+          begin
+            Repeat
+              if Copy(XLS.Sheets[0].AsString[0,NumCount],1,3) <> 'Num' then
+                inc(NCount);
+              inc(NumCount);
+            Until (XLS.Sheets[0].AsFmtString[0,NumCount] = '') and (XLS.Sheets[0].AsFmtString[1,NumCount] = '') and (XLS.Sheets[0].AsFmtString[2,NumCount] = '');
+            TotalCount := TotalCount + NCount;
+            //showmessage(IntToStr(NCount));
+
+            ProgressBar2.MinValue := 0;
+            ProgressBar2.MaxValue := NumCount;
+            Pbar.Visible := true;
+            ProgressBar2.Progress := 0;
+            Application.ProcessMessages;
+
+            InputGrid.BeginUpdate;
+            for row := Numcount-1 Downto 0 do
+            begin
+              Num   := XLS.Sheets[0].AsString[0,Row];
+              PrUp  := XLS.Sheets[0].AsString[1,Row];
+              PrDwn := XLS.Sheets[0].AsString[2,Row];
+
+              CustNo := XLS.Sheets[0].AsString[4,Row];
+              BookNo := XLS.Sheets[0].AsString[5,Row];
+              EmpNo  := XLS.Sheets[0].AsString[6,Row];
+              LotNo  := XLS.Sheets[0].AsString[7,Row];
+
+              if (GetNum(Num) = '') Or ((PrUp = '') and (PrDwn = '')) then
+              begin
+                ProgressBar2.MaxValue := ProgressBar2.MaxValue-1;
+                if Row > 0 then
+                begin
+                  ErrStr := ErrStr+#13#10+Num+', '+PrUp+', '+PrDwn+', '+CustNo+', '+BookNo+', '+EmpNo+', '+LotNo;
+                  Inc(DelCnt);
+                end;
+                Continue;
+              end;
+
+              PrUp  := Replace(PrUp, '?', '*');
+              PrUp  := Replace(PrUp, 'x', '*');
+              PrUp  := Replace(PrUp, 'X', '*');
+
+              PrDwn := Replace(PrDwn, '?', '*');
+              PrDwn := Replace(PrDwn, 'x', '*');
+              PrDwn := Replace(PrDwn, 'X', '*');
+
+              if (Row > 0)and(XLS.Sheets[0].AsString[0,0] = 'Num') then
+              begin
+                TbImport.Append;
+                TbImport.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+                TbImport.FieldByName('Num').AsString           := Num;//XLS.Sheets[0].AsString[0,Row];
+                TbImport.FieldByName('Up').AsString            := PrUp;//XLS.Sheets[0].AsString[1,Row];
+                TbImport.FieldByName('Dwn').AsString           := PrDwn;//XLS.Sheets[0].AsString[2,Row];
+
+                if ChkDataFromFile.Checked then
+                begin
+                  try
+                    TbImport.FieldByName('CustNo').AsString    := XLS.Sheets[0].AsString[4,Row];
+                    TbImport.FieldByName('RefNo').AsString     := XLS.Sheets[0].AsString[5,Row];
+                    TbImport.FieldByName('EmpNo').AsString     := XLS.Sheets[0].AsString[6,Row];
+                    TbImport.FieldByName('LotType').AsInteger  := StrToInt(XLS.Sheets[0].AsString[7,Row]);
+                  except
+                    TbImport.FieldByName('CustNo').AsString    := edCustNo.Text;
+                    TbImport.FieldByName('RefNo').AsString     := edRefNo.Text;
+                    TbImport.FieldByName('EmpNo').AsString     := edUsID.Text;
+                    TbImport.FieldByName('LotType').AsInteger  := StrToInt(EdLotID.Text);
+                  end;
+                end
+                else
+                begin
+                  TbImport.FieldByName('CustNo').AsString      := edCustNo.Text;
+                  TbImport.FieldByName('RefNo').AsString       := edRefNo.Text;
+                  TbImport.FieldByName('EmpNo').AsString       := edUsID.Text;
+                  TbImport.FieldByName('LotType').AsInteger    := StrToInt(EdLotID.Text);
+                end;
+              end
+              else
+              begin
+                if (length(Num)=1)and(Num[1] in ['0'..'9']) then
+                begin
+                  for i := 1 to 7 do
+                  begin
+                    if XLS.Sheets[0].AsFloat[i,Row] > 0 then
+                    begin
+                      TbImport.Append;
+                      TbImport.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+                      Case i of
+                          1: TbImport.FieldByName('Num').AsString  := Num;
+                        2,6: TbImport.FieldByName('Num').AsString  := Num+'-';
+                          3: TbImport.FieldByName('Num').AsString  := '-'+Num+'-';
+                        4,7: TbImport.FieldByName('Num').AsString  := '-'+Num;
+                          5: TbImport.FieldByName('Num').AsString  := Num;
+                      end;
+
+                      Case i of
+                        1..4: TbImport.FieldByName('Up').AsString  := XLS.Sheets[0].AsString[i,Row];
+                      else
+                        TbImport.FieldByName('Dwn').AsString       := XLS.Sheets[0].AsString[i,Row];
+                      end;
+
+                      TbImport.FieldByName('CustNo').AsString      := edCustNo.Text;
+                      TbImport.FieldByName('RefNo').AsString       := edRefNo.Text;
+                      TbImport.FieldByName('EmpNo').AsString       := edUsID.Text;
+                      TbImport.FieldByName('LotType').AsInteger    := StrToInt(EdLotID.Text);
+                    end;
+                  end;
+                end;
+                //-------------------------------------
+                if (length(Num)=2)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9']) then
+                begin
+                  for i := 1 to 6 do
+                  begin
+                    if XLS.Sheets[0].AsFloat[i,Row] > 0 then
+                    begin
+                      TbImport.Append;
+                      TbImport.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+                      Case i of
+                        1,2,6: TbImport.FieldByName('Num').AsString  := Num;
+                            3: TbImport.FieldByName('Num').AsString  := Num+'+';
+                            4: TbImport.FieldByName('Num').AsString  := Num+'-';
+                            5: TbImport.FieldByName('Num').AsString  := '-'+Num;
+                      end;
+                      Case i of
+                        1,3..5: TbImport.FieldByName('Up').AsString  := XLS.Sheets[0].AsString[i,Row];
+                             2: TbImport.FieldByName('Up').AsString  := '-'+XLS.Sheets[0].AsString[i,Row];
+                             6: TbImport.FieldByName('Dwn').AsString := XLS.Sheets[0].AsString[i,Row];
+                      end;
+                      TbImport.FieldByName('CustNo').AsString      := edCustNo.Text;
+                      TbImport.FieldByName('RefNo').AsString       := edRefNo.Text;
+                      TbImport.FieldByName('EmpNo').AsString       := edUsID.Text;
+                      TbImport.FieldByName('LotType').AsInteger    := StrToInt(EdLotID.Text);
+                    end;
+                  end;
+                end;
+                //-------------------------------------
+                if (length(Num)=3)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9']) then
+                begin
+                  for i := 1 to 3 do
+                  begin
+                    if XLS.Sheets[0].AsFloat[i,Row] > 0 then
+                    begin
+                      TbImport.Append;
+                      TbImport.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+                      Case i of
+                        1..3: TbImport.FieldByName('Num').AsString := Num;
+                      end;
+                      Case i of
+                        1: TbImport.FieldByName('Up').AsString     := XLS.Sheets[0].AsString[i,Row];
+                        2: TbImport.FieldByName('Up').AsString     := '-'+XLS.Sheets[0].AsString[i,Row];
+                        3: TbImport.FieldByName('Dwn').AsString    := XLS.Sheets[0].AsString[i,Row];
+                      end;
+                      TbImport.FieldByName('CustNo').AsString      := edCustNo.Text;
+                      TbImport.FieldByName('RefNo').AsString       := edRefNo.Text;
+                      TbImport.FieldByName('EmpNo').AsString       := edUsID.Text;
+                      TbImport.FieldByName('LotType').AsInteger    := StrToInt(EdLotID.Text);
+                    end;
+                  end;
+                end;
+                //-------------------------------------
+                if (length(Num)=4)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9']) then
+                begin
+                  for i := 1 to 2 do
+                  begin
+                    if XLS.Sheets[0].AsFloat[i,Row] > 0 then
+                    begin
+                      TbImport.Append;
+                      TbImport.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+                      Case i of
+                        1..2: TbImport.FieldByName('Num').AsString := Num;
+                      end;
+                      Case i of
+                        1: TbImport.FieldByName('Up').AsString     := XLS.Sheets[0].AsString[i,Row];
+                        2: TbImport.FieldByName('Up').AsString     := '-'+XLS.Sheets[0].AsString[i,Row];
+                      end;
+                      TbImport.FieldByName('CustNo').AsString      := edCustNo.Text;
+                      TbImport.FieldByName('RefNo').AsString       := edRefNo.Text;
+                      TbImport.FieldByName('EmpNo').AsString       := edUsID.Text;
+                      TbImport.FieldByName('LotType').AsInteger    := StrToInt(EdLotID.Text);
+                    end;
+                  end;
+                end;
+                //-------------------------------------
+                if (length(Num)=5)and(Num[1] in ['0'..'9'])and(Num[2] in ['0'..'9'])and(Num[3] in ['0'..'9'])and(Num[4] in ['0'..'9'])and(Num[5] in ['0'..'9']) then
+                begin
+                  for i := 1 to 2 do
+                  begin
+                    if XLS.Sheets[0].AsFloat[i,Row] > 0 then
+                    begin
+                      TbImport.Append;
+                      TbImport.FieldByName('Period_Date').AsDateTime := DatePick.Date;
+                      Case i of
+                        1..2: TbImport.FieldByName('Num').AsString := Num;
+                      end;
+                      Case i of
+                        1: TbImport.FieldByName('Up').AsString     := XLS.Sheets[0].AsString[i,Row];
+                        2: TbImport.FieldByName('Up').AsString     := '-'+XLS.Sheets[0].AsString[i,Row];
+                      end;
+                      TbImport.FieldByName('CustNo').AsString      := edCustNo.Text;
+                      TbImport.FieldByName('RefNo').AsString       := edRefNo.Text;
+                      TbImport.FieldByName('EmpNo').AsString       := edUsID.Text;
+                      TbImport.FieldByName('LotType').AsInteger    := StrToInt(EdLotID.Text);
+                    end;
+                  end;
+
+                end;
+
+              end;
+              ProgressBar2.Progress := ProgressBar2.Progress+1;
+            end;
+
+            InputGrid.EndUpdate;
+            TbImport.Post;
+
+            Progressbar2.Progress := 0;
+            PBar.Visible := false;
+
+            if ChkImportFile.Checked then
+            begin
+              OldName := XLS.Filename;
+              NewName := ChangeFileExt(OldName, '.xl_');
+              RenameFile(oldName, newName);
+              //DeleteFile(pChar(XLS.Filename))
+            end;
+          end
+          else Continue;
+
+         except
+
+         end;
+        end;
+      end;
+      TbImport.Free;
+      NewRefreshBtnClick(Sender);
+      Btn_RefreshCutClick(Sender);
+      if TotalCount = 0 then
+        MessageDlg('อาจเกิดปัญหากับข้อมูล หรือข้อมูลไม่ถูกต้อง ไม่มีการนำเข้าข้อมูล',mtWarning, [mbOk], 0)
+      else
+        MessageDlg('นำเข้าข้อมูลทั้งหมด "'+IntToStr(TotalCount)+'" รายการ นำเข้าสำเร็จ "'+IntToStr(TotalCount-DelCnt)+'" รายการ เรียบร้อยแล้ว',mtInformation, [mbOk], 0);
+
+      if ErrStr <> '' then
+        Showmessage('ข้อมูลที่ไม่สามารถนำเข้าได้'+#13#10+ErrStr);
+    end;
+  end;
+end;
+
+procedure TfMain.BtnDelLmtNumClick(Sender: TObject);
+Var QrClearLimt: TABSQuery;
+    Num: String;
+begin
+  With Dm do
+  begin
+    Case PageControlLimit.TabIndex of
+      0 : Num := '1';
+      1 : Num := '2';
+      2 : Num := '3';
+      3 : Num := '4';
+      4 : Num := '5';
+    end;
+
+    if MessageDlg('ต้องการล้างรายการเลขอั้น '+Num+' ตัวทั้งหมดของงวดนี้ใช่หรือไม่? ',mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+    begin
+      QrClearLimt := TABSQuery.Create(nil);
+      QrClearLimt.DatabaseName := Database.DatabaseName;
+      QrClearLimt.Close;
+      QrClearLimt.SQL.Add('Delete from LimitNum');
+      QrClearLimt.SQL.Add('Where (length(Num) = "'+IntToStr(Maxlen)+'") and (LimitDate = "'+DateToStr(DatePick.Date)+'")');
+      QrClearLimt.ExecSQL;
+      Case PageControlLimit.TabIndex of
+        0 : TabL1Show(Sender);
+        1 : TabL2Show(Sender);
+        2 : TabL3Show(Sender);
+        3 : TabL4Show(Sender);
+        4 : TabL5Show(Sender);
+      end;
+
+    end;
+  end;
+end;
+
+procedure TfMain.edfind3KeyPress(Sender: TObject; var Key: Char);
+begin
+  if key = #13 then
+  begin
+    Btn_find3Click(Sender);
+    key := #0;
+  end;
+end;
+
+procedure TfMain.CustListRepKeyPress(Sender: TObject; var Key: Char);
+begin
+  with CustListRep do
+  begin
+    if Key = #13 then
+    begin
+      Panel16.Caption := Items[itemindex].Caption+' '+ Items[Itemindex].SubItems[0];
+      //RepTotals;
+      BtnFindByNumtRepClick(Sender);
+      Key := #0;
+
+      //if ChkRepPrint.Checked then
+        //BtnPrintRepByCustClick(Sender);
+
+    end;
+  end;
+end;
+
+procedure TfMain.CorrectNumBtnClick(Sender: TObject);
+begin
+  MainPageControl.TabIndex := 2;
+end;
+
+procedure TfMain.BrowseBackupDirClick(Sender: TObject);
+Var IniFile : TInifile;
+    DBFN: String;
+begin
+  With OpenDBDialog,Dm Do
+  begin
+    if ChkHost.Checked then
+      FileName := ExtractFilePath(Application.ExeName)+'Data\LNUM.LUX'
+    else
+    begin
+      if edServerDb.Text = '' then
+        FileName := 'z:\Public\Biglotto\Data\LNUM.LUX'
+      else
+        FileName := edServerDb.Text;
+    end;
+
+    IniFile := TIniFile.Create(
+      ChangeFileExt(Application.ExeName,'.ini'));
+
+    if Execute then
+    begin
+      edServerDB.Text := fileName;
+      if ChkHost.Checked then
+      begin
+        DBFN  := FileName;
+        IniFile.WriteString('DB','DBFile',DBFN);
+        Database.Connected := false;
+        Database.DatabaseFileName := DBFN;
+        Database.Connected := true;
+        QrData.Open;
+        Lotto.Open;
+        Limit3.Open;
+        TbLocateNum.Open;
+        TAllData.Open;
+        Statusbar.Panels[0].Text := 'BigLOTTO '+GetAppVersion+' (ติดต่อ โทร : 084-0643183) - '+FileName;
+      end
+      else
+      begin
+
+        IniFile.WriteString('DB','ServDBFile',edServerDB.Text);
+        ServerDBFile := edServerDB.Text;
+        //IniFile.WriteString('DB','DBFile',DBFN)
+      end;
+    end;
+    IniFile.Free;
+  end;
+end;
+
+procedure TfMain.SeSkinSpeedButton1Click(Sender: TObject);
+Var IniFile : TInifile;
+begin
+    with Dm do
+    begin
+      edServerDB.Clear;
+      IniFile := TIniFile.Create(
+              ChangeFileExt(Application.ExeName,'.ini'));
+
+      IniFile.WriteString('DB','ServDBFile','');
+      ServerDBFile := ''; 
+      IniFile.Free;
+    end;
+end;
+
+procedure TfMain.DeleteBtnClick(Sender: TObject);
+Var QrDelete: TABSQuery;
+    i,j: Integer;
+begin
+    with InputGrid, Dm do
+    begin
+      QrDelete := TABSQuery.Create(nil);
+      QrDelete.DatabaseName := Database.DatabaseName;
+
+      if ((SelectArea.Bottom - (SelectArea.Top-1)) > 1)and((SelectArea.Bottom - (SelectArea.Top-1)) < InputGrid.RowCount) Or (edFindData.Text <> '')  then
+      begin
+        if MessageDlg('ต้องลบรายการที่ป้อนจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ ใช่หรือไม่?',
+          mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+        begin
+          progressbar2.MinValue := 0;
+          Progressbar2.MaxValue := (SelectArea.Bottom - SelectArea.Top)+1;
+          Progressbar2.Progress := 0;
+          Pbar.Visible := true;
+
+          for i := SelectArea.Bottom Downto SelectArea.Top  do
+          begin
+            QrDelete.Close;
+            QrDelete.SQL.Clear;
+            QrDelete.SQL.Add('Delete from Data');
+            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+            QrDelete.ExecSQL;
+
+            DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
+            if InputGrid.RowCount = 1 then
+              InputGrid.Clear;
+
+            for j := NGridSpecNum.RowCount-1 downto 0 do
+              if NGridSpecNum[3,j] = InputGrid[3,i] then
+                NGridSpecNum.DeleteRow(j);
+
+            InputGrid.DeleteRow(i);
+            Progressbar2.Progress := Progressbar2.Progress + 1;
+          end;
+
+          SumNGrid(NiceGrid1,SumGrid,0);
+          SumNGrid(NiceGrid2,SumGrid,7);
+          SumNGrid(NiceGrid3,SumGrid,13);
+          SumNGrid(NiceGrid4,SumGrid,16);
+          SumNGrid(NiceGrid5,SumGrid,18);
+          SumsGrid(SumGrid);
+
+          Progressbar2.Progress := 0 ;
+          Pbar.Visible := false;
+          lbItems1.Caption := IntToStr(InputGrid.RowCount)+'  รายการ';
+        end;
+      end
+      else if ((SelectArea.Bottom - (SelectArea.Top-1)) = 1) then
+      begin
+          for i := SelectArea.Bottom Downto SelectArea.Top  do
+          begin
+            QrDelete.Close;
+            QrDelete.SQL.Clear;
+            QrDelete.SQL.Add('Delete from Data');
+            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+            QrDelete.ExecSQL;
+
+            DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
+            if InputGrid.RowCount = 1 then
+            begin
+              for j := NGridSpecNum.RowCount-1 downto 0 do
+                if NGridSpecNum[3,j] = InputGrid[3,i] then
+                  NGridSpecNum.DeleteRow(j);
+              InputGrid.Clear;
+            end;
+
+            for j := NGridSpecNum.RowCount-1 downto 0 do
+              if NGridSpecNum[3,j] = InputGrid[3,i] then
+                NGridSpecNum.DeleteRow(j);
+
+            InputGrid.DeleteRow(i);
+          end;
+
+          SumNGrid(NiceGrid1,SumGrid,0);
+          SumNGrid(NiceGrid2,SumGrid,7);
+          SumNGrid(NiceGrid3,SumGrid,13);
+          SumNGrid(NiceGrid4,SumGrid,16);
+          SumNGrid(NiceGrid5,SumGrid,18);
+          SumsGrid(SumGrid);
+
+          lbItems1.Caption := IntToStr(InputGrid.RowCount)+'  รายการ';
+      end
+      else
+      if ((SelectArea.Bottom - (SelectArea.Top-1)) = InputGrid.RowCount) and (InputGrid.RowCount <> 1) then
+      begin
+        if MessageDlg('ต้องลบรายการที่ป้อนจำนวน  "'+IntToStr((SelectArea.Bottom - (SelectArea.Top-1)))+'"  รายการ ใช่หรือไม่?',
+          mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+        begin
+         if (CbNumLen.ItemIndex = 0) and (CbUpDwn.ItemIndex = 0) then
+         begin
+          if (edFindData.Text = '') then
+          begin
+            QrDelete.Close;
+            QrDelete.SQL.Clear;
+            QrDelete.SQL.Add('Delete From Data');
+
+            QrDelete.SQL.Add('Where ((Period_Date =:aDate)');
+            QrDelete.SQL.Add('and (LotType =:aLotType)');
+
+            if Not ChkTotal.Checked then
+            begin
+              if Not ChkSumCust.Checked then
+                QrDelete.SQL.Add('and (CustNo =:aCustNo)');
+              if Not ChkSumBook.Checked then
+                QrDelete.SQL.Add('and (RefNo =:aBookNo)');
+            end;
+
+            QrDelete.SQL.Add(')');
+          
+
+            QrDelete.ParamByName('aDate').Value     := DateToStr(DatePick.Date);
+            QrDelete.ParamByName('aLotType').Value  := StrToInt(edLotID.Text);
+
+            if Not ChkTotal.Checked then
+            begin
+              if Not ChkSumCust.Checked then
+                QrDelete.ParamByName('aCustNo').Value := edCustNo.Text;
+              if Not ChkSumbook.Checked then
+                QrDelete.ParamByName('aBookNo').Value := edRefNo.Text;
+            end;
+            QrDelete.ExecSQL;
+
+            //RefreshBtnClick(Sender);
+            NewRefreshBtnClick(Sender);
+            BtnSpecLimitNumClick(Sender);
+            lbItems1.Caption := IntToStr(InputGrid.RowCount)+'  รายการ';
+            MessageDlg('ข้อมูลถูกลบเรียบร้อยแล้ว',mtInformation, [mbOk], 0);
+          end;
+         end
+         else
+         begin
+          progressbar2.MinValue := 0;
+          Progressbar2.MaxValue := (SelectArea.Bottom - SelectArea.Top)+1;
+          Progressbar2.Progress := 0;
+          Pbar.Visible := true;
+
+          for i := SelectArea.Bottom Downto SelectArea.Top  do
+          begin
+            QrDelete.Close;
+            QrDelete.SQL.Clear;
+            QrDelete.SQL.Add('Delete from Data');
+            QrDelete.SQL.Add('Where ID = '+InputGrid[3,i]);
+            QrDelete.ExecSQL;
+
+            DelTranslate(InputGrid[0,i],InputGrid[1,i],InputGrid[2,i],InputGrid[3,i]);
+            if InputGrid.RowCount = 1 then
+              InputGrid.Clear;
+
+            for j := NGridSpecNum.RowCount-1 downto 0 do
+              if NGridSpecNum[3,j] = InputGrid[3,i] then
+                NGridSpecNum.DeleteRow(j);
+
+            InputGrid.DeleteRow(i);
+            Progressbar2.Progress := Progressbar2.Progress + 1;
+          end;
+
+          SumNGrid(NiceGrid1,SumGrid,0);
+          SumNGrid(NiceGrid2,SumGrid,7);
+          SumNGrid(NiceGrid3,SumGrid,13);
+          SumNGrid(NiceGrid4,SumGrid,16);
+          SumNGrid(NiceGrid5,SumGrid,18);
+          SumsGrid(SumGrid);
+
+          Progressbar2.Progress := 0 ;
+          Pbar.Visible := false;
+          lbItems1.Caption := IntToStr(InputGrid.RowCount)+'  รายการ';
+         end;
+        end;
+      end;
+      QrDelete.Free;
+      Btn_RefreshCutClick(Sender);
+      TotalRecFree  := ReadDataCount;
+      IsKeyCount := false;
+    end;
+end;
+
+procedure TfMain.BtnAddClick(Sender: TObject);
+Var QrMaxUser: TABSQuery;
+begin
+  if sit = 0 then
+  begin
+   with frmUserProp,Dm do
+   begin
+      QrMaxUser := TABSQuery.Create(nil);
+      //if ServerDBFile = '' then
+        QrMaxUser.DatabaseName := Database.DatabaseName;
+      //else
+        //QrMaxUser.DatabaseName := ExportDB.DatabaseName;
+      QrMaxUser.Close;
+      QrMaxUser.SQL.Clear;
+      QrMaxUser.SQL.Add('select max(UsID) as MaxID from Users');
+      QrMaxUser.Open;
+
+      if Sit = 0 then
+      begin
+        rdgsit.Enabled    := true;
+        DetailBtn.Enabled := true;
+      end
+      else
+      begin
+        rdgsit.Enabled    := false;
+        DetailBtn.Enabled := false;
+      end;
+
+      edUsName.Enabled := true;
+      edUsName.Text  := '';
+      edName.Text  := '';
+      edUserTel.Text   := '';
+      edUserAdr.Text   := '';
+      edUserEmail.Text := '';
+      edPass.Text := '';
+      RdgSit.ItemIndex := 0;
+      AddNew := true;
+      if showmodal = mrOk then
+      begin
+         ABSUsers.Close;
+         ABSUsers.Open;
+         ABSUsers.Append;
+         ABSUsers.fieldByName('UsID').AsString     := AutoNum(QrMaxUser.fieldByName('MaxID').AsString);
+         ABSUsers.fieldByName('UsName').AsString   := LowerCase(edUsName.Text);
+         ABSUsers.FieldByName('Pass').AsString     := edPass.Text;
+         ABSUsers.fieldByName('Name').AsString     := edName.Text;
+         ABSUsers.fieldByname('Phone1').AsString   := edUserTel.Text;
+         ABSUsers.fieldByName('Addr1').AsString    := edUserAdr.Text;
+         ABSUsers.fieldByName('Email').AsString    := edUserEmail.Text;
+         ABSUsers.fieldByName('Sit').AsInteger     := RdgSit.ItemIndex;
+         ABSUsers.Post;
+         QrMaxUser.Free;
+         TabUsersShow(Sender);
+      end;
+   end;
+  end
+  else
+    MessageDlg('คุณไม่มีสิทธิ์ที่จะทำรายการนี้',mtWarning, [mbOk], 0);
+end;
+
+procedure TfMain.BtnDeleteClick(Sender: TObject);
+Var QrDelUser: TABSQuery;
+begin
+  if sit = 0 then
+  begin
+    with UserListRep,Dm do
+    begin
+      if Items[ItemIndex].SubItems[0] <> 'admin' then
+      begin
+        if MessageDlg('ต้องการลบบัญชีผู้ใช้ "'+Items[ItemIndex].SubItems[0]+'"  ใช่หรือไม่?',
+          mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+        begin
+          QrDelUser := TABSQuery.Create(nil);
+          //if ServerDBFile = '' then
+            QrDelUser.DatabaseName := Database.DatabaseName;
+          //else
+            //QrDelUser.DatabaseName := ExportDB.DatabaseName;
+          QrDelUser.Close;
+          QrDelUser.SQL.Clear;
+          QrDelUser.SQL.Add('Delete from Users');
+          QrDelUser.SQL.Add('Where USID = "'+Items[ItemIndex].Caption+'"');
+          QrDelUser.ExecSQL;
+          QrDelUser.Free;
+          TabUsersShow(Sender);
+        end;
+      end
+      else
+        MessageDlg('ชื่อบัญชีผู้ใช้ "'+Items[ItemIndex].SubItems[0]+'"  ไม่สามารถลบได้!',mtWarning, [mbOk], 0);
     end;
   end
   else
     MessageDlg('คุณไม่ได้รับสิทธิ์ให้ทำรายนี้',mtWarning, [mbOk], 0);
 end;
 
+procedure TfMain.BtnEditClick(Sender: TObject);
+Var QrUser: TABSQuery;
+    found : Boolean;
+begin
+  with frmUserProp,Dm,UserListRep do
+  begin
+      if Sit <> 0 then
+      begin
+        if UserID <> Items[ItemIndex].Caption then
+        begin
+          MessageDlg('คุณได้รับสิทธิ์ให้สามารถแก้ไขเฉพาะชื่อบัญชีของตัวเองเท่านั้น',mtWarning, [mbOk], 0);
+          exit;
+        end;
+      end;
+
+      QrUser := TABSQuery.Create(nil);
+      //if ServerDBFile = '' then
+        QrUser.DatabaseName := Database.DatabaseName;
+      //else
+        //QrUser.DatabaseName := ExportDB.DatabaseName;
+      QrUser.Close;
+      QrUser.SQL.Clear;
+      QrUser.SQL.Add('select * from Users');
+      QrUser.SQL.Add('Where UsID = "'+Items[ItemIndex].Caption+'"');
+      QrUser.Open;
+
+      if Sit = 0 then
+      begin
+        if UserName <> 'admin' then
+        begin
+          if Items[ItemIndex].SubItems[0] = 'admin' then
+          begin
+            rdgsit.Enabled     := false;
+            DetailBtn.Enabled  := false;
+            BtnSetPass.Enabled := false;
+          end
+          else
+          begin
+            rdgsit.Enabled     := true;
+            DetailBtn.Enabled  := true;
+            BtnSetPass.Enabled := true;
+          end
+        end;
+      end
+      else
+      begin
+        rdgsit.Enabled    := false;
+        DetailBtn.Enabled := false;
+      end;
+
+      edUsName.Enabled := false;
+      edUsName.Text    := QrUser.fieldByName('UsName').AsString;
+      edPass.Text      := QrUser.fieldByName('Pass').AsString;
+      edName.Text      := QrUser.fieldByName('Name').AsString;
+      edUserTel.Text   := QrUser.fieldByname('Phone1').AsString;
+      edUserAdr.Text   := QrUser.fieldByName('Addr1').AsString;
+      edUserEmail.Text := QrUser.fieldByName('Email').AsString;
+      RdgSit.ItemIndex := QrUser.fieldByName('Sit').AsInteger;
+      AddNew := false;
+      if showmodal = mrOk then
+      begin
+        ABSUsers.Close;
+        //if ServerDBFile = '' then
+          ABSUsers.DatabaseName := Database.DatabaseName;
+        //else
+          //ABSUsers.DatabaseName := ExportDB.DatabaseName;
+        ABSUsers.Open;                                   
+        found := ABSUsers.Locate('USID',Items[ItemIndex].Caption,[]);
+        if found then
+        begin
+          ABSUsers.Edit;
+          ABSUsers.fieldByName('UsID').AsString     := Items[ItemIndex].Caption;
+          ABSUsers.fieldByName('UsName').AsString   := LowerCase(edUsName.Text);
+          ABSUsers.FieldByName('Pass').AsString     := edPass.Text;
+          ABSUsers.fieldByName('Name').AsString     := edName.Text;
+          ABSUsers.fieldByname('Phone1').AsString   := edUserTel.Text;
+          ABSUsers.fieldByName('Addr1').AsString    := edUserAdr.Text;
+          ABSUsers.fieldByName('Email').AsString    := edUserEmail.Text;
+          ABSUsers.fieldByName('Sit').AsInteger     := RdgSit.ItemIndex;
+          ABSUsers.Post;
+          QrUser.Free;
+          TabUsersShow(Sender);
+        end;
+      end;
+  end;
+end;
+
+procedure TfMain.BtnDelLotClick(Sender: TObject);
+Var QrDelLot: TABSQuery;
+    LotIDStr: String;
+begin
+  if sit = 0 then
+  begin
+    with LotTypeGrid,Dm do
+    begin
+        if MessageDlg('คุณต้องการลบรายการ "'+LotTypeGrid[0,Row]+'" ใช่ไหม?',
+          mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+        begin
+          LotIDStr := LotTypeGrid[1,Row];
+
+          if ZConnection1.Connected then
+          begin
+            ZExecQuery.Close;
+            ZExecQuery.SQL.Text := 'DELETE FROM LOTTO WHERE ID = ' + QuotedStr(LotIDStr) + ' OR LOTID = ' + QuotedStr(LotIDStr);
+            try ZExecQuery.ExecSQL; except end;
+          end;
+
+          try
+            QrDelLot := TABSQuery.Create(nil);
+            QrDelLot.DatabaseName := Database.DatabaseName;
+            QrDelLot.Close;
+            QrDelLot.SQL.Clear;
+            QrDelLot.SQL.Add('Delete from Lotto');
+            QrDelLot.SQL.Add('Where ID = "'+LotIDStr+'"');
+            QrDelLot.ExecSQL;
+            QrDelLot.Free;
+          except
+          end;
+
+          DeleteRow(Row);
+          MessageDlg('ลบรายการเรียบร้อยแล้ว', mtInformation, [mbOK], 0);
+          TabLotTypeShow(Sender);
+        end;
+    end;
+  end
+  else
+    MessageDlg('คุณไม่มีสิทธิ์ใช้งาน',mtWarning, [mbOk], 0);
+end;
+
 procedure TfMain.BtnAddLotClick(Sender: TObject);
 Var QrmaxLot: TABSQuery;
+    MaxIDStr: String;
+    MaxIDInt: Integer;
 begin
   with frmAddLotto,Dm do
   begin
-    QrmaxLot := TABSQuery.Create(nil);
-    //if ServerDBFile = '' then
+    MaxIDInt := 1;
+    MaxIDStr := '00001';
+
+    if ZConnection1.Connected then
+    begin
+      ZExecQuery.Close;
+      ZExecQuery.SQL.Text := 'SELECT MAX(CAST(ID AS INTEGER)) AS MAXID FROM LOTTO';
+      try ZExecQuery.Open; except end;
+      if ZExecQuery.Active and not ZExecQuery.IsEmpty then
+        MaxIDInt := ZExecQuery.FieldByName('MAXID').AsInteger + 1;
+      ZExecQuery.Close;
+      MaxIDStr := AutoNum(IntToStr(MaxIDInt));
+    end
+    else
+    begin
+      QrmaxLot := TABSQuery.Create(nil);
       QrmaxLot.DatabaseName := Database.DatabaseName;
-    //else
-      //QrmaxLot.DatabaseName := ExportDB.DatabaseName;
-    QrmaxLot.SQL.Clear;
-    QrmaxLot.SQL.Add('Select max(LotID) as MaxLotID from Lotto');
-    QrmaxLot.Open;
+      QrmaxLot.SQL.Clear;
+      QrmaxLot.SQL.Add('Select max(LotID) as MaxLotID from Lotto');
+      try QrmaxLot.Open; except end;
+      if QrmaxLot.Active and not QrmaxLot.IsEmpty then
+        MaxIDStr := AutoNum(QrmaxLot.fieldByName('MaxLotID').AsString);
+      QrmaxLot.Free;
+    end;
 
     if Showmodal = mrOK then
     begin
-      Lotto.Close;
-      //if ServerDBFile = '' then
+      if ZConnection1.Connected then
+      begin
+        ZExecQuery.Close;
+        ZExecQuery.SQL.Text := 'INSERT INTO LOTTO (ID, LOTID, LOTNAME) VALUES (:ID, :LOTID, :LOTNAME)';
+        ZExecQuery.ParamByName('ID').AsString := IntToStr(MaxIDInt);
+        ZExecQuery.ParamByName('LOTID').AsString := MaxIDStr;
+        ZExecQuery.ParamByName('LOTNAME').AsString := edLottoName.Text;
+        try ZExecQuery.ExecSQL; except end;
+      end;
+
+      try
+        Lotto.Close;
         Lotto.DatabaseName := Database.DatabaseName;
-      //else
-        //Lotto.DatabaseName := ExportDB.DatabaseName;
-      Lotto.Open;
-      Lotto.Append;
-      Lotto.FieldByName('LotID').AsString   := AutoNum(QrmaxLot.fielDByName('MaxLotID').AsString);
-      Lotto.FieldByName('LotName').AsString := edLottoName.Text;
-      Lotto.Post;
-      MessageDlg('เพื่อให้ประเภทที่เพิ่มเข้าไปใหม่ใช้งานได้ โปรแกรมจะเริ่มใหม่อีกครั้ง', mtInformation, [mbOK], 0);
-      LogoutBtnClick(Sender);
+        Lotto.Open;
+        Lotto.Append;
+        Lotto.FieldByName('LotID').AsString   := MaxIDStr;
+        Lotto.FieldByName('LotName').AsString := edLottoName.Text;
+        Lotto.Post;
+      except
+      end;
+
+      MessageDlg('บันทึกข้อมูลเรียบร้อยแล้ว', mtInformation, [mbOK], 0);
+      TabLotTypeShow(Sender);
     end;
-    QrmaxLot.Free;
-    TabLotTypeShow(Sender);
-    
   end;
 end;
 
