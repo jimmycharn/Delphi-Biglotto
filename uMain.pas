@@ -1169,23 +1169,24 @@ uses uLicense, ufrmRegister, uDm, Utils, uCustList, uFindCust, ufrmFindRef, uPri
 procedure TfMain.UpdateMainTitleWithLicenseStatus;
 var
   Info: TLicenseInfo;
-  BaseTitle, StatusSuffix: string;
+  BaseTitle, StatusSuffix, ServerIP: string;
 begin
-  if Dm.ZConnection1.Connected then
-    BaseTitle := 'BigLOTTO 2.0.26.11 - Firebird Database (' + Dm.ZConnection1.HostName + ')'
-  else
-    BaseTitle := 'BigLOTTO 2.0.26.11 - Firebird Database (127.0.0.1)';
+  ServerIP := GetServerDisplayIP;
+  BaseTitle := 'BigLOTTO 2.0.26.11 - Firebird Database (' + ServerIP + ')';
 
   if CheckCurrentLicense(Info) then
   begin
-    StatusSuffix := ' - (ลงทะเบียนแล้ว: หมดอายุ ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate) +
+    Regis := True;
+    StatusSuffix := ' - (ลงทะเบียนแล้ว: ถึง ' + FormatDateTime('dd/mm/yyyy', Info.ExpireDate) +
                     ' - เหลือ ' + IntToStr(Info.DaysLeft) + ' วัน)';
   end
   else
   begin
+    Regis := False;
     StatusSuffix := ' - (' + Info.StatusText + ')';
   end;
   Caption := BaseTitle + StatusSuffix;
+  StatusBar.Panels[0].Text := 'BigLOTTO 2.0.26.11 (Line ID : 0910356437) - Firebird Database (' + ServerIP + ')';
 end;
 
 procedure TfMain.InSertDate(Const LstDate, LstRun: TDatetime);
@@ -1384,22 +1385,44 @@ begin
 end;
 
 function TfMain.ReadDataCount: Integer;
-Var QrCountData: TABSQuery;
+var
+  ZQCount: TZQuery;
+  ABSCount: TABSQuery;
 begin
+  Result := 0;
   with Dm do
   begin
-    QrCountData := TABSQuery.Create(nil);
-    QrCountData.DatabaseName := Database.DatabaseName;
-    QrCountData.Close;
-    QrCountData.SQL.Clear;
-    QrCountData.SQL.Add('Select * from Data');
-    QrCountData.Open;
+    if ZConnection1.Connected then
+    begin
+      ZQCount := TZQuery.Create(nil);
+      try
+        ZQCount.Connection := ZConnection1;
+        ZQCount.SQL.Text := 'SELECT COUNT(*) AS CNT FROM DATA';
+        try
+          ZQCount.Open;
+          Result := ZQCount.FieldByName('CNT').AsInteger;
+        except
+        end;
+      finally
+        ZQCount.Free;
+      end;
+      Exit;
+    end;
 
-    Result := QrCountData.RecordCount;
-    QrCountData.free;
+    try
+      ABSCount := TABSQuery.Create(nil);
+      try
+        ABSCount.DatabaseName := Database.DatabaseName;
+        ABSCount.SQL.Text := 'SELECT * FROM DATA';
+        ABSCount.Open;
+        Result := ABSCount.RecordCount;
+      finally
+        ABSCount.Free;
+      end;
+    except
+    end;
   end;
 end;
-
 
 function ConnectDrive(_drvLetter: string; _netPath: string; _showError: Boolean;
   _reconnect: Boolean): DWORD;
@@ -36113,6 +36136,7 @@ end;
 
 procedure TfMain.edPrKeyPress(Sender: TObject; var Key: Char);
 Var ValidNum,PrErr: Boolean;
+    RegForm: TfrmRegister;
     NumUp,NumDwn,Pr,filename,Val2TodStr,StrDate,RegKey: String;
     Val2Tod: real;
     TbData: TABSTable;
@@ -36338,48 +36362,34 @@ begin
   else //------------------------------------------------------------//
   if (key = #13) Or ((key=#10) and (GetKeyState(VK_CONTROL) < 0)) then
   begin
-    with InputGrid,Dm,fRegis do
-    begin
-      HardwareID := GetHardwareID;
-
-      if Not(IsKeyCount) then //เริ่มนับ data จากการ Key
+      if Not(IsKeyCount) then //นับ data จาก Key
       begin
         TotalRecFree := ReadDataCount;
         IsKeyCount := true;
       end;
 
+      // ตรวจสอบสิทธิ์การใช้งานจากระบบลงทะเบียนใหม่ (uLicense)
+      UpdateMainTitleWithLicenseStatus;
+
       if Not(Regis) then
       begin
         if (TotalRecFree >= LimitFreeInput) then
         begin
-          EdCode.Text  := HardwareID;
-          edKey.Clear;
-          edKey.ReadOnly := false;
-          edKey.PasswordChar := #0;
+          RegForm := TfrmRegister.Create(Self);
+          try
+            RegForm.ShowModal;
+            UpdateMainTitleWithLicenseStatus;
+          finally
+            RegForm.Free;
+          end;
 
-          if Showmodal = mrOk then
-          begin
-            UpdateSerialNo(edKey.Text);
-            UpdateLastDate(Date);
-            UpdateLastRun(Date);
-            UpDateRPD(1);
-            AppKey := EdKey.text;
-            LastInputDate := Date;
-  
-            MessageDlg('ขอบคุณที่ลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-            Regis := true;
-            lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-            Key := #0;
-            Exit;
-          end
-          else
+          if Not(Regis) then
           begin
             Key := #0;
             Exit;
           end;
         end;
       end;
-    end;
     //-----------------------------------------------------------------------------------//
     ValidNum := false;
     if NumUp <> '' then
@@ -55385,6 +55395,7 @@ end;
 
 procedure TfMain.edPrKeyPress(Sender: TObject; var Key: Char);
 Var ValidNum,PrErr: Boolean;
+    RegForm: TfrmRegister;
     NumUp,NumDwn,Pr,filename,Val2TodStr,StrDate,RegKey: String;
     Val2Tod: real;
     TbData: TABSTable;
@@ -55610,48 +55621,34 @@ begin
   else //------------------------------------------------------------//
   if (key = #13) Or ((key=#10) and (GetKeyState(VK_CONTROL) < 0)) then
   begin
-    with InputGrid,Dm,fRegis do
-    begin
-      HardwareID := GetHardwareID;
-
-      if Not(IsKeyCount) then //เริ่มนับ data จากการ Key
+      if Not(IsKeyCount) then //นับ data จาก Key
       begin
         TotalRecFree := ReadDataCount;
         IsKeyCount := true;
       end;
 
+      // ตรวจสอบสิทธิ์การใช้งานจากระบบลงทะเบียนใหม่ (uLicense)
+      UpdateMainTitleWithLicenseStatus;
+
       if Not(Regis) then
       begin
         if (TotalRecFree >= LimitFreeInput) then
         begin
-          EdCode.Text  := HardwareID;
-          edKey.Clear;
-          edKey.ReadOnly := false;
-          edKey.PasswordChar := #0;
+          RegForm := TfrmRegister.Create(Self);
+          try
+            RegForm.ShowModal;
+            UpdateMainTitleWithLicenseStatus;
+          finally
+            RegForm.Free;
+          end;
 
-          if Showmodal = mrOk then
-          begin
-            UpdateSerialNo(edKey.Text);
-            UpdateLastDate(Date);
-            UpdateLastRun(Date);
-            UpDateRPD(1);
-            AppKey := EdKey.text;
-            LastInputDate := Date;
-  
-            MessageDlg('ขอบคุณที่ลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-            Regis := true;
-            lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-            Key := #0;
-            Exit;
-          end
-          else
+          if Not(Regis) then
           begin
             Key := #0;
             Exit;
           end;
         end;
       end;
-    end;
     //-----------------------------------------------------------------------------------//
     ValidNum := false;
     if NumUp <> '' then
