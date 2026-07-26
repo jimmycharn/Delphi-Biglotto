@@ -33379,145 +33379,89 @@ begin
 end;
 
 procedure TfMain.MoveBtnClick(Sender: TObject);
-Var i: integer;
-    QrMoveData : TABSQuery;
-    SQLUpdate,SQLParam: String;
-    PickDate: TDateTime;
+var
+  i, MoveCount: integer;
+  QrMoveData: TABSQuery;
+  ZQExec: TZQuery;
+  IDStr, NewCustNo, NewRefNo: String;
 begin
-  With frmMove, Dm do
+  if not CheckAndPromptRegistration(True) then Exit;
+
+  with frmMove, Dm do
   begin
     DateMove.Date := DatePick.Date;
-    PickDate := DatePick.Date;
-    edStart.Value := InputGrid.SelectArea.Top+1;
-    edEnd.Value := InputGrid.SelectArea.Bottom+1;
+    edStart.Value := InputGrid.SelectArea.Top + 1;
+    edEnd.Value   := InputGrid.SelectArea.Bottom + 1;
 
     QrMoveData := TABSQuery.Create(nil);
-    QrMoveData.DatabaseName := Database.DatabaseName;
+    try QrMoveData.DatabaseName := Database.DatabaseName; except end;
 
     if Showmodal = mrOk then
     begin
       try
-
-        if (DateToStr(DateMove.Date) = DateToStr(PickDate)) then
+        MoveCount := 0;
+        for i := Trunc(edStart.Value) - 1 to Trunc(edEnd.Value) - 1 do
         begin
-          //if (Not(ChkMoveB.Checked) and Not(ChkMoveCust.Checked)) then
-          //begin
-            for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
-            begin
-              SQLUpdate := '';
-              QrMoveData.Close;
-              QrMoveData.SQL.Clear;
+          if (i < 0) or (i >= InputGrid.RowCount) then Continue;
 
-              if Not(ChkMoveCust.Checked) then
-              begin
-                SQLUpdate := 'Update Data Set CustNo=:aCustNo';
-                if Not(ChkMoveB.Checked) then
-                  SQLUpdate := SQLUpdate+', RefNo=:aRefNo'
-              end
-              else
-              begin
-                if Not(ChkMoveB.Checked) then
-                  SQLUpdate := 'Update Data Set RefNo=:aRefNo'
+          IDStr := Trim(InputGrid[3, i]);
+          if IDStr = '' then Continue;
 
+          if ChkMoveCust.Checked then
+            NewCustNo := InputGrid[4, i]
+          else
+            NewCustNo := edCust.Text;
 
-              end;
-              QrMoveData.SQL.Add(SQLUpdate);
-              QrMoveData.SQL.Add('where ID =:aID');
+          if ChkMoveB.Checked then
+            NewRefNo := InputGrid[5, i]
+          else
+            NewRefNo := edBookNo.Text;
 
-              if Not(ChkMoveCust.Checked) then
-                QrMoveData.ParamByName('aCustNo').Value  := EdCust.Text;
-  
-              if Not(ChkMoveB.Checked) then
-                QrMoveData.ParamByName('aRefNo').Value   := edBookNo.Text;
-  
-              QrMoveData.ParamByName('aID').Value      := InputGrid[3,i];
-              QrMoveData.ExecSQL;
-              
-            end;
-            //RefreshBtnClick(Sender);
-            NewRefreshBtnClick(Sender);
-            BtnSpecLimitNumClick(Sender);
-            Showmessage('ย้ายข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
-           {
-            for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
-            begin
-              SQLUpdate := '';
-              QrMoveData.Close;
-              QrMoveData.SQL.Clear;
-              QrMoveData.SQL.Add('Update Data');
-  
-              if (ChkMoveB.Checked) and (ChkMoveCust.Checked) then
-                SQLUpdate := 'Set Period_Date=:aPDate'
-              else
-              if (ChkMoveB.Checked) and Not(ChkMoveCust.Checked) then
-                SQLUpdate := 'Set Period_Date=:aPDate, CustNo=:aCustNo'
-              else
-              if Not(ChkMoveB.Checked) and Not(ChkMoveCust.Checked) then
-                SQLUpdate := 'Set Period_Date=:aPDate, CustNo=:aCustNo, RefNo=:aRefNo';
-  
-              QrMoveData.SQL.Add(SQLUpdate);
-              QrMoveData.SQL.Add('where ID =:aID');
-              QrMoveData.ParamByName('aPDate').Value   := DateToStr(DateMove.Date);
-  
-              if Not(ChkMoveCust.Checked) then
-                QrMoveData.ParamByName('aCustNo').Value  := EdCust.Text;
-  
-              if Not(ChkMoveB.Checked) then
-                QrMoveData.ParamByName('aRefNo').Value   := edBookNo.Text;
-  
-              QrMoveData.ParamByName('aID').Value      := InputGrid[3,i];
-              QrMoveData.ExecSQL;
-            end;
-            Showmessage('ย้ายข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
-            
-
-          //end;
-
-          }
-        end
-        else
-        begin
-          for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
+          // 1. Update in Firebird Database if connected
+          if ZConnection1.Connected then
           begin
+            ZQExec := TZQuery.Create(nil);
+            try
+              ZQExec.Connection := ZConnection1;
+              ZQExec.SQL.Text :=
+                'UPDATE DATA SET Period_Date = :aPDate, CustNo = :aCustNo, RefNo = :aRefNo ' +
+                'WHERE ID = :aID';
+              ZQExec.ParamByName('aPDate').AsDate   := DateMove.Date;
+              ZQExec.ParamByName('aCustNo').AsString := NewCustNo;
+              ZQExec.ParamByName('aRefNo').AsString  := NewRefNo;
+              ZQExec.ParamByName('aID').AsString     := IDStr;
+              try ZQExec.ExecSQL; except end;
+            finally
+              ZQExec.Free;
+            end;
+          end;
+
+          // 2. Update in ABS Database (legacy fallback)
+          try
             QrMoveData.Close;
             QrMoveData.SQL.Clear;
-            QrMoveData.SQL.Add('INSERT INTO Data (Period_Date, Num, Up, Dwn, CustNo, RefNo, EmpNo, LotType)');
-            QrMoveData.SQL.Add('VALUES (:aPDate, :aNum, :aUp, :aDwn, :aCustNo, :aRefNo, :aEmpNo, :aLotType)');
-
-            QrMoveData.ParamByName('aPDate').Value    := DateToStr(DateMove.Date);
-            QrMoveData.ParamByName('aNum').Value      := InputGrid[0,i];
-            QrMoveData.ParamByName('aUp').Value       := InputGrid[1,i];
-            QrMoveData.ParamByName('aDwn').Value      := InputGrid[2,i];
-            QrMoveData.ParamByName('aEmpNo').Value    := InputGrid[6,i];
-            QrMoveData.ParamByName('aLotType').Value  := InputGrid[7,i];
-
-            if Not(ChkMoveCust.Checked) then
-              QrMoveData.ParamByName('aCustNo').Value := EdCust.Text
-            else
-              QrMoveData.ParamByName('aCustNo').Value := InputGrid[4,i];
-
-            if Not(ChkMoveB.Checked) then
-              QrMoveData.ParamByName('aRefNo').Value  := edBookNo.Text
-            else
-              QrMoveData.ParamByName('aRefNo').Value  := InputGrid[5,i];
-
+            QrMoveData.SQL.Text :=
+              'UPDATE DATA SET Period_Date = :aPDate, CustNo = :aCustNo, RefNo = :aRefNo ' +
+              'WHERE ID = ' + IDStr;
+            QrMoveData.ParamByName('aPDate').Value  := DateToStr(DateMove.Date);
+            QrMoveData.ParamByName('aCustNo').Value := NewCustNo;
+            QrMoveData.ParamByName('aRefNo').Value  := NewRefNo;
             QrMoveData.ExecSQL;
+          except
           end;
-          //RefreshBtnClick(Sender);
-          NewRefreshBtnClick(Sender);
-          BtnSpecLimitNumClick(Sender);
-          Showmessage('คัดลอกข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
+
+          Inc(MoveCount);
         end;
 
-      except
+        NewRefreshBtnClick(Sender);
+        BtnSpecLimitNumClick(Sender);
+        Showmessage('ย้ายข้อมูลทั้งหมด ' + IntToStr(MoveCount) + ' รายการเรียบร้อยแล้ว');
+      finally
         QrMoveData.Free;
       end;
-
     end;
-
   end;
 end;
-
 procedure TfMain.BtnCopyClick(Sender: TObject);
 var i,j,Count: integer;
     Num,Run,Str,StrData,Pr,SumStrData,bookmark: String;
@@ -52536,145 +52480,89 @@ begin
 end;
 
 procedure TfMain.MoveBtnClick(Sender: TObject);
-Var i: integer;
-    QrMoveData : TABSQuery;
-    SQLUpdate,SQLParam: String;
-    PickDate: TDateTime;
+var
+  i, MoveCount: integer;
+  QrMoveData: TABSQuery;
+  ZQExec: TZQuery;
+  IDStr, NewCustNo, NewRefNo: String;
 begin
-  With frmMove, Dm do
+  if not CheckAndPromptRegistration(True) then Exit;
+
+  with frmMove, Dm do
   begin
     DateMove.Date := DatePick.Date;
-    PickDate := DatePick.Date;
-    edStart.Value := InputGrid.SelectArea.Top+1;
-    edEnd.Value := InputGrid.SelectArea.Bottom+1;
+    edStart.Value := InputGrid.SelectArea.Top + 1;
+    edEnd.Value   := InputGrid.SelectArea.Bottom + 1;
 
     QrMoveData := TABSQuery.Create(nil);
-    QrMoveData.DatabaseName := Database.DatabaseName;
+    try QrMoveData.DatabaseName := Database.DatabaseName; except end;
 
     if Showmodal = mrOk then
     begin
       try
-
-        if (DateToStr(DateMove.Date) = DateToStr(PickDate)) then
+        MoveCount := 0;
+        for i := Trunc(edStart.Value) - 1 to Trunc(edEnd.Value) - 1 do
         begin
-          //if (Not(ChkMoveB.Checked) and Not(ChkMoveCust.Checked)) then
-          //begin
-            for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
-            begin
-              SQLUpdate := '';
-              QrMoveData.Close;
-              QrMoveData.SQL.Clear;
+          if (i < 0) or (i >= InputGrid.RowCount) then Continue;
 
-              if Not(ChkMoveCust.Checked) then
-              begin
-                SQLUpdate := 'Update Data Set CustNo=:aCustNo';
-                if Not(ChkMoveB.Checked) then
-                  SQLUpdate := SQLUpdate+', RefNo=:aRefNo'
-              end
-              else
-              begin
-                if Not(ChkMoveB.Checked) then
-                  SQLUpdate := 'Update Data Set RefNo=:aRefNo'
+          IDStr := Trim(InputGrid[3, i]);
+          if IDStr = '' then Continue;
 
+          if ChkMoveCust.Checked then
+            NewCustNo := InputGrid[4, i]
+          else
+            NewCustNo := edCust.Text;
 
-              end;
-              QrMoveData.SQL.Add(SQLUpdate);
-              QrMoveData.SQL.Add('where ID =:aID');
+          if ChkMoveB.Checked then
+            NewRefNo := InputGrid[5, i]
+          else
+            NewRefNo := edBookNo.Text;
 
-              if Not(ChkMoveCust.Checked) then
-                QrMoveData.ParamByName('aCustNo').Value  := EdCust.Text;
-  
-              if Not(ChkMoveB.Checked) then
-                QrMoveData.ParamByName('aRefNo').Value   := edBookNo.Text;
-  
-              QrMoveData.ParamByName('aID').Value      := InputGrid[3,i];
-              QrMoveData.ExecSQL;
-              
-            end;
-            //RefreshBtnClick(Sender);
-            NewRefreshBtnClick(Sender);
-            BtnSpecLimitNumClick(Sender);
-            Showmessage('ย้ายข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
-           {
-            for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
-            begin
-              SQLUpdate := '';
-              QrMoveData.Close;
-              QrMoveData.SQL.Clear;
-              QrMoveData.SQL.Add('Update Data');
-  
-              if (ChkMoveB.Checked) and (ChkMoveCust.Checked) then
-                SQLUpdate := 'Set Period_Date=:aPDate'
-              else
-              if (ChkMoveB.Checked) and Not(ChkMoveCust.Checked) then
-                SQLUpdate := 'Set Period_Date=:aPDate, CustNo=:aCustNo'
-              else
-              if Not(ChkMoveB.Checked) and Not(ChkMoveCust.Checked) then
-                SQLUpdate := 'Set Period_Date=:aPDate, CustNo=:aCustNo, RefNo=:aRefNo';
-  
-              QrMoveData.SQL.Add(SQLUpdate);
-              QrMoveData.SQL.Add('where ID =:aID');
-              QrMoveData.ParamByName('aPDate').Value   := DateToStr(DateMove.Date);
-  
-              if Not(ChkMoveCust.Checked) then
-                QrMoveData.ParamByName('aCustNo').Value  := EdCust.Text;
-  
-              if Not(ChkMoveB.Checked) then
-                QrMoveData.ParamByName('aRefNo').Value   := edBookNo.Text;
-  
-              QrMoveData.ParamByName('aID').Value      := InputGrid[3,i];
-              QrMoveData.ExecSQL;
-            end;
-            Showmessage('ย้ายข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
-            
-
-          //end;
-
-          }
-        end
-        else
-        begin
-          for i :=  Trunc(edStart.Value)-1 To Trunc(edEnd.Value)-1  do
+          // 1. Update in Firebird Database if connected
+          if ZConnection1.Connected then
           begin
+            ZQExec := TZQuery.Create(nil);
+            try
+              ZQExec.Connection := ZConnection1;
+              ZQExec.SQL.Text :=
+                'UPDATE DATA SET Period_Date = :aPDate, CustNo = :aCustNo, RefNo = :aRefNo ' +
+                'WHERE ID = :aID';
+              ZQExec.ParamByName('aPDate').AsDate   := DateMove.Date;
+              ZQExec.ParamByName('aCustNo').AsString := NewCustNo;
+              ZQExec.ParamByName('aRefNo').AsString  := NewRefNo;
+              ZQExec.ParamByName('aID').AsString     := IDStr;
+              try ZQExec.ExecSQL; except end;
+            finally
+              ZQExec.Free;
+            end;
+          end;
+
+          // 2. Update in ABS Database (legacy fallback)
+          try
             QrMoveData.Close;
             QrMoveData.SQL.Clear;
-            QrMoveData.SQL.Add('INSERT INTO Data (Period_Date, Num, Up, Dwn, CustNo, RefNo, EmpNo, LotType)');
-            QrMoveData.SQL.Add('VALUES (:aPDate, :aNum, :aUp, :aDwn, :aCustNo, :aRefNo, :aEmpNo, :aLotType)');
-
-            QrMoveData.ParamByName('aPDate').Value    := DateToStr(DateMove.Date);
-            QrMoveData.ParamByName('aNum').Value      := InputGrid[0,i];
-            QrMoveData.ParamByName('aUp').Value       := InputGrid[1,i];
-            QrMoveData.ParamByName('aDwn').Value      := InputGrid[2,i];
-            QrMoveData.ParamByName('aEmpNo').Value    := InputGrid[6,i];
-            QrMoveData.ParamByName('aLotType').Value  := InputGrid[7,i];
-
-            if Not(ChkMoveCust.Checked) then
-              QrMoveData.ParamByName('aCustNo').Value := EdCust.Text
-            else
-              QrMoveData.ParamByName('aCustNo').Value := InputGrid[4,i];
-
-            if Not(ChkMoveB.Checked) then
-              QrMoveData.ParamByName('aRefNo').Value  := edBookNo.Text
-            else
-              QrMoveData.ParamByName('aRefNo').Value  := InputGrid[5,i];
-
+            QrMoveData.SQL.Text :=
+              'UPDATE DATA SET Period_Date = :aPDate, CustNo = :aCustNo, RefNo = :aRefNo ' +
+              'WHERE ID = ' + IDStr;
+            QrMoveData.ParamByName('aPDate').Value  := DateToStr(DateMove.Date);
+            QrMoveData.ParamByName('aCustNo').Value := NewCustNo;
+            QrMoveData.ParamByName('aRefNo').Value  := NewRefNo;
             QrMoveData.ExecSQL;
+          except
           end;
-          //RefreshBtnClick(Sender);
-          NewRefreshBtnClick(Sender);
-          BtnSpecLimitNumClick(Sender);
-          Showmessage('คัดลอกข้อมูลทั้งหมด '+IntToStr(Trunc(edEnd.Value-edStart.Value+1))+' รายการเรียบร้อยแล้ว');
+
+          Inc(MoveCount);
         end;
 
-      except
+        NewRefreshBtnClick(Sender);
+        BtnSpecLimitNumClick(Sender);
+        Showmessage('ย้ายข้อมูลทั้งหมด ' + IntToStr(MoveCount) + ' รายการเรียบร้อยแล้ว');
+      finally
         QrMoveData.Free;
       end;
-
     end;
-
   end;
 end;
-
 procedure TfMain.BtnCopyClick(Sender: TObject);
 var i,j,Count: integer;
     Num,Run,Str,StrData,Pr,SumStrData,bookmark: String;
@@ -58233,7 +58121,6 @@ begin
 end;
 
 end.
-
 
 
 
