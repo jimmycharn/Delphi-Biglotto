@@ -16082,7 +16082,7 @@ begin
           If CbCutList.ItemIndex < CbCutList.Items.Count-1 then
             QrDataCut.SQL.Add('and (ToString(CutDate,"DD/MM/YYYY hh24:nn:ss") = "'+DateCopy+'")');
         end;
-        QrDataCut.SQL.Add('Group By Num,Tod3,Tod4,Tod5,CutDate');
+        QrDataCut.SQL.Add('Group By Num,Is3TTeng,Is4TTeng,Is5TTeng,CutDate');
         QrDataCut.Open;
 
         if QrDataCut.RecordCount > 0 then
@@ -16862,7 +16862,7 @@ begin
         If CbCutList.ItemIndex < CbCutList.Items.Count-1 then
           QrCuted.SQL.Add('and (ToString(CutDate,"DD/MM/YYYY hh24:nn:ss") = "'+DateCopy+'")');
       end;
-      QrCuted.SQL.Add('Group By Num, Tod3, Tod4, Tod5, CutDate ');
+      QrCuted.SQL.Add('Group By Num, Is3TTeng, Is4TTeng, Is5TTeng, CutDate ');
       QrCuted.Open;
 
       StrNumSumCut := '';
