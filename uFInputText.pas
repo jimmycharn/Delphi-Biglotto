@@ -186,8 +186,9 @@ var
 implementation
 
 uses
+  uLicense,
 uFindCust, uDm, uRegis, hddinfo, MyUnit, UEncrypt, uEditNumPrice,
-  SerialGenerator, uMain;
+  SerialGenerator, uMain, ZDataset;
 
 {$R *.dfm}
 
@@ -3221,6 +3222,7 @@ Var i, ToTalNum, LenDate : integer;
     HardwareID: String;
     SerialNo: String;
     SerialInfo: TSerialInfo;
+    LicInfo: TLicenseInfo;
 begin
   Try
     IniFile := TIniFile.Create(
@@ -3233,26 +3235,10 @@ begin
     IniFile.Free;
   end;
 
-  HardwareID := GetHardwareID;
-  SerialNo     := Read_RegistKey('Register','RegisKey');
-  if (SerialNo = '') then
-  begin
-      Regis := False;
-  end
-  else
-  begin
-    Regis := True;
-    SerialInfo := ValidateSerialWithExpiry(HardwareID, SerialNo);
-    if not SerialInfo.IsValid then
-    begin
-      Regis := false;
-    end;
-
-    if SerialInfo.IsExpired then
-    begin
-      Regis := False;
-    end;
-  end;
+  // Use new uLicense system
+  CheckCurrentLicense(LicInfo);
+  uLicense.CheckCurrentLicense(LicInfo);
+  Regis := LicInfo.IsRegistered;
 
   NumListChange(Sender);
   edCust.Text := IpCustID;
@@ -9614,6 +9600,7 @@ Var row,Count,NumLen: integer;
     DriveNumber: Byte;
     HDDInfo: THDDInfo;
     Heads: array[0..21] of String;
+    ZQExec: TZQuery;
 begin
   HeadStr := 'Top';
   Head := '';
@@ -9669,6 +9656,16 @@ begin
             except
             end;
           except
+          end;
+
+          ZQExec := nil;
+          if Dm.ZConnection1.Connected then
+          begin
+            ZQExec := TZQuery.Create(nil);
+            ZQExec.Connection := Dm.ZConnection1;
+            ZQExec.SQL.Text :=
+              'INSERT INTO Data (Period_Date, Num, Up, Dwn, CustNo, RefNo, EmpNo, LotType) ' +
+              'VALUES (:aPDate, :aNum, :aUp, :aDwn, :aCustNo, :aRefNo, :aEmpNo, :aLotType)';
           end;
 
           StrData := '';
@@ -9882,6 +9879,27 @@ begin
                   TbImport.FieldByName('EmpNo').AsString         := IpEmpID;
                   TbImport.FieldByName('LotType').AsInteger      := IpLotType;
 
+                  if ZQExec <> nil then
+                  begin
+                    ZQExec.ParamByName('aPDate').AsDate := IpDate;
+                    ZQExec.ParamByName('aNum').AsString := IpNum;
+                    if PrUpDn = 'Up' then
+                    begin
+                      ZQExec.ParamByName('aUp').AsString  := IpPr;
+                      ZQExec.ParamByName('aDwn').AsString := '';
+                    end
+                    else
+                    begin
+                      ZQExec.ParamByName('aUp').AsString  := '';
+                      ZQExec.ParamByName('aDwn').AsString := IpPr;
+                    end;
+                    ZQExec.ParamByName('aCustNo').AsString  := edCust.Text;
+                    ZQExec.ParamByName('aRefNo').AsString   := edBookNo.Text;
+                    ZQExec.ParamByName('aEmpNo').AsString   := IpEmpID;
+                    ZQExec.ParamByName('aLotType').AsString  := IntToStr(IpLotType);
+                    try ZQExec.ExecSQL; except end;
+                  end;
+
                   if HeadStr = HTopDwn then // Top-Down บน-ล่าง
                   begin
                     TbImport.Append;
@@ -9892,6 +9910,19 @@ begin
                     TbImport.FieldByName('RefNo').AsString         := edBookNo.Text; //IpRefID;
                     TbImport.FieldByName('EmpNo').AsString         := IpEmpID;
                     TbImport.FieldByName('LotType').AsInteger      := IpLotType;
+
+                    if ZQExec <> nil then
+                    begin
+                      ZQExec.ParamByName('aPDate').AsDate := IpDate;
+                      ZQExec.ParamByName('aNum').AsString := IpNum;
+                      ZQExec.ParamByName('aUp').AsString  := '';
+                      ZQExec.ParamByName('aDwn').AsString := IpPr;
+                      ZQExec.ParamByName('aCustNo').AsString  := edCust.Text;
+                      ZQExec.ParamByName('aRefNo').AsString   := edBookNo.Text;
+                      ZQExec.ParamByName('aEmpNo').AsString   := IpEmpID;
+                      ZQExec.ParamByName('aLotType').AsString  := IntToStr(IpLotType);
+                      try ZQExec.ExecSQL; except end;
+                    end;
                     
                     Count := Count+1;
                   End;
@@ -9901,6 +9932,15 @@ begin
             End;
           end;
           TbImport.Post;
+          if ZQExec <> nil then
+          begin
+            ZQExec.Free;
+            ZQExec := nil;
+          end;
+          try
+            fMain.NewRefreshBtnClick(nil);
+          except
+          end;
           NumList.Clear;
           ChkTod.Checked := false;
           NumList.SetFocus;

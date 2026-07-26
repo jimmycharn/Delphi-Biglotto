@@ -3,7 +3,8 @@ unit uDm;
 interface
 
 uses
-  SysUtils, Classes, Controls, DB, ABSMain, Dialogs, IniFiles, Forms, Variants, ZConnection, ZDataset, ZDbcIntfs;
+  SysUtils, Classes, Controls, DB, ABSMain, Dialogs, IniFiles, Forms, Variants, ZConnection, ZDataset, ZDbcIntfs,
+  ZAbstractRODataset, ZAbstractDataset, ZAbstractConnection;
 
 type
   TDm = class(TDataModule)
@@ -81,13 +82,6 @@ type
     FloatField6: TFloatField;
     BooleanField7: TBooleanField;
     FloatField7: TFloatField;
-    Limit3PayPcnt1: TFloatField;
-    Limit3PayPcnt3: TFloatField;
-    Limit3PayPcnt4: TFloatField;
-    Limit3PayPcnt5: TFloatField;
-    Limit3PayPcnt6: TFloatField;
-    Limit3PayPcnt7: TFloatField;
-    Limit3PayPcnt2: TFloatField;
     procedure QrDataBeforeDelete(DataSet: TDataSet);
     procedure QrDataAfterDelete(DataSet: TDataSet);
     procedure DataModuleCreate(Sender: TObject);

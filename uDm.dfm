@@ -8,13 +8,13 @@ object Dm: TDm
   object Database: TABSDatabase
     CurrentVersion = '5.16 '
     DatabaseName = 'LNUM'
-    SilentMode = True
     Exclusive = False
     Password = '360110A162'
     HandleShared = True
     MaxConnections = 500
     MultiUser = True
     SessionName = 'Default'
+    SilentMode = True
     Left = 40
     Top = 16
   end
@@ -115,49 +115,49 @@ object Dm: TDm
     object Limit3Price1: TFloatField
       FieldName = 'Price1'
     end
-      object Limit3Limit2: TBooleanField
+    object Limit3Limit2: TBooleanField
       FieldName = 'Limit2'
       Required = True
     end
     object Limit3Price2: TFloatField
       FieldName = 'Price2'
     end
-      object Limit3Limit3: TBooleanField
+    object Limit3Limit3: TBooleanField
       FieldName = 'Limit3'
       Required = True
     end
     object Limit3Price3: TFloatField
       FieldName = 'Price3'
     end
-      object Limit3Limit4: TBooleanField
+    object Limit3Limit4: TBooleanField
       FieldName = 'Limit4'
       Required = True
     end
     object Limit3Price4: TFloatField
       FieldName = 'Price4'
     end
-      object Limit3Limit5: TBooleanField
+    object Limit3Limit5: TBooleanField
       FieldName = 'Limit5'
       Required = True
     end
     object Limit3Price5: TFloatField
       FieldName = 'Price5'
     end
-      object Limit3Limit6: TBooleanField
+    object Limit3Limit6: TBooleanField
       FieldName = 'Limit6'
       Required = True
     end
     object Limit3Price6: TFloatField
       FieldName = 'Price6'
     end
-      object Limit3Limit7: TBooleanField
+    object Limit3Limit7: TBooleanField
       FieldName = 'Limit7'
       Required = True
     end
     object Limit3Price7: TFloatField
       FieldName = 'Price7'
     end
-    end
+  end
   object DsLimit3: TDataSource
     DataSet = Limit3
     OnDataChange = DsLimit3DataChange

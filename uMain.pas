@@ -1135,6 +1135,7 @@ type
     function  ReadLastRun: TDatetime;
     procedure UpdateLastRun(LstRun: TDatetime);
     function  ReadDataCount: Integer;
+    function  CheckAndPromptRegistration(PromptIfUnregistered: Boolean): Boolean;
   end;
 
 var
@@ -1188,6 +1189,36 @@ begin
   Caption := BaseTitle + StatusSuffix;
   StatusBar.Panels[0].Text := 'BigLOTTO 2.0.26.11 (Line ID : 0910356437) - Firebird Database (' + ServerIP + ')';
 end;
+
+function TfMain.CheckAndPromptRegistration(PromptIfUnregistered: Boolean): Boolean;
+var
+  Info: TLicenseInfo;
+  RegForm: TfrmRegister;
+begin
+  Result := CheckCurrentLicense(Info);
+  if Result then
+  begin
+    Regis := True;
+    Exit;
+  end;
+
+  Regis := False;
+  if PromptIfUnregistered then
+  begin
+    RegForm := TfrmRegister.Create(Self);
+    try
+      if RegForm.ShowModal = mrOk then
+      begin
+        Result := CheckCurrentLicense(Info);
+        Regis := Result;
+        UpdateMainTitleWithLicenseStatus;
+      end;
+    finally
+      RegForm.Free;
+    end;
+  end;
+end;
+
 
 procedure TfMain.InSertDate(Const LstDate, LstRun: TDatetime);
 Var QrRegis: TABSQuery;
@@ -18745,32 +18776,7 @@ Var TCutDat: TABSTable;
     IsInsert: Boolean;
     SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-
-        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
-        Regis := true;
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   if findDealer(EditDealer.Text) then
   begin
@@ -19948,32 +19954,7 @@ procedure TfMain.CutPrintBtnClick(Sender: TObject);
 Var
     SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-
-        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
-        Regis := true;
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   frmPrintCutPrev.RenderGrids(SumCutGrid,CutGrid1,CutGrid2,CutGrid3,CutGrid4,CutGrid5,DatePick.Date,ComboLotType.Items[ComboLotType.itemindex] ,RdgSell.ItemIndex);
   frmPrintCutPrev.Showmodal;
@@ -21385,33 +21366,7 @@ Var
    HDDInfo: THDDInfo;
    SerialInfo: TSerialInfo;
 begin
-  with Dm, fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
 
   ServerPath := edExportFolder.Text;//'Z:\Public\Biglotto\Import\';
@@ -21590,32 +21545,9 @@ begin
   TotalCount := 0;
   FileCount := 0;
 
-  with Dm, fRegis do
+  if not CheckAndPromptRegistration(True) then Exit;
+  with Dm do
   begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
 
     TbImport := TABSTable.Create(nil);
     TbImport.DatabaseName := Database.DatabaseName;
@@ -29354,32 +29286,7 @@ Var
    before,after: String;
    SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-
-        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
-        Regis := true;
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   GCnt1 := CutGrid1.RowCount;
   GCnt2 := CutGrid2.RowCount;
@@ -32253,33 +32160,7 @@ Var row,Count,LenDate: integer;
     ExprKeyDate: TDateTime;
     SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   With frmInputtext, Dm do
   begin
@@ -32293,6 +32174,7 @@ begin
     begin
        //Showform ขึ้นมาทำงาน
     end;
+  NewRefreshBtnClick(Sender);
   end;
 end;
 
@@ -32814,33 +32696,7 @@ Var
    DriveNumber: Byte;
    SerialInfo: TSerialInfo;
 begin
-  with Dm, fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   GCnt1 := InputGrid.RowCount;
   SaveXLSDialog.InitialDir := edExportFolder.Text;
@@ -33669,32 +33525,7 @@ var i,j,Count: integer;
     RtedCut: TRichEdit;
     SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-
-        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
-        Regis := true;
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
   
   RtedCut := TRichEdit.Create(nil);
   RtedCut.Visible := false;
@@ -40692,33 +40523,7 @@ Var
    HDDInfo: THDDInfo;
    SerialInfo: TSerialInfo;
 begin
-  with Dm, fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
 
   ServerPath := edExportFolder.Text;//'Z:\Public\Biglotto\Import\';
@@ -40897,32 +40702,9 @@ begin
   TotalCount := 0;
   FileCount := 0;
 
-  with Dm, fRegis do
+  if not CheckAndPromptRegistration(True) then Exit;
+  with Dm do
   begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
 
     TbImport := TABSTable.Create(nil);
     TbImport.DatabaseName := Database.DatabaseName;
@@ -48661,32 +48443,7 @@ Var
    before,after: String;
    SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-
-        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
-        Regis := true;
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   GCnt1 := CutGrid1.RowCount;
   GCnt2 := CutGrid2.RowCount;
@@ -51560,33 +51317,7 @@ Var row,Count,LenDate: integer;
     ExprKeyDate: TDateTime;
     SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   With frmInputtext, Dm do
   begin
@@ -51600,6 +51331,7 @@ begin
     begin
        //Showform ขึ้นมาทำงาน
     end;
+  NewRefreshBtnClick(Sender);
   end;
 end;
 
@@ -52121,33 +51853,7 @@ Var
    DriveNumber: Byte;
    SerialInfo: TSerialInfo;
 begin
-  with Dm, fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-        LastInputDate := Date;
-
-        Regis := true;
-        MessageDlg('ขอขอบคุณที่ท่านลงทะเบียนใช้โปรแกรม BIG LOTTO ',mtInformation, [mbOk], 0);
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
 
   GCnt1 := InputGrid.RowCount;
   SaveXLSDialog.InitialDir := edExportFolder.Text;
@@ -52976,32 +52682,7 @@ var i,j,Count: integer;
     RtedCut: TRichEdit;
     SerialInfo: TSerialInfo;
 begin
-  with Dm,fRegis do
-  begin
-    if not Regis then
-    begin
-      EdCode.Text := GetHardwareID;
-      edKey.Clear;
-      edKey.ReadOnly := false;
-      edKey.PasswordChar := #0;
-
-      if Showmodal = mrOk then
-      begin
-        UpdateSerialNo(edKey.Text);
-        UpdateLastDate(Date);
-        UpdateLastRun(Date);
-        UpDateRPD(1);
-        AppKey := EdKey.text;
-
-        MessageDlg('ขอบคุณท่านที่ลงทะเบียนใช้โปรแกรม Big LOTTO',mtInformation, [mbOk], 0);
-        Regis := true;
-        SerialInfo := ValidateSerialWithExpiry(EdCode.Text, edKey.Text);
-        lbMDateExpr.Caption := 'เหลืออีก : ' + IntToStr(SerialInfo.DaysRemaining) + ' วัน';
-        exit;
-      end
-      else exit;
-    end;
-  end;
+  if not CheckAndPromptRegistration(True) then Exit;
   
   RtedCut := TRichEdit.Create(nil);
   RtedCut.Visible := false;
@@ -58552,7 +58233,6 @@ begin
 end;
 
 end.
-
 
 
 
