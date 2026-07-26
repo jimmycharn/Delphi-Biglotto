@@ -36137,6 +36137,8 @@ end;
 procedure TfMain.edPrKeyPress(Sender: TObject; var Key: Char);
 Var ValidNum,PrErr: Boolean;
     RegForm: TfrmRegister;
+    FBNewID: string;
+    ZQExec: TZQuery;
     NumUp,NumDwn,Pr,filename,Val2TodStr,StrDate,RegKey: String;
     Val2Tod: real;
     TbData: TABSTable;
@@ -36866,30 +36868,45 @@ begin
           TbData.FieldByName('CustNo').AsString := edCustNo.Text;
           TbData.FieldByName('EmpNo').AsString  := edUsID.Text;
           TbData.Post;
-          // Insert into Firebird Database
+          // Insert into Firebird Database table 'Data'
+          FBNewID := '';
           try
             if Dm.ZConnection1.Connected then
             begin
-              Dm.ZExecQuery.Close;
-              Dm.ZExecQuery.SQL.Text := 
-                'INSERT INTO LOTTO_DATA (LOTTO_DATE, CUST_ID, BOOK_NO, PAGE_NO, LOT_TYPE, NUM, PRICE) ' +
-                'VALUES (:LOTTO_DATE, :CUST_ID, :BOOK_NO, :PAGE_NO, :LOT_TYPE, :NUM, :PRICE)';
-              Dm.ZExecQuery.ParamByName('LOTTO_DATE').AsDate := DatePick.Date;
-              Dm.ZExecQuery.ParamByName('CUST_ID').AsInteger := StrToIntDef(edCustNo.Text, 0);
-              Dm.ZExecQuery.ParamByName('BOOK_NO').AsInteger := StrToIntDef(edRefNo.Text, 0);
-              Dm.ZExecQuery.ParamByName('PAGE_NO').AsInteger := 1;
-              Dm.ZExecQuery.ParamByName('LOT_TYPE').AsInteger := StrToIntDef(edLotID.Text, 0);
-              if (NumUp <> '') then
-              begin
-                Dm.ZExecQuery.ParamByName('NUM').AsString := NumUp;
-                Dm.ZExecQuery.ParamByName('PRICE').AsFloat := StrToFloatDef(TbData.FieldByName('Up').AsString, 0);
-              end
-              else
-              begin
-                Dm.ZExecQuery.ParamByName('NUM').AsString := NumDwn;
-                Dm.ZExecQuery.ParamByName('PRICE').AsFloat := StrToFloatDef(TbData.FieldByName('Dwn').AsString, 0);
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := Dm.ZConnection1;
+                ZQExec.SQL.Text :=
+                  'INSERT INTO Data (Period_Date, Num, Up, Dwn, CustNo, RefNo, EmpNo, LotType) ' +
+                  'VALUES (:aPDate, :aNum, :aUp, :aDwn, :aCustNo, :aRefNo, :aEmpNo, :aLotType)';
+                ZQExec.ParamByName('aPDate').AsDate := DatePick.Date;
+                if (NumUp <> '') then
+                begin
+                  ZQExec.ParamByName('aNum').AsString := NumUp;
+                  ZQExec.ParamByName('aUp').AsString := TbData.FieldByName('Up').AsString;
+                  ZQExec.ParamByName('aDwn').AsString := '';
+                end
+                else
+                begin
+                  ZQExec.ParamByName('aNum').AsString := NumDwn;
+                  ZQExec.ParamByName('aUp').AsString := '';
+                  ZQExec.ParamByName('aDwn').AsString := TbData.FieldByName('Dwn').AsString;
+                end;
+                ZQExec.ParamByName('aCustNo').AsString := edCustNo.Text;
+                ZQExec.ParamByName('aRefNo').AsString := edRefNo.Text;
+                ZQExec.ParamByName('aEmpNo').AsString := edUsID.Text;
+                ZQExec.ParamByName('aLotType').AsString := edLotID.Text;
+                ZQExec.ExecSQL;
+
+                // Query the generated ID from Firebird table 'Data'
+                ZQExec.Close;
+                ZQExec.SQL.Text := 'SELECT MAX(ID) AS NEW_ID FROM DATA';
+                ZQExec.Open;
+                if not ZQExec.IsEmpty then
+                  FBNewID := ZQExec.FieldByName('NEW_ID').AsString;
+              finally
+                ZQExec.Free;
               end;
-              Dm.ZExecQuery.ExecSQL;
             end;
           except
           end;
@@ -36909,7 +36926,10 @@ begin
             InputGrid[2,0] := TbData.FieldByName('Dwn').AsString;
           end;
 
-          InputGrid[3,0] := TbData.FieldByName('ID').AsString;
+          if Dm.ZConnection1.Connected and (FBNewID <> '') then
+            InputGrid[3,0] := FBNewID
+          else
+            InputGrid[3,0] := TbData.FieldByName('ID').AsString;
           InputGrid[4,0] := edCustNo.Text;
           InputGrid[5,0] := edRefNo.Text;
           InputGrid[6,0] := edUsID.Text;
@@ -36984,6 +37004,34 @@ begin
           QrEdInput.ParamByName('aID').Value   := InputGrid[3,InputGrid.Row];
           QrEdInput.ExecSQL;
           QrEdInput.Free;
+
+          if Dm.ZConnection1.Connected then
+          begin
+            try
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := Dm.ZConnection1;
+                ZQExec.SQL.Text := 'UPDATE Data SET Num=:aNum, Up=:aUp, Dwn=:aDwn WHERE ID =:aID';
+                if edNumUp.Text <> '' then
+                begin
+                  ZQExec.ParamByName('aNum').AsString := edNumUp.Text;
+                  ZQExec.ParamByName('aUp').AsString := edPr.Text;
+                  ZQExec.ParamByName('aDwn').AsString := '';
+                end
+                else
+                begin
+                  ZQExec.ParamByName('aNum').AsString := edNumDwn.Text;
+                  ZQExec.ParamByName('aUp').AsString := '';
+                  ZQExec.ParamByName('aDwn').AsString := edPr.Text;
+                end;
+                ZQExec.ParamByName('aID').AsString := InputGrid[3, InputGrid.Row];
+                ZQExec.ExecSQL;
+              finally
+                ZQExec.Free;
+              end;
+            except
+            end;
+          end;
         end;
         ChkEdit.Checked := false;
         ChkEditChange(Sender);
@@ -55396,6 +55444,8 @@ end;
 procedure TfMain.edPrKeyPress(Sender: TObject; var Key: Char);
 Var ValidNum,PrErr: Boolean;
     RegForm: TfrmRegister;
+    FBNewID: string;
+    ZQExec: TZQuery;
     NumUp,NumDwn,Pr,filename,Val2TodStr,StrDate,RegKey: String;
     Val2Tod: real;
     TbData: TABSTable;
@@ -56125,30 +56175,45 @@ begin
           TbData.FieldByName('CustNo').AsString := edCustNo.Text;
           TbData.FieldByName('EmpNo').AsString  := edUsID.Text;
           TbData.Post;
-          // Insert into Firebird Database
+          // Insert into Firebird Database table 'Data'
+          FBNewID := '';
           try
             if Dm.ZConnection1.Connected then
             begin
-              Dm.ZExecQuery.Close;
-              Dm.ZExecQuery.SQL.Text := 
-                'INSERT INTO LOTTO_DATA (LOTTO_DATE, CUST_ID, BOOK_NO, PAGE_NO, LOT_TYPE, NUM, PRICE) ' +
-                'VALUES (:LOTTO_DATE, :CUST_ID, :BOOK_NO, :PAGE_NO, :LOT_TYPE, :NUM, :PRICE)';
-              Dm.ZExecQuery.ParamByName('LOTTO_DATE').AsDate := DatePick.Date;
-              Dm.ZExecQuery.ParamByName('CUST_ID').AsInteger := StrToIntDef(edCustNo.Text, 0);
-              Dm.ZExecQuery.ParamByName('BOOK_NO').AsInteger := StrToIntDef(edRefNo.Text, 0);
-              Dm.ZExecQuery.ParamByName('PAGE_NO').AsInteger := 1;
-              Dm.ZExecQuery.ParamByName('LOT_TYPE').AsInteger := StrToIntDef(edLotID.Text, 0);
-              if (NumUp <> '') then
-              begin
-                Dm.ZExecQuery.ParamByName('NUM').AsString := NumUp;
-                Dm.ZExecQuery.ParamByName('PRICE').AsFloat := StrToFloatDef(TbData.FieldByName('Up').AsString, 0);
-              end
-              else
-              begin
-                Dm.ZExecQuery.ParamByName('NUM').AsString := NumDwn;
-                Dm.ZExecQuery.ParamByName('PRICE').AsFloat := StrToFloatDef(TbData.FieldByName('Dwn').AsString, 0);
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := Dm.ZConnection1;
+                ZQExec.SQL.Text :=
+                  'INSERT INTO Data (Period_Date, Num, Up, Dwn, CustNo, RefNo, EmpNo, LotType) ' +
+                  'VALUES (:aPDate, :aNum, :aUp, :aDwn, :aCustNo, :aRefNo, :aEmpNo, :aLotType)';
+                ZQExec.ParamByName('aPDate').AsDate := DatePick.Date;
+                if (NumUp <> '') then
+                begin
+                  ZQExec.ParamByName('aNum').AsString := NumUp;
+                  ZQExec.ParamByName('aUp').AsString := TbData.FieldByName('Up').AsString;
+                  ZQExec.ParamByName('aDwn').AsString := '';
+                end
+                else
+                begin
+                  ZQExec.ParamByName('aNum').AsString := NumDwn;
+                  ZQExec.ParamByName('aUp').AsString := '';
+                  ZQExec.ParamByName('aDwn').AsString := TbData.FieldByName('Dwn').AsString;
+                end;
+                ZQExec.ParamByName('aCustNo').AsString := edCustNo.Text;
+                ZQExec.ParamByName('aRefNo').AsString := edRefNo.Text;
+                ZQExec.ParamByName('aEmpNo').AsString := edUsID.Text;
+                ZQExec.ParamByName('aLotType').AsString := edLotID.Text;
+                ZQExec.ExecSQL;
+
+                // Query the generated ID from Firebird table 'Data'
+                ZQExec.Close;
+                ZQExec.SQL.Text := 'SELECT MAX(ID) AS NEW_ID FROM DATA';
+                ZQExec.Open;
+                if not ZQExec.IsEmpty then
+                  FBNewID := ZQExec.FieldByName('NEW_ID').AsString;
+              finally
+                ZQExec.Free;
               end;
-              Dm.ZExecQuery.ExecSQL;
             end;
           except
           end;
@@ -56168,7 +56233,10 @@ begin
             InputGrid[2,0] := TbData.FieldByName('Dwn').AsString;
           end;
 
-          InputGrid[3,0] := TbData.FieldByName('ID').AsString;
+          if Dm.ZConnection1.Connected and (FBNewID <> '') then
+            InputGrid[3,0] := FBNewID
+          else
+            InputGrid[3,0] := TbData.FieldByName('ID').AsString;
           InputGrid[4,0] := edCustNo.Text;
           InputGrid[5,0] := edRefNo.Text;
           InputGrid[6,0] := edUsID.Text;
@@ -56243,6 +56311,34 @@ begin
           QrEdInput.ParamByName('aID').Value   := InputGrid[3,InputGrid.Row];
           QrEdInput.ExecSQL;
           QrEdInput.Free;
+
+          if Dm.ZConnection1.Connected then
+          begin
+            try
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := Dm.ZConnection1;
+                ZQExec.SQL.Text := 'UPDATE Data SET Num=:aNum, Up=:aUp, Dwn=:aDwn WHERE ID =:aID';
+                if edNumUp.Text <> '' then
+                begin
+                  ZQExec.ParamByName('aNum').AsString := edNumUp.Text;
+                  ZQExec.ParamByName('aUp').AsString := edPr.Text;
+                  ZQExec.ParamByName('aDwn').AsString := '';
+                end
+                else
+                begin
+                  ZQExec.ParamByName('aNum').AsString := edNumDwn.Text;
+                  ZQExec.ParamByName('aUp').AsString := '';
+                  ZQExec.ParamByName('aDwn').AsString := edPr.Text;
+                end;
+                ZQExec.ParamByName('aID').AsString := InputGrid[3, InputGrid.Row];
+                ZQExec.ExecSQL;
+              finally
+                ZQExec.Free;
+              end;
+            except
+            end;
+          end;
         end;
         ChkEdit.Checked := false;
         ChkEditChange(Sender);
