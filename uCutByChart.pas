@@ -11,7 +11,7 @@ uses
 {$ifdef ver140}
   Variants,
 {$endif}
-  CellFormats, siComp, sHintManager, BrwsFldr;
+  CellFormats, siComp, sHintManager, BrwsFldr, ZDataset;
 
 type
   TfrmCutByChart = class(TForm)
@@ -618,6 +618,8 @@ Var TCutDat: TABSTable;
     NumType: String;
     NGrid : TNiceGrid;
     FoundNum: Boolean;
+    ZQExec: TZQuery;
+    AmountVal: Double;
 begin
 
   with ChartListCut do
@@ -676,44 +678,76 @@ begin
     With Dm do
     begin
       DecodeDate(HDatePick.Date,years,months,dates);
-      TCutDat := TABSTable.Create(nil);
-      try
-      except
-      end;
-      TCutDat.DatabaseName := Database.DatabaseName;
-      TCutDat.TableName := 'Cut';
-      try
+      CutTime := Now;
+
+      // 1. Firebird DB Insertion
+      if ZConnection1.Connected then
+      begin
+        ChartListCut.Items.BeginUpdate;
         try
-          TCutDat.Open;
-        except
+          for i := ChartListCut.Items.Count - 1 downto 0 do
+          begin
+            if ChartListCut.Items[i].Checked then
+            begin
+              AmountVal := TxtToFloat(ChartListCut.Items[i].SubItems[0]);
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := ZConnection1;
+                ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, ' + NumType + ') ' +
+                                  'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aAmount)';
+                ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+                ZQExec.ParamByName('aDateCut').AsDate     := HDatePick.Date;
+                ZQExec.ParamByName('aLottoType').AsInteger:= StrToIntDef(edLID.Text, 0);
+                ZQExec.ParamByName('aNum').AsString       := ChartListCut.Items[i].Caption;
+                ZQExec.ParamByName('aDealerID').AsString  := '0001';
+                ZQExec.ParamByName('aAmount').AsFloat     := AmountVal;
+                try ZQExec.ExecSQL; except end;
+              finally
+                ZQExec.Free;
+              end;
+
+              ChartListCut.Items[i].Delete;
+            end;
+          end;
+        finally
+          ChartListCut.Items.EndUpdate;
         end;
-      except
       end;
 
-      CutTime := Now;
-      With ChartListCut,TCutDat do
+      // 2. ABS DB Insertion (only if ABS database connected)
+      if Database.Connected then
       begin
-        Database.StartTransaction;
-        ChartListCut.Items.BeginUpdate;
-        for i := Items.Count -1 downto 0 do
-        begin
-          if items[i].Checked = true then
+        try
+          TCutDat := TABSTable.Create(nil);
+          TCutDat.DatabaseName := Database.DatabaseName;
+          TCutDat.TableName := 'Cut';
+          try TCutDat.Open; except end;
+          With ChartListCut, TCutDat do
           begin
-            Append;
-            TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-            TcutDat.FieldByName('DateCut').AsDateTime  := HDatePick.Date;
-            TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLID.Text);
-            TcutDat.FieldByName('Num').AsString        := Items[i].Caption;
-            TcutDat.FieldByName('DealerID').AsString   := '0001';
-            TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
-            items[i].Delete;
+            Database.StartTransaction;
+            ChartListCut.Items.BeginUpdate;
+            for i := Items.Count - 1 downto 0 do
+            begin
+              if items[i].Checked = true then
+              begin
+                Append;
+                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
+                TcutDat.FieldByName('DateCut').AsDateTime  := HDatePick.Date;
+                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLID.Text);
+                TcutDat.FieldByName('Num').AsString        := Items[i].Caption;
+                TcutDat.FieldByName('DealerID').AsString   := '0001';
+                TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
+                items[i].Delete;
+              end;
+            end;
+            Post;
+            Database.Commit(False);
           end;
+          TCutDat.Free;
+          ChartListCut.Items.EndUpdate;
+        except
         end;
-        Post;
-        Database.Commit(False);
       end;
-      TcutDat.Free;
-      ChartListCut.Items.EndUpdate;
       SumList(ChartListData,ChartListCut);
 
       Case CbCutType.ItemIndex of

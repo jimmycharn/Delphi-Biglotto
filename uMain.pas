@@ -18775,6 +18775,13 @@ Var TCutDat: TABSTable;
     CutTime: TDateTime;
     IsInsert: Boolean;
     SerialInfo: TSerialInfo;
+    ZQExec: TZQuery;
+    vNum, vDealer: String;
+    vLotType: Integer;
+    vIs3T, vIs4T, vIs5T: Boolean;
+    vN5, vN5T, vN4, vN4T, vN3U, vN3T, vN3D: Double;
+    vN2U, vN2T, vN2M, vN2L, vN2R, vN2D: Double;
+    vRU, vP1, vP2, vP3, vRD, vDP1, vDP2: Double;
 begin
   if not CheckAndPromptRegistration(True) then Exit;
 
@@ -18783,402 +18790,409 @@ begin
     With Dm do
     begin
       DecodeDate(DatePick.Date,years,months,dates);
-      TCutDat := TABSTable.Create(nil);
-      TCutDat.DatabaseName := Database.DatabaseName;
-      TCutDat.TableName := 'Cut';
-      TCutDat.Close;
-      TCutDat.Open;
-
-      Pbar.Visible := true;
-      ProgressBar2.Progress := 0;
-      ProgressBar2.MinValue := 0;
-      ProgressBar2.MaxValue := CutGrid5.RowCount + CutGrid4.RowCount + CutGrid3.RowCount + CutGrid2.RowCount + CutGrid1.RowCount;
-      //CutTime := Now;
       CutTime := StrToDateTime(FormatDateTime('dd/mm/yyyy', DatePick.Date)+' '+FormatDateTime('hh:nn:ss', Now));
-      Database.StartTransaction;
+      vDealer := EditDealer.Text;
+      vLotType := StrToIntDef(edLotID.Text, 0);
 
-      if (ChkCut51.Checked) Or (ChkCut52.Checked) then
+      // 1. Firebird Database Insertion
+      if ZConnection1.Connected then
       begin
-        With CutGrid5 do
+        Pbar.Visible := true;
+        ProgressBar2.Progress := 0;
+        ProgressBar2.MinValue := 0;
+        ProgressBar2.MaxValue := CutGrid5.RowCount + CutGrid4.RowCount + CutGrid3.RowCount + CutGrid2.RowCount + CutGrid1.RowCount;
+
+        // CutGrid5
+        if (ChkCut51.Checked) Or (ChkCut52.Checked) then
         begin
-          IsInsert := false;
-          for i := 0 to RowCount-1 do
+          for i := 0 to CutGrid5.RowCount-1 do
           begin
-              if Not(TCutDat.State in [dsInsert]) then
+            vN5 := 0; vN5T := 0; vIs5T := False; IsInsert := False;
+            if (ChkCut51.Checked) and (TxtToFloat(CutGrid5[1,i]) > 0) then
+            begin vN5 := TxtToFloat(CutGrid5[1,i]); IsInsert := True; end;
+            if (ChkCut52.Checked) and (TxtToFloat(CutGrid5[2,i]) > 0) then
+            begin
+              vN5T := TxtToFloat(CutGrid5[2,i]);
+              if Chk5TodToTeng.Checked then vIs5T := True;
+              IsInsert := True;
+            end;
+            if IsInsert then
+            begin
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := ZConnection1;
+                ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, Num5, Num5Tod, Is5TTeng) ' +
+                                  'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aN5, :aN5T, :aIs5T)';
+                ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+                ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+                ZQExec.ParamByName('aLottoType').AsInteger:= vLotType;
+                ZQExec.ParamByName('aNum').AsString       := CutGrid5[0,i];
+                ZQExec.ParamByName('aDealerID').AsString  := vDealer;
+                ZQExec.ParamByName('aN5').AsFloat         := vN5;
+                ZQExec.ParamByName('aN5T').AsFloat        := vN5T;
+                ZQExec.ParamByName('aIs5T').AsBoolean     := vIs5T;
+                try ZQExec.ExecSQL; except end;
+              finally ZQExec.Free; end;
+            end;
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
+          end;
+        end;
+
+        // CutGrid4
+        if (ChkCut41.Checked) Or (ChkCut42.Checked) then
+        begin
+          for i := 0 to CutGrid4.RowCount-1 do
+          begin
+            vN4 := 0; vN4T := 0; vIs4T := False; IsInsert := False;
+            if (ChkCut41.Checked) and (TxtToFloat(CutGrid4[1,i]) > 0) then
+            begin vN4 := TxtToFloat(CutGrid4[1,i]); IsInsert := True; end;
+            if (ChkCut42.Checked) and (TxtToFloat(CutGrid4[2,i]) > 0) then
+            begin
+              vN4T := TxtToFloat(CutGrid4[2,i]);
+              if Chk4TodToTeng.Checked then vIs4T := True;
+              IsInsert := True;
+            end;
+            if IsInsert then
+            begin
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := ZConnection1;
+                ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, Num4, Num4Tod, Is4TTeng) ' +
+                                  'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aN4, :aN4T, :aIs4T)';
+                ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+                ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+                ZQExec.ParamByName('aLottoType').AsInteger:= vLotType;
+                ZQExec.ParamByName('aNum').AsString       := CutGrid4[0,i];
+                ZQExec.ParamByName('aDealerID').AsString  := vDealer;
+                ZQExec.ParamByName('aN4').AsFloat         := vN4;
+                ZQExec.ParamByName('aN4T').AsFloat        := vN4T;
+                ZQExec.ParamByName('aIs4T').AsBoolean     := vIs4T;
+                try ZQExec.ExecSQL; except end;
+              finally ZQExec.Free; end;
+            end;
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
+          end;
+        end;
+
+        // CutGrid3
+        if (ChkCut31.Checked) Or (ChkCut32.Checked) Or (ChkCut33.Checked) then
+        begin
+          for i := 0 to CutGrid3.RowCount-1 do
+          begin
+            vN3U := 0; vN3T := 0; vN3D := 0; vIs3T := False; IsInsert := False;
+            if (ChkCut31.Checked) and (TxtToFloat(CutGrid3[1,i]) > 0) then
+            begin vN3U := TxtToFloat(CutGrid3[1,i]); IsInsert := True; end;
+            if (ChkCut32.Checked) and (TxtToFloat(CutGrid3[2,i]) > 0) then
+            begin
+              vN3T := TxtToFloat(CutGrid3[2,i]);
+              if Chk3TodToTeng.Checked then vIs3T := True;
+              IsInsert := True;
+            end;
+            if (ChkCut33.Checked) and (TxtToFloat(CutGrid3[3,i]) > 0) then
+            begin vN3D := TxtToFloat(CutGrid3[3,i]); IsInsert := True; end;
+            if IsInsert then
+            begin
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := ZConnection1;
+                ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, Num3Up, Num3Tod, Num3Dwn, Is3TTeng) ' +
+                                  'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aN3U, :aN3T, :aN3D, :aIs3T)';
+                ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+                ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+                ZQExec.ParamByName('aLottoType').AsInteger:= vLotType;
+                ZQExec.ParamByName('aNum').AsString       := CutGrid3[0,i];
+                ZQExec.ParamByName('aDealerID').AsString  := vDealer;
+                ZQExec.ParamByName('aN3U').AsFloat        := vN3U;
+                ZQExec.ParamByName('aN3T').AsFloat        := vN3T;
+                ZQExec.ParamByName('aN3D').AsFloat        := vN3D;
+                ZQExec.ParamByName('aIs3T').AsBoolean     := vIs3T;
+                try ZQExec.ExecSQL; except end;
+              finally ZQExec.Free; end;
+            end;
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
+          end;
+        end;
+
+        // CutGrid2
+        if (ChkCut21.Checked) Or (ChkCut22.Checked) Or (ChkCut23.Checked) Or (ChkCut24.Checked) Or (ChkCut25.Checked) Or (ChkCut26.Checked) then
+        begin
+          for i := 0 to CutGrid2.RowCount-1 do
+          begin
+            vN2U := 0; vN2T := 0; vN2M := 0; vN2L := 0; vN2R := 0; vN2D := 0; IsInsert := False;
+            if (ChkCut21.Checked) and (TxtToFloat(CutGrid2[1,i]) > 0) then { vN2U := TxtToFloat(CutGrid2[1,i]); IsInsert := True; }
+            if (ChkCut21.Checked) and (TxtToFloat(CutGrid2[1,i]) > 0) then begin vN2U := TxtToFloat(CutGrid2[1,i]); IsInsert := True; end;
+            if (ChkCut22.Checked) and (TxtToFloat(CutGrid2[2,i]) > 0) then begin vN2T := TxtToFloat(CutGrid2[2,i]); IsInsert := True; end;
+            if (ChkCut23.Checked) and (TxtToFloat(CutGrid2[3,i]) > 0) then begin vN2M := TxtToFloat(CutGrid2[3,i]); IsInsert := True; end;
+            if (ChkCut24.Checked) and (TxtToFloat(CutGrid2[4,i]) > 0) then begin vN2L := TxtToFloat(CutGrid2[4,i]); IsInsert := True; end;
+            if (ChkCut25.Checked) and (TxtToFloat(CutGrid2[5,i]) > 0) then begin vN2R := TxtToFloat(CutGrid2[5,i]); IsInsert := True; end;
+            if (ChkCut26.Checked) and (TxtToFloat(CutGrid2[6,i]) > 0) then begin vN2D := TxtToFloat(CutGrid2[6,i]); IsInsert := True; end;
+            if IsInsert then
+            begin
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := ZConnection1;
+                ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, Num2Up, Num2Tod, Num2Mee, Num2Left, Num2Right, Num2Down) ' +
+                                  'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aN2U, :aN2T, :aN2M, :aN2L, :aN2R, :aN2D)';
+                ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+                ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+                ZQExec.ParamByName('aLottoType').AsInteger:= vLotType;
+                ZQExec.ParamByName('aNum').AsString       := CutGrid2[0,i];
+                ZQExec.ParamByName('aDealerID').AsString  := vDealer;
+                ZQExec.ParamByName('aN2U').AsFloat        := vN2U;
+                ZQExec.ParamByName('aN2T').AsFloat        := vN2T;
+                ZQExec.ParamByName('aN2M').AsFloat        := vN2M;
+                ZQExec.ParamByName('aN2L').AsFloat        := vN2L;
+                ZQExec.ParamByName('aN2R').AsFloat        := vN2R;
+                ZQExec.ParamByName('aN2D').AsFloat        := vN2D;
+                try ZQExec.ExecSQL; except end;
+              finally ZQExec.Free; end;
+            end;
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
+          end;
+        end;
+
+        // CutGrid1
+        if (ChkCut11.Checked) Or (ChkCut12.Checked) Or (ChkCut13.Checked) Or (ChkCut14.Checked) Or (ChkCut15.Checked) Or (ChkCut16.Checked) Or (ChkCut17.Checked) then
+        begin
+          for i := 0 to CutGrid1.RowCount-1 do
+          begin
+            vRU := 0; vP1 := 0; vP2 := 0; vP3 := 0; vRD := 0; vDP1 := 0; vDP2 := 0; IsInsert := False;
+            if (ChkCut11.Checked) and (TxtToFloat(CutGrid1[1,i]) > 0) then begin vRU := TxtToFloat(CutGrid1[1,i]); IsInsert := True; end;
+            if (ChkCut12.Checked) and (TxtToFloat(CutGrid1[2,i]) > 0) then begin vP1 := TxtToFloat(CutGrid1[2,i]); IsInsert := True; end;
+            if (ChkCut13.Checked) and (TxtToFloat(CutGrid1[3,i]) > 0) then begin vP2 := TxtToFloat(CutGrid1[3,i]); IsInsert := True; end;
+            if (ChkCut14.Checked) and (TxtToFloat(CutGrid1[4,i]) > 0) then begin vP3 := TxtToFloat(CutGrid1[4,i]); IsInsert := True; end;
+            if (ChkCut15.Checked) and (TxtToFloat(CutGrid1[5,i]) > 0) then begin vRD := TxtToFloat(CutGrid1[5,i]); IsInsert := True; end;
+            if (ChkCut16.Checked) and (TxtToFloat(CutGrid1[6,i]) > 0) then begin vDP1 := TxtToFloat(CutGrid1[6,i]); IsInsert := True; end;
+            if (ChkCut17.Checked) and (TxtToFloat(CutGrid1[7,i]) > 0) then begin vDP2 := TxtToFloat(CutGrid1[7,i]); IsInsert := True; end;
+            if IsInsert then
+            begin
+              ZQExec := TZQuery.Create(nil);
+              try
+                ZQExec.Connection := ZConnection1;
+                ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, RunUp, NumPos1, NumPos2, NumPos3, RunDown, DownPos1, DownPos2) ' +
+                                  'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aRU, :aP1, :aP2, :aP3, :aRD, :aDP1, :aDP2)';
+                ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+                ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+                ZQExec.ParamByName('aLottoType').AsInteger:= vLotType;
+                ZQExec.ParamByName('aNum').AsString       := CutGrid1[0,i];
+                ZQExec.ParamByName('aDealerID').AsString  := vDealer;
+                ZQExec.ParamByName('aRU').AsFloat         := vRU;
+                ZQExec.ParamByName('aP1').AsFloat         := vP1;
+                ZQExec.ParamByName('aP2').AsFloat         := vP2;
+                ZQExec.ParamByName('aP3').AsFloat         := vP3;
+                ZQExec.ParamByName('aRD').AsFloat         := vRD;
+                ZQExec.ParamByName('aDP1').AsFloat        := vDP1;
+                ZQExec.ParamByName('aDP2').AsFloat        := vDP2;
+                try ZQExec.ExecSQL; except end;
+              finally ZQExec.Free; end;
+            end;
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
+          end;
+        end;
+
+        ProgressBar2.Progress := 0;
+        Pbar.Visible := false;
+        RdgSell.ItemIndex := 3;
+      end;
+
+      // 2. ABS Database Insertion (fallback if ABS active)
+      if Database.Connected then
+      begin
+        try
+          TCutDat := TABSTable.Create(nil);
+          TCutDat.DatabaseName := Database.DatabaseName;
+          TCutDat.TableName := 'Cut';
+          TCutDat.Close;
+          TCutDat.Open;
+
+          Pbar.Visible := true;
+          ProgressBar2.Progress := 0;
+          ProgressBar2.MinValue := 0;
+          ProgressBar2.MaxValue := CutGrid5.RowCount + CutGrid4.RowCount + CutGrid3.RowCount + CutGrid2.RowCount + CutGrid1.RowCount;
+          Database.StartTransaction;
+
+          if (ChkCut51.Checked) Or (ChkCut52.Checked) then
+          begin
+            With CutGrid5 do
+            begin
+              IsInsert := false;
+              for i := 0 to RowCount-1 do
+              begin
+                if Not(TCutDat.State in [dsInsert]) then TCutDat.Append;
+                if (ChkCut51.Checked) and (TxtToFloat(CutGrid5[1,i]) > 0) then
+                begin TcutDat.FieldByName('Num5').AsFloat := TxtToFloat(CutGrid5[1,i]); IsInsert := true; end;
+                if (ChkCut52.Checked) and (TxtToFloat(CutGrid5[2,i]) > 0) then
+                begin
+                  if Chk5TodToTeng.Checked then TcutDat.FieldByName('Is5TTeng').AsBoolean := True;
+                  TcutDat.FieldByName('Num5Tod').AsFloat := TxtToFloat(CutGrid5[2,i]); IsInsert := true;
+                end;
+                if IsInsert then
+                begin
+                  TcutDat.FieldByName('Num').AsString       := CutGrid5[0,i];
+                  TcutDat.FieldByName('CutDate').AsDateTime := CutTime;
+                  TcutDat.FieldByName('DateCut').AsDateTime := DatePick.Date;
+                  TcutDat.FieldByName('LottoType').AsInteger:= StrtoInt(edLotID.Text);
+                  TcutDat.FieldByName('DealerID').AsString  := EditDealer.Text;
+                  TcutDat.Post; IsInsert := false;
+                end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
+              end;
+            end;
+          end;
+
+          if (ChkCut41.Checked) Or (ChkCut42.Checked) then
+          begin
+            With CutGrid4 do
+            begin
+              IsInsert := false;
+              for i := 0 to RowCount-1 do
+              begin
                 TCutDat.Append;
-
-              if (ChkCut51.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid5[1,i]) > 0 ) then
+                if Chk4TodToTeng.Checked and (TxtToFloat(CutGrid4[2,i]) > 0) then TcutDat.FieldByName('Is4TTeng').AsBoolean := True;
+                if (ChkCut41.Checked) and (TxtToFloat(CutGrid4[1,i]) > 0) then
                 begin
-                  TcutDat.FieldByName('Num5').AsFloat      := TxtToFloat(CutGrid5[1,i]);
-                  IsInsert := true;
+                  if Not(TCutDat.State in [dsInsert]) then TCutDat.Append;
+                  TcutDat.FieldByName('Num4').AsFloat := TxtToFloat(CutGrid4[1,i]); IsInsert := true;
                 end;
-              end;
-
-              if (ChkCut52.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid5[2,i]) > 0 ) then
+                if (ChkCut42.Checked) and (TxtToFloat(CutGrid4[2,i]) > 0) then
                 begin
-                  if Chk5TodToTeng.Checked then
-                    if TxtToFloat(CutGrid5[2,i]) > 0 then
-                      TcutDat.FieldByName('Is5TTeng').AsBoolean     := True;
-
-                  TcutDat.FieldByName('Num5Tod').AsFloat     := TxtToFloat(CutGrid5[2,i]);
-                  IsInsert := true;
+                  if Not(TCutDat.State in [dsInsert]) then TCutDat.Append;
+                  TcutDat.FieldByName('Num4Tod').AsFloat := TxtToFloat(CutGrid4[2,i]); IsInsert := true;
                 end;
+                if IsInsert then
+                begin
+                  TcutDat.FieldByName('CutDate').AsDateTime := CutTime;
+                  TcutDat.FieldByName('DateCut').AsDateTime := DatePick.Date;
+                  TcutDat.FieldByName('LottoType').AsInteger:= StrtoInt(edLotID.Text);
+                  TcutDat.FieldByName('Num').AsString       := CutGrid4[0,i];
+                  TcutDat.FieldByName('DealerID').AsString  := EditDealer.Text;
+                  TcutDat.Post; IsInsert := false;
+                end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
               end;
-
-              if IsInsert then
-              begin
-                TcutDat.FieldByName('Num').AsString        := CutGrid5[0,i];
-                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-                TcutDat.FieldByName('DealerID').AsString   := EditDealer.Text;
-
-                TcutDat.Post;
-                IsInsert := false;
-              end;
-              ProgressBar2.Progress := ProgressBar2.Progress +1;
+            end;
           end;
-        end;
-      end;
 
-      if (ChkCut41.Checked) Or (ChkCut42.Checked) then
-      begin
-        With CutGrid4 do
-        begin
-          IsInsert := false;
-          for i := 0 to RowCount-1 do
+          if (ChkCut31.Checked) Or (ChkCut32.Checked) Or (ChkCut33.Checked) then
           begin
-              TCutDat.Append;
-              if Chk4TodToTeng.Checked then
-                if TxtToFloat(CutGrid4[2,i]) > 0 then
-                  TcutDat.FieldByName('Is4TTeng').AsBoolean     := True;
-              if (ChkCut41.Checked) then
+            With CutGrid3 do
+            begin
+              IsInsert := false;
+              for i := 0 to RowCount-1 do
               begin
-                if  (TxtToFloat(CutGrid4[1,i]) > 0 ) then
+                TCutDat.Append;
+                if (ChkCut31.Checked) and (TxtToFloat(CutGrid3[1,i]) > 0) then
                 begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num4').AsFloat      := TxtToFloat(CutGrid4[1,i]);
-                  IsInsert := true;
+                  if Not(TCutDat.State in [dsInsert]) then TCutDat.Append;
+                  TcutDat.FieldByName('Num3Up').AsFloat := TxtToFloat(CutGrid3[1,i]); IsInsert := true;
                 end;
-              end;
-
-              if (ChkCut42.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid4[2,i]) > 0 ) then
+                if (ChkCut32.Checked) and (TxtToFloat(CutGrid3[2,i]) > 0) then
                 begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num4Tod').AsFloat     := TxtToFloat(CutGrid4[2,i]);
-                  IsInsert := true;
+                  if Not(TCutDat.State in [dsInsert]) then TCutDat.Append;
+                  if Chk3TodToTeng.Checked then TcutDat.FieldByName('Is3TTeng').AsBoolean := True;
+                  TcutDat.FieldByName('Num3Tod').AsFloat := TxtToFloat(CutGrid3[2,i]); IsInsert := true;
                 end;
+                if (ChkCut33.Checked) and (TxtToFloat(CutGrid3[3,i]) > 0) then
+                begin
+                  if Not(TCutDat.State in [dsInsert]) then TCutDat.Append;
+                  TcutDat.FieldByName('Num3Dwn').AsFloat := TxtToFloat(CutGrid3[3,i]); IsInsert := true;
+                end;
+                if IsInsert then
+                begin
+                  TcutDat.FieldByName('Num').AsString       := CutGrid3[0,i];
+                  TcutDat.FieldByName('CutDate').AsDateTime := CutTime;
+                  TcutDat.FieldByName('DateCut').AsDateTime := DatePick.Date;
+                  TcutDat.FieldByName('LottoType').AsInteger:= StrtoInt(edLotID.Text);
+                  TcutDat.FieldByName('DealerID').AsString  := EditDealer.Text;
+                  TcutDat.Post; IsInsert := false;
+                end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
               end;
-
-              if IsInsert then
-              begin
-                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-                TcutDat.FieldByName('Num').AsString        := CutGrid4[0,i];
-                TcutDat.FieldByName('DealerID').AsString   := EditDealer.Text;
-
-                TcutDat.Post;
-                IsInsert := false;
-              end;
-              ProgressBar2.Progress := ProgressBar2.Progress +1;
+            end;
           end;
-        end;
-      end;
 
-      if (ChkCut31.Checked) Or (ChkCut32.Checked) Or (ChkCut33.Checked) then
-      begin
-        With CutGrid3 do
-        begin
-          IsInsert := false;
-          for i := 0 to RowCount-1 do
+          if (ChkCut21.Checked) Or (ChkCut22.Checked) Or (ChkCut23.Checked) Or (ChkCut24.Checked) Or (ChkCut25.Checked) Or (ChkCut26.Checked) then
           begin
-              TCutDat.Append;
-              if (ChkCut31.Checked) then
+            With CutGrid2 do
+            begin
+              IsInsert := false;
+              for i := 0 to RowCount-1 do
               begin
-                if  (TxtToFloat(CutGrid3[1,i]) > 0 ) then
+                TCutDat.Append;
+                if (ChkCut21.Checked) and (TxtToFloat(CutGrid2[1,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('Num2Up').AsFloat := TxtToFloat(CutGrid2[1,i]); IsInsert := true; end;
+                if (ChkCut22.Checked) and (TxtToFloat(CutGrid2[2,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('Num2Tod').AsFloat := TxtToFloat(CutGrid2[2,i]); IsInsert := true; end;
+                if (ChkCut23.Checked) and (TxtToFloat(CutGrid2[3,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('Num2Mee').AsFloat := TxtToFloat(CutGrid2[3,i]); IsInsert := true; end;
+                if (ChkCut24.Checked) and (TxtToFloat(CutGrid2[4,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('Num2Left').AsFloat := TxtToFloat(CutGrid2[4,i]); IsInsert := true; end;
+                if (ChkCut25.Checked) and (TxtToFloat(CutGrid2[5,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('Num2Right').AsFloat := TxtToFloat(CutGrid2[5,i]); IsInsert := true; end;
+                if (ChkCut26.Checked) and (TxtToFloat(CutGrid2[6,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('Num2Down').AsFloat := TxtToFloat(CutGrid2[6,i]); IsInsert := true; end;
+                if IsInsert then
                 begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num3Up').AsFloat      := TxtToFloat(CutGrid3[1,i]);
-                  IsInsert := true;
+                  TcutDat.FieldByName('CutDate').AsDateTime := CutTime;
+                  TcutDat.FieldByName('DateCut').AsDateTime := DatePick.Date;
+                  TcutDat.FieldByName('LottoType').AsInteger:= StrtoInt(edLotID.Text);
+                  TcutDat.FieldByName('Num').AsString       := CutGrid2[0,i];
+                  TcutDat.FieldByName('DealerID').AsString  := EditDealer.Text;
+                  TcutDat.Post; IsInsert := false;
                 end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
               end;
-
-              if (ChkCut32.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid3[2,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-
-                  if Chk3TodToTeng.Checked then
-                    if TxtToFloat(CutGrid3[2,i]) > 0 then
-                      TcutDat.FieldByName('Is3TTeng').AsBoolean     := True;
-
-                  TcutDat.FieldByName('Num3Tod').AsFloat     := TxtToFloat(CutGrid3[2,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut33.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid3[3,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num3Dwn').AsFloat     := TxtToFloat(CutGrid3[3,i]);
-                  IsInsert := true;
-                end;
-              end;
-              
-              if IsInsert then
-              begin
-                TcutDat.FieldByName('Num').AsString        := CutGrid3[0,i];
-                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-                TcutDat.FieldByName('DealerID').AsString   := EditDealer.Text;
-
-                TcutDat.Post;
-                IsInsert := false;
-              end;
-              ProgressBar2.Progress := ProgressBar2.Progress +1;
+            end;
           end;
-        end;
-      end;
 
-      if (ChkCut21.Checked) Or (ChkCut22.Checked) Or (ChkCut23.Checked) Or (ChkCut24.Checked) Or (ChkCut25.Checked) Or (ChkCut26.Checked) then
-      begin
-        With CutGrid2 do
-        begin
-          IsInsert := false;
-          for i := 0 to RowCount-1 do
+          if (ChkCut11.Checked) Or (ChkCut12.Checked) Or (ChkCut13.Checked) Or (ChkCut14.Checked) Or (ChkCut15.Checked) Or (ChkCut16.Checked) Or (ChkCut17.Checked) then
           begin
-              TCutDat.Append;
-              if (ChkCut21.Checked) then
+            With CutGrid1 do
+            begin
+              IsInsert := false;
+              for i := 0 to RowCount-1 do
               begin
-                if  (TxtToFloat(CutGrid2[1,i]) > 0 ) then
+                TCutDat.Append;
+                if (ChkCut11.Checked) and (TxtToFloat(CutGrid1[1,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('RunUp').AsFloat := TxtToFloat(CutGrid1[1,i]); IsInsert := true; end;
+                if (ChkCut12.Checked) and (TxtToFloat(CutGrid1[2,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('NumPos1').AsFloat := TxtToFloat(CutGrid1[2,i]); IsInsert := true; end;
+                if (ChkCut13.Checked) and (TxtToFloat(CutGrid1[3,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('NumPos2').AsFloat := TxtToFloat(CutGrid1[3,i]); IsInsert := true; end;
+                if (ChkCut14.Checked) and (TxtToFloat(CutGrid1[4,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('NumPos3').AsFloat := TxtToFloat(CutGrid1[4,i]); IsInsert := true; end;
+                if (ChkCut15.Checked) and (TxtToFloat(CutGrid1[5,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('RunDown').AsFloat := TxtToFloat(CutGrid1[5,i]); IsInsert := true; end;
+                if (ChkCut16.Checked) and (TxtToFloat(CutGrid1[6,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('DownPos1').AsFloat := TxtToFloat(CutGrid1[6,i]); IsInsert := true; end;
+                if (ChkCut17.Checked) and (TxtToFloat(CutGrid1[7,i]) > 0) then
+                begin if Not(TCutDat.State in [dsInsert]) then TCutDat.Append; TcutDat.FieldByName('DownPos2').AsFloat := TxtToFloat(CutGrid1[7,i]); IsInsert := true; end;
+                if IsInsert then
                 begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num2Up').AsFloat      := TxtToFloat(CutGrid2[1,i]);
-                  IsInsert := true;
+                  TcutDat.FieldByName('CutDate').AsDateTime := CutTime;
+                  TcutDat.FieldByName('DateCut').AsDateTime := DatePick.Date;
+                  TcutDat.FieldByName('LottoType').AsInteger:= StrtoInt(edLotID.Text);
+                  TcutDat.FieldByName('Num').AsString       := CutGrid1[0,i];
+                  TcutDat.FieldByName('DealerID').AsString  := EditDealer.Text;
+                  TcutDat.Post; IsInsert := false;
                 end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
               end;
-
-              if (ChkCut22.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid2[2,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num2Tod').AsFloat     := TxtToFloat(CutGrid2[2,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut23.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid2[3,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num2Mee').AsFloat     := TxtToFloat(CutGrid2[3,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut24.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid2[4,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num2Left').AsFloat     := TxtToFloat(CutGrid2[4,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut25.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid2[5,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num2Right').AsFloat     := TxtToFloat(CutGrid2[5,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut26.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid2[6,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('Num2Down').AsFloat     := TxtToFloat(CutGrid2[6,i]);
-                  IsInsert := true;
-                end;
-              end;
-              
-              if IsInsert then
-              begin
-                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-                TcutDat.FieldByName('Num').AsString        := CutGrid2[0,i];
-                TcutDat.FieldByName('DealerID').AsString   := EditDealer.Text;
-
-                TcutDat.Post;
-                IsInsert := false;
-              end;
-              ProgressBar2.Progress := ProgressBar2.Progress +1;
+            end;
           end;
 
-
+          if TcutDat.State in [dsEdit,dsInsert] then TCutDat.Post;
+          Database.Commit(False);
+          TcutDat.Free;
+          ProgressBar2.Progress := 0;
+          Pbar.Visible := false;
+          RdgSell.ItemIndex := 3;
+        except
         end;
       end;
-
-      if (ChkCut11.Checked) Or (ChkCut12.Checked) Or (ChkCut13.Checked) Or (ChkCut14.Checked) Or (ChkCut15.Checked) Or (ChkCut16.Checked) Or (ChkCut17.Checked) then
-      begin
-        With CutGrid1 do
-        begin
-          IsInsert := false;
-          for i := 0 to RowCount-1 do
-          begin
-              TCutDat.Append;
-              if (ChkCut11.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[1,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('RunUp').AsFloat      := TxtToFloat(CutGrid1[1,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut12.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[2,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('NumPos1').AsFloat     := TxtToFloat(CutGrid1[2,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut13.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[3,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('NumPos2').AsFloat     := TxtToFloat(CutGrid1[3,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut14.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[4,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('NumPos3').AsFloat     := TxtToFloat(CutGrid1[4,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut15.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[5,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('RunDown').AsFloat     := TxtToFloat(CutGrid1[5,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut16.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[6,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('DownPos1').AsFloat     := TxtToFloat(CutGrid1[6,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if (ChkCut17.Checked) then
-              begin
-                if  (TxtToFloat(CutGrid1[7,i]) > 0 ) then
-                begin
-                  if Not(TCutDat.State in [dsInsert]) then
-                    TCutDat.Append;
-
-                  TcutDat.FieldByName('DownPos2').AsFloat     := TxtToFloat(CutGrid1[7,i]);
-                  IsInsert := true;
-                end;
-              end;
-
-              if IsInsert then
-              begin
-                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-                TcutDat.FieldByName('Num').AsString        := CutGrid1[0,i];
-                TcutDat.FieldByName('DealerID').AsString   := EditDealer.Text;
-
-                TcutDat.Post;
-                IsInsert := false;
-              end;
-              ProgressBar2.Progress := ProgressBar2.Progress +1;
-          end;
-        end;
-      end;
-
-      if TcutDat.State in [dsEdit,dsInsert] then
-        TCutDat.Post;
-      Database.Commit(False);
-
-      TcutDat.Free;
-      ProgressBar2.Progress := 0;
-      Pbar.Visible := false;
-      RdgSell.ItemIndex := 3;
     end;
   end;
 end;
-
 procedure TfMain.BtnBackClick(Sender: TObject);
 Var
    QrDel : TABSQuery;
@@ -30311,6 +30325,9 @@ Var TCutDat: TABSTable;
     years, months, dates : Word;
     CutTime: TDateTime;
     NumType: String;
+    ZQExec: TZQuery;
+    Is3T, Is4T, Is5T: Boolean;
+    AmountVal: Double;
 begin
   if MessageDlg('ต้องการตีออกจำนวน  "'+lbItm.Caption+'" ใช่หรือไม่?',
   mtConfirmation, [mbYes, mbNo], 0) = mrNo then
@@ -30332,7 +30349,7 @@ begin
   end;
 
   if CutListNum.Items.Count > 0 then
-
+  begin
     Case ComboCutType.ItemIndex of
       0: NumType := 'RunUp';
       1: NumType := 'NumPos1';
@@ -30359,55 +30376,110 @@ begin
     With Dm do
     begin
       DecodeDate(DatePick.Date,years,months,dates);
-      TCutDat := TABSTable.Create(nil);
-      TCutDat.DatabaseName := Database.DatabaseName;
-      TCutDat.TableName := 'Cut';
-      TCutDat.Open;
-
-      Pbar.Visible := true;
-      ProgressBar2.Progress := 0;
-      ProgressBar2.MinValue := 0;
       CutTime := Now;
-      With CutListNum,TCutDat do
+
+      // 1. Firebird Database Insertion
+      if ZConnection1.Connected then
       begin
+        Pbar.Visible := true;
+        ProgressBar2.Progress := 0;
+        ProgressBar2.MinValue := 0;
         ProgressBar2.MaxValue := j;
-        Database.StartTransaction;
-        for i := 0 to Items.Count -1 do
+
+        for i := 0 to CutListNum.Items.Count - 1 do
         begin
-          if items[i].Checked = true then
+          if CutListNum.Items[i].Checked then
           begin
-            Append;
-            TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-            TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-            TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-            TcutDat.FieldByName('Num').AsString        := Items[i].Caption;// CutGrid5[0,i];
-            TcutDat.FieldByName('DealerID').AsString   := '0001';
-            TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
+            AmountVal := TxtToFloat(CutListNum.Items[i].SubItems[0]);
+            Is3T := False;
+            Is4T := False;
+            Is5T := False;
+
             if ChkTransTo3Top.Checked then
             begin
-              if (NumType = 'Num3Tod') then
-                TcutDat.FieldByName('Is3TTeng').AsBoolean := true;
-
-              if (NumType = 'Num4Tod') then
-                TcutDat.FieldByName('Is4TTeng').AsBoolean := true;
-
-              if (NumType = 'Num5Tod') then
-                TcutDat.FieldByName('Is5TTeng').AsBoolean := true;
+              if (NumType = 'Num3Tod') then Is3T := True;
+              if (NumType = 'Num4Tod') then Is4T := True;
+              if (NumType = 'Num5Tod') then Is5T := True;
             end;
 
-            ProgressBar2.Progress := ProgressBar2.Progress +1;
+            ZQExec := TZQuery.Create(nil);
+            try
+              ZQExec.Connection := ZConnection1;
+              ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, ' + NumType +
+                                ', Is3TTeng, Is4TTeng, Is5TTeng) ' +
+                                'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aAmount, :aIs3T, :aIs4T, :aIs5T)';
+              ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+              ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+              ZQExec.ParamByName('aLottoType').AsInteger:= StrToIntDef(edLotID.Text, 0);
+              ZQExec.ParamByName('aNum').AsString       := CutListNum.Items[i].Caption;
+              ZQExec.ParamByName('aDealerID').AsString  := '0001';
+              ZQExec.ParamByName('aAmount').AsFloat     := AmountVal;
+              ZQExec.ParamByName('aIs3T').AsBoolean     := Is3T;
+              ZQExec.ParamByName('aIs4T').AsBoolean     := Is4T;
+              ZQExec.ParamByName('aIs5T').AsBoolean     := Is5T;
+              try ZQExec.ExecSQL; except end;
+            finally
+              ZQExec.Free;
+            end;
+
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
           end;
         end;
-        Post;
-        Database.Commit(False);
-      end;
-      TcutDat.Free;
-      ProgressBar2.Progress := 0;
-      Pbar.Visible := false;
-      Btn_RefreshCutClick(Sender);
-    end;
-end;
 
+        ProgressBar2.Progress := 0;
+        Pbar.Visible := false;
+        Btn_RefreshCutClick(Sender);
+      end;
+
+      // 2. ABS Database Insertion (fallback if ABS active)
+      if Database.Connected then
+      begin
+        try
+          TCutDat := TABSTable.Create(nil);
+          TCutDat.DatabaseName := Database.DatabaseName;
+          TCutDat.TableName := 'Cut';
+          TCutDat.Open;
+
+          Pbar.Visible := true;
+          ProgressBar2.Progress := 0;
+          ProgressBar2.MinValue := 0;
+          With CutListNum, TCutDat do
+          begin
+            ProgressBar2.MaxValue := j;
+            Database.StartTransaction;
+            for i := 0 to Items.Count - 1 do
+            begin
+              if items[i].Checked = true then
+              begin
+                Append;
+                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
+                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
+                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
+                TcutDat.FieldByName('Num').AsString        := Items[i].Caption;
+                TcutDat.FieldByName('DealerID').AsString   := '0001';
+                TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
+                if ChkTransTo3Top.Checked then
+                begin
+                  if (NumType = 'Num3Tod') then TcutDat.FieldByName('Is3TTeng').AsBoolean := true;
+                  if (NumType = 'Num4Tod') then TcutDat.FieldByName('Is4TTeng').AsBoolean := true;
+                  if (NumType = 'Num5Tod') then TcutDat.FieldByName('Is5TTeng').AsBoolean := true;
+                end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
+              end;
+            end;
+            Post;
+            Database.Commit(False);
+          end;
+          TcutDat.Free;
+          ProgressBar2.Progress := 0;
+          Pbar.Visible := false;
+          Btn_RefreshCutClick(Sender);
+        except
+        end;
+      end;
+    end;
+  end;
+end;
 procedure TfMain.BtnAddLimitClick(Sender: TObject);
 Var i,j,k,DupCount,CountPMu: integer;
     Num,yNum ,NumKlub,PmuNum: String;
@@ -49412,6 +49484,9 @@ Var TCutDat: TABSTable;
     years, months, dates : Word;
     CutTime: TDateTime;
     NumType: String;
+    ZQExec: TZQuery;
+    Is3T, Is4T, Is5T: Boolean;
+    AmountVal: Double;
 begin
   if MessageDlg('ต้องการตีออกจำนวน  "'+lbItm.Caption+'" ใช่หรือไม่?',
   mtConfirmation, [mbYes, mbNo], 0) = mrNo then
@@ -49433,7 +49508,7 @@ begin
   end;
 
   if CutListNum.Items.Count > 0 then
-
+  begin
     Case ComboCutType.ItemIndex of
       0: NumType := 'RunUp';
       1: NumType := 'NumPos1';
@@ -49460,55 +49535,110 @@ begin
     With Dm do
     begin
       DecodeDate(DatePick.Date,years,months,dates);
-      TCutDat := TABSTable.Create(nil);
-      TCutDat.DatabaseName := Database.DatabaseName;
-      TCutDat.TableName := 'Cut';
-      TCutDat.Open;
-
-      Pbar.Visible := true;
-      ProgressBar2.Progress := 0;
-      ProgressBar2.MinValue := 0;
       CutTime := Now;
-      With CutListNum,TCutDat do
+
+      // 1. Firebird Database Insertion
+      if ZConnection1.Connected then
       begin
+        Pbar.Visible := true;
+        ProgressBar2.Progress := 0;
+        ProgressBar2.MinValue := 0;
         ProgressBar2.MaxValue := j;
-        Database.StartTransaction;
-        for i := 0 to Items.Count -1 do
+
+        for i := 0 to CutListNum.Items.Count - 1 do
         begin
-          if items[i].Checked = true then
+          if CutListNum.Items[i].Checked then
           begin
-            Append;
-            TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
-            TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
-            TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
-            TcutDat.FieldByName('Num').AsString        := Items[i].Caption;// CutGrid5[0,i];
-            TcutDat.FieldByName('DealerID').AsString   := '0001';
-            TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
+            AmountVal := TxtToFloat(CutListNum.Items[i].SubItems[0]);
+            Is3T := False;
+            Is4T := False;
+            Is5T := False;
+
             if ChkTransTo3Top.Checked then
             begin
-              if (NumType = 'Num3Tod') then
-                TcutDat.FieldByName('Is3TTeng').AsBoolean := true;
-
-              if (NumType = 'Num4Tod') then
-                TcutDat.FieldByName('Is4TTeng').AsBoolean := true;
-
-              if (NumType = 'Num5Tod') then
-                TcutDat.FieldByName('Is5TTeng').AsBoolean := true;
+              if (NumType = 'Num3Tod') then Is3T := True;
+              if (NumType = 'Num4Tod') then Is4T := True;
+              if (NumType = 'Num5Tod') then Is5T := True;
             end;
 
-            ProgressBar2.Progress := ProgressBar2.Progress +1;
+            ZQExec := TZQuery.Create(nil);
+            try
+              ZQExec.Connection := ZConnection1;
+              ZQExec.SQL.Text := 'INSERT INTO CUT (CutDate, DateCut, LottoType, Num, DealerID, ' + NumType +
+                                ', Is3TTeng, Is4TTeng, Is5TTeng) ' +
+                                'VALUES (:aCutDate, :aDateCut, :aLottoType, :aNum, :aDealerID, :aAmount, :aIs3T, :aIs4T, :aIs5T)';
+              ZQExec.ParamByName('aCutDate').AsDateTime := CutTime;
+              ZQExec.ParamByName('aDateCut').AsDate     := DatePick.Date;
+              ZQExec.ParamByName('aLottoType').AsInteger:= StrToIntDef(edLotID.Text, 0);
+              ZQExec.ParamByName('aNum').AsString       := CutListNum.Items[i].Caption;
+              ZQExec.ParamByName('aDealerID').AsString  := '0001';
+              ZQExec.ParamByName('aAmount').AsFloat     := AmountVal;
+              ZQExec.ParamByName('aIs3T').AsBoolean     := Is3T;
+              ZQExec.ParamByName('aIs4T').AsBoolean     := Is4T;
+              ZQExec.ParamByName('aIs5T').AsBoolean     := Is5T;
+              try ZQExec.ExecSQL; except end;
+            finally
+              ZQExec.Free;
+            end;
+
+            ProgressBar2.Progress := ProgressBar2.Progress + 1;
           end;
         end;
-        Post;
-        Database.Commit(False);
-      end;
-      TcutDat.Free;
-      ProgressBar2.Progress := 0;
-      Pbar.Visible := false;
-      Btn_RefreshCutClick(Sender);
-    end;
-end;
 
+        ProgressBar2.Progress := 0;
+        Pbar.Visible := false;
+        Btn_RefreshCutClick(Sender);
+      end;
+
+      // 2. ABS Database Insertion (fallback if ABS active)
+      if Database.Connected then
+      begin
+        try
+          TCutDat := TABSTable.Create(nil);
+          TCutDat.DatabaseName := Database.DatabaseName;
+          TCutDat.TableName := 'Cut';
+          TCutDat.Open;
+
+          Pbar.Visible := true;
+          ProgressBar2.Progress := 0;
+          ProgressBar2.MinValue := 0;
+          With CutListNum, TCutDat do
+          begin
+            ProgressBar2.MaxValue := j;
+            Database.StartTransaction;
+            for i := 0 to Items.Count - 1 do
+            begin
+              if items[i].Checked = true then
+              begin
+                Append;
+                TcutDat.FieldByName('CutDate').AsDateTime  := CutTime;
+                TcutDat.FieldByName('DateCut').AsDateTime  := DatePick.Date;
+                TcutDat.FieldByName('LottoType').AsInteger := StrtoInt(edLotID.Text);
+                TcutDat.FieldByName('Num').AsString        := Items[i].Caption;
+                TcutDat.FieldByName('DealerID').AsString   := '0001';
+                TcutDat.FieldByName(NumType).AsFloat       := TxtToFloat(Items[i].SubItems[0]);
+                if ChkTransTo3Top.Checked then
+                begin
+                  if (NumType = 'Num3Tod') then TcutDat.FieldByName('Is3TTeng').AsBoolean := true;
+                  if (NumType = 'Num4Tod') then TcutDat.FieldByName('Is4TTeng').AsBoolean := true;
+                  if (NumType = 'Num5Tod') then TcutDat.FieldByName('Is5TTeng').AsBoolean := true;
+                end;
+                ProgressBar2.Progress := ProgressBar2.Progress + 1;
+              end;
+            end;
+            Post;
+            Database.Commit(False);
+          end;
+          TcutDat.Free;
+          ProgressBar2.Progress := 0;
+          Pbar.Visible := false;
+          Btn_RefreshCutClick(Sender);
+        except
+        end;
+      end;
+    end;
+  end;
+end;
 procedure TfMain.BtnAddLimitClick(Sender: TObject);
 Var i,j,k,DupCount,CountPMu: integer;
     Num,yNum ,NumKlub,PmuNum: String;
@@ -58121,6 +58251,4 @@ begin
 end;
 
 end.
-
-
 
