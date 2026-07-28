@@ -4,3 +4,5 @@
 *.stat
 *.local
 __history/
+# Added by code-review-graph
+.code-review-graph/

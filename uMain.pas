@@ -12134,7 +12134,7 @@ begin
                 TbNum := QrLocateNum.FieldByName('Num').AsString;
                 if (Length(TbNum) = 2) then
                 begin
-                  if IsNumTod(TbNum,Nums) and (QrLocateNum.FieldByName('Limit1').AsBoolean = true) then
+                  if IsNumTod(TbNum,Nums) and ((QrLocateNum.FieldByName('Limit1').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12157,7 +12157,7 @@ begin
                 TbNum := QrLocateNum.FieldByName('Num').AsString;
                 if (Length(TbNum) = 2) then
                 begin
-                  if IsNumTod(TbNum,Nums) and (QrLocateNum.FieldByName('Limit2').AsBoolean = true) then
+                  if IsNumTod(TbNum,Nums) and ((QrLocateNum.FieldByName('Limit2').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12187,7 +12187,7 @@ begin
                 TbNum := QrLocateNum.FieldByName('Num').AsString;
                 if (Length(TbNum) = 2) then
                 begin
-                  if IsNumTod(TbNum,Nums) and (QrLocateNum.FieldByName('Limit3').AsBoolean = true) then
+                  if IsNumTod(TbNum,Nums) and ((QrLocateNum.FieldByName('Limit3').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12231,7 +12231,7 @@ begin
                 TbNum := QrLocateNum.FieldByName('Num').AsString;
                 if (Length(TbNum) = 2) then
                 begin
-                  if IsNumTod(TbNum,Nums) and (QrLocateNum.FieldByName('Limit6').AsBoolean = true) then
+                  if IsNumTod(TbNum,Nums) and ((QrLocateNum.FieldByName('Limit6').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12269,11 +12269,11 @@ begin
                 begin
                   if Pos('-',P1) > 1 then
                   begin
-                    if (TbNum = Nums) and (QrLocateNum.FieldByName('Limit1').AsBoolean = true) then// or (QrLocateNum.FieldByName('Limit2').AsBoolean = true)) then
+                    if (TbNum = Nums) and ((QrLocateNum.FieldByName('Limit1').AsInteger <> 0) = true) then// or ((QrLocateNum.FieldByName('Limit2').AsInteger <> 0) = true)) then
                       FoundTeng := true;
                   end;
 
-                  if IsNumTod(TbNum,Nums) and (QrLocateNum.FieldByName('Limit2').AsBoolean = true) then
+                  if IsNumTod(TbNum,Nums) and ((QrLocateNum.FieldByName('Limit2').AsInteger <> 0) = true) then
                     FoundTod := true;
 
                   if FoundTeng or Foundtod then
@@ -12307,7 +12307,7 @@ begin
                   for j := 1 to 3 do
                     A.Add(TbNum[j]);
 
-                  if IsSubset(A, B) and (QrLocateNum.FieldByName('Limit1').AsBoolean = true) then
+                  if IsSubset(A, B) and ((QrLocateNum.FieldByName('Limit1').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12357,7 +12357,7 @@ begin
                   A.Clear;
                   for j := 1 to 4 do
                     A.Add(Nums[j]);
-                  if IsSubset(A, B) and (QrLocateNum.FieldByName('Limit2').AsBoolean = true) then
+                  if IsSubset(A, B) and ((QrLocateNum.FieldByName('Limit2').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12385,7 +12385,7 @@ begin
                   A.Clear;
                   for j := 1 to 3 do
                     A.Add(TbNum[j]);
-                  if IsSubset(A, B) and (QrLocateNum.FieldByName('Limit1').AsBoolean = true) then
+                  if IsSubset(A, B) and ((QrLocateNum.FieldByName('Limit1').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12427,7 +12427,7 @@ begin
                   A.Clear;
                   for j := 1 to 5 do
                     A.Add(TbNum[j]);
-                  if IsSubset(A, B) and (QrLocateNum.FieldByName('Limit2').AsBoolean = true) then
+                  if IsSubset(A, B) and ((QrLocateNum.FieldByName('Limit2').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12456,7 +12456,7 @@ begin
                   A.Clear;
                   for j := 1 to 3 do
                     A.Add(TbNum[j]);
-                  if IsSubset(A, B) and (QrLocateNum.FieldByName('Limit1').AsBoolean = true) then
+                  if IsSubset(A, B) and ((QrLocateNum.FieldByName('Limit1').AsInteger <> 0) = true) then
                   begin
                     FoundSpecNum := true;
                     Break;
@@ -12986,7 +12986,7 @@ begin
       ZQData.Connection := ZConnection1;
       ZQData.SQL.Add('Select * from Data');
       ZQData.SQL.Add('Where (Period_Date = :pDate)');
-      ZQData.SQL.Add('and (LotType = ' + IntToStr(ComboLotType.ItemIndex) + ' or LotType = ' + QuotedStr(edLotID.Text) + ')');
+      ZQData.SQL.Add('and (LotType = ' + QuotedStr(edLotID.Text) + ')');
       if Not ChkTotal.Checked then
       begin
         if Not ChkSumBook.Checked then
@@ -15065,7 +15065,7 @@ Var foundCust,FoundNumPay,FoundNum,Is3ToTeng,Is4ToTeng,Is5ToTeng: Boolean;
     QrDataRep: TDataSet;
     ZQDataRep: TZQuery;
     ABSDataRep: TABSQuery;
-    QrDataCut,QrLotto,QrLimitNum: TABSQuery;
+    QrDataCut,QrLotto,QrLimitNum: TDataSet;
     PrCut1,LimitType: Array Of real;
     Numb,Nums,NumCut,P1,P2: String;
     Sum1: Array of array of Real;
@@ -15094,7 +15094,7 @@ begin
       ZQDataRep := TZQuery.Create(nil);
       ZQDataRep.Connection := ZConnection1;
       ZQDataRep.SQL.Add('Select * from Data');
-      ZQDataRep.SQL.Add('Where (LotType = ' + IntToStr(ComboLotType.ItemIndex) + ' or LotType = ' + QuotedStr(edLotID.Text) + ')');
+      ZQDataRep.SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
       ZQDataRep.SQL.Add('and (Period_Date = :pDate)');
       ZQDataRep.SQL.Add('Order by Num DESC');
       ZQDataRep.ParamByName('pDate').AsDate := DatePick.Date;
@@ -15698,14 +15698,28 @@ begin
 
       if (RdgSell.ItemIndex = 1) Or (RdgSell.ItemIndex = 2) then
       begin
-        QrDataCut := TABSQuery.Create(nil);
-        QrDataCut.DatabaseName := Database.DatabaseName;
-        QrDataCut.Close;
-        QrDataCut.SQL.Clear;
-        QrDataCut.SQL.Add('Select * from Cut');
-        QrDataCut.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-        QrDataCut.SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
-        QrDataCut.Open;
+        if ZConnection1.Connected then
+        begin
+          QrDataCut := TZQuery.Create(nil);
+          TZQuery(QrDataCut).Connection := ZConnection1;
+          TZQuery(QrDataCut).Close;
+          TZQuery(QrDataCut).SQL.Clear;
+          TZQuery(QrDataCut).SQL.Add('Select * from Cut');
+          TZQuery(QrDataCut).SQL.Add('Where (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+          TZQuery(QrDataCut).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', Datepick.Date)) + ')');
+          TZQuery(QrDataCut).Open;
+        end
+        else
+        begin
+          QrDataCut := TABSQuery.Create(nil);
+          TABSQuery(QrDataCut).DatabaseName := Database.DatabaseName;
+          TABSQuery(QrDataCut).Close;
+          TABSQuery(QrDataCut).SQL.Clear;
+          TABSQuery(QrDataCut).SQL.Add('Select * from Cut');
+          TABSQuery(QrDataCut).SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+          TABSQuery(QrDataCut).SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
+          TABSQuery(QrDataCut).Open;
+        end;
 
         if QrDataCut.RecordCount > 0 then
         begin
@@ -15811,30 +15825,60 @@ begin
 
       if RdgSell.ItemIndex = 2 then
       begin
-        QrLimitNum := TABSQuery.Create(nil);
-        QrLimitNum.DatabaseName := Database.DatabaseName;
-        QrLimitNum.Close;
-        QrLimitNum.SQL.Clear;
-        QrLimitNum.SQL.Add('Select * from LimitNum');
-        QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-        QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-        QrLimitNum.Open;
-
-        QrLimitNum.First;
-        StrNumLmt := '';
-        for i := 0 to QrLimitNum.RecordCount-1 do
+        if ZConnection1.Connected then
         begin
-          StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
-          QrLimitNum.Next;
-        end;
+          QrLimitNum := TZQuery.Create(nil);
+          TZQuery(QrLimitNum).Connection := ZConnection1;
+          TZQuery(QrLimitNum).Close;
+          TZQuery(QrLimitNum).SQL.Clear;
+          TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+          TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+          TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', Datepick.Date)) + ')');
+          TZQuery(QrLimitNum).Open;
 
-        QrLotto := TABSQuery.Create(nil);
-        QrLotto.DatabaseName := Database.DatabaseName;
-        QrLotto.Close;
-        QrLotto.SQL.Clear;
-        QrLotto.SQL.Add('Select * from Lotto');
-        QrLotto.SQL.Add('Where (LotID = "'+LeftPad(ComboLotType.ItemIndex+1,5)+'")');
-        QrLotto.Open;
+          QrLimitNum.First;
+          StrNumLmt := '';
+          for i := 0 to QrLimitNum.RecordCount-1 do
+          begin
+            StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+            QrLimitNum.Next;
+          end;
+
+          QrLotto := TZQuery.Create(nil);
+          TZQuery(QrLotto).Connection := ZConnection1;
+          TZQuery(QrLotto).Close;
+          TZQuery(QrLotto).SQL.Clear;
+          TZQuery(QrLotto).SQL.Add('Select * from Lotto');
+          TZQuery(QrLotto).SQL.Add('Where (ID = ' + QuotedStr(edLotID.Text) + ')');
+          TZQuery(QrLotto).Open;
+        end
+        else
+        begin
+          QrLimitNum := TABSQuery.Create(nil);
+          TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+          TABSQuery(QrLimitNum).Close;
+          TABSQuery(QrLimitNum).SQL.Clear;
+          TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+          TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+          TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+          TABSQuery(QrLimitNum).Open;
+
+          QrLimitNum.First;
+          StrNumLmt := '';
+          for i := 0 to QrLimitNum.RecordCount-1 do
+          begin
+            StrNumLmt := StrNumLmt+ QrLimitNum.fieldByName('Num').AsString+#13#10;
+            QrLimitNum.Next;
+          end;
+
+          QrLotto := TABSQuery.Create(nil);
+          TABSQuery(QrLotto).DatabaseName := Database.DatabaseName;
+          TABSQuery(QrLotto).Close;
+          TABSQuery(QrLotto).SQL.Clear;
+          TABSQuery(QrLotto).SQL.Add('Select * from Lotto');
+          TABSQuery(QrLotto).SQL.Add('Where (LotID = "'+edLotID.Text+'")');
+          TABSQuery(QrLotto).Open;
+        end;
 
         Setlength(LimitType,20);
         LimitType[0] := QrLotto.fieldByName('LimitRnUp').AsFloat;
@@ -15863,19 +15907,24 @@ begin
           if ArInp1[i,0] <> '' then
           begin
            //------------------------------------------------------------//
-            FoundNumPay := false;
-            if Pos(ArInp1[i,0],StrNumLmt) > 0 then
-              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),ArInp1[i,0]]),[]);
+              QrLimitNum.First;
+              FoundNumPay := false;
+              while not QrLimitNum.EOF do
+              begin
+                if QrLimitNum.FieldByName('Num').AsString = ArInp1[i,0] then
+                begin FoundNumPay := true; Break; end;
+                QrLimitNum.Next;
+              end;
 
             if FoundNumPay then
             begin
-              IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-              IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-              IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-              IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-              IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-              IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-              IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+              IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+              IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+              IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+              IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+              IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+              IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+              IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
               LmtPr1 := QrLimitNum.FieldByName('Price1').AsFloat;
               LmtPr2 := QrLimitNum.FieldByName('Price2').AsFloat;
@@ -15918,18 +15967,23 @@ begin
           if ArINp2[i,0] <> '' then
           begin
            //------------------------------------------------------------//
-            FoundNumPay := false;
-            if Pos(ArInp2[i,0],StrNumLmt) > 0 then
-              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),ArInp2[i,0]]),[]);
+              QrLimitNum.First;
+              FoundNumPay := false;
+              while not QrLimitNum.EOF do
+              begin
+                if QrLimitNum.FieldByName('Num').AsString = ArInp2[i,0] then
+                begin FoundNumPay := true; Break; end;
+                QrLimitNum.Next;
+              end;
 
             if FoundNumPay then
             begin
-              IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-              IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-              IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-              IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-              IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-              IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
+              IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+              IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+              IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+              IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+              IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+              IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
 
               LmtPr1 := QrLimitNum.FieldByName('Price1').AsFloat;
               LmtPr2 := QrLimitNum.FieldByName('Price2').AsFloat;
@@ -15968,15 +16022,20 @@ begin
           if ArInp3[i,0] <> '' then
           begin
             //------------------------------------------------------------//
-            FoundNumPay := false;
-            if Pos(ArInp3[i,0],StrNumLmt) > 0 then
-              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),ArInp3[i,0]]),[]);
+              QrLimitNum.First;
+              FoundNumPay := false;
+              while not QrLimitNum.EOF do
+              begin
+                if QrLimitNum.FieldByName('Num').AsString = ArInp3[i,0] then
+                begin FoundNumPay := true; Break; end;
+                QrLimitNum.Next;
+              end;
 
             if FoundNumPay then
             begin
-              IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-              IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-              IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
+              IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+              IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+              IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
 
               LmtPr1 := QrLimitNum.FieldByName('Price1').AsFloat;
               LmtPr2 := QrLimitNum.FieldByName('Price2').AsFloat;
@@ -16003,14 +16062,19 @@ begin
           if ArInp4[i,0] <> '' then
           begin
             //------------------------------------------------------------//
-            FoundNumPay := false;
-            if Pos(ArInp4[i,0],StrNumLmt) > 0 then
-              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),ArInp4[i,0]]),[]);
+              QrLimitNum.First;
+              FoundNumPay := false;
+              while not QrLimitNum.EOF do
+              begin
+                if QrLimitNum.FieldByName('Num').AsString = ArInp4[i,0] then
+                begin FoundNumPay := true; Break; end;
+                QrLimitNum.Next;
+              end;
 
             if FoundNumPay then
             begin
-              IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-              IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
+              IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+              IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
               LmtPr1 := QrLimitNum.FieldByName('Price1').AsFloat;
               LmtPr2 := QrLimitNum.FieldByName('Price2').AsFloat;
 
@@ -16032,14 +16096,19 @@ begin
           if ArInp5[i,0] <> '' then
           begin
             //------------------------------------------------------------//
-            FoundNumPay := false;
-            if Pos(ArInp5[i,0],StrNumLmt) > 0 then
-              FoundNumPay  := QrLimitNum.Locate('LimitDate; LotType; Num',VarArrayOf([DateToStr(DatePick.Date),StrToInt(edLotID.Text),ArInp5[i,0]]),[]);
+              QrLimitNum.First;
+              FoundNumPay := false;
+              while not QrLimitNum.EOF do
+              begin
+                if QrLimitNum.FieldByName('Num').AsString = ArInp5[i,0] then
+                begin FoundNumPay := true; Break; end;
+                QrLimitNum.Next;
+              end;
 
             if FoundNumPay then
             begin
-              IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-              IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
+              IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+              IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
               LmtPr1 := QrLimitNum.FieldByName('Price1').AsFloat;
               LmtPr2 := QrLimitNum.FieldByName('Price2').AsFloat;
 
@@ -16061,29 +16130,57 @@ begin
       if (RdgSell.ItemIndex = 3) then
       begin
         QrDataCut.Free;
-        QrDataCut := TABSQuery.Create(nil);
-        QrDataCut.DatabaseName := Database.DatabaseName;
-        QrDataCut.Close;
-        QrDataCut.SQL.Clear;
-
-        QrDataCut.SQL.Add('Select Num,Is3TTeng Tod3,Is4TTeng Tod4,Is5TTeng Tod5,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, '+
-                      'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, '+
-                      'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
-
-        QrDataCut.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-        QrDataCut.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
-
-        if (RdgSell.ItemIndex = 3) and (Rdb2.Checked) then
+        if ZConnection1.Connected then
         begin
-          CbItems := CbCutList.Items[CbCutList.itemindex];
-          if (Pos(' ',CbItems) <> 0) then
-            DateCopy  := trim(Copy(CbItems,Pos(' ',CbItems)+1,length(CbItems)-Pos(' ',CbItems)));
+          QrDataCut := TZQuery.Create(nil);
+          TZQuery(QrDataCut).Connection := ZConnection1;
+          TZQuery(QrDataCut).Close;
+          TZQuery(QrDataCut).SQL.Clear;
+          TZQuery(QrDataCut).SQL.Add('Select Num,Is3TTeng Tod3,Is4TTeng Tod4,Is5TTeng Tod5,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, ' +
+                        'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, ' +
+                        'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
+          TZQuery(QrDataCut).SQL.Add('Where (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+          TZQuery(QrDataCut).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', Datepick.Date)) + ')');
 
-          If CbCutList.ItemIndex < CbCutList.Items.Count-1 then
-            QrDataCut.SQL.Add('and (ToString(CutDate,"DD/MM/YYYY hh24:nn:ss") = "'+DateCopy+'")');
+          if (Rdb2.Checked) and (CbCutList.Items.Count > 0) and (CbCutList.ItemIndex >= 0) and (CbCutList.ItemIndex < CbCutList.Items.Count-1) then
+          begin
+            CbItems := CbCutList.Items[CbCutList.itemindex];
+            if (Pos(' ',CbItems) <> 0) then
+            begin
+              DateCopy := trim(Copy(CbItems,Pos(' ',CbItems)+1,length(CbItems)-Pos(' ',CbItems)));
+              // Format DateCopy (DD/MM/YYYY HH:NN:SS) to ISO YYYY-MM-DD HH:NN:SS for Firebird
+              if Length(DateCopy) >= 19 then
+                DateCopy := Copy(DateCopy,7,4) + '-' + Copy(DateCopy,4,2) + '-' + Copy(DateCopy,1,2) + Copy(DateCopy,11,9);
+              TZQuery(QrDataCut).SQL.Add('and (CAST(CutDate AS VARCHAR(30)) LIKE ' + QuotedStr(DateCopy + '%') + ')');
+            end;
+          end;
+          TZQuery(QrDataCut).SQL.Add('Group By Num,Is3TTeng,Is4TTeng,Is5TTeng');
+          TZQuery(QrDataCut).Open;
+        end
+        else
+        begin
+          QrDataCut := TABSQuery.Create(nil);
+          TABSQuery(QrDataCut).DatabaseName := Database.DatabaseName;
+          TABSQuery(QrDataCut).Close;
+          TABSQuery(QrDataCut).SQL.Clear;
+          TABSQuery(QrDataCut).SQL.Add('Select Num,Is3TTeng Tod3,Is4TTeng Tod4,Is5TTeng Tod5,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, '+
+                        'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, '+
+                        'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
+          TABSQuery(QrDataCut).SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+          TABSQuery(QrDataCut).SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+
+          if (Rdb2.Checked) and (CbCutList.Items.Count > 0) and (CbCutList.ItemIndex >= 0) and (CbCutList.ItemIndex < CbCutList.Items.Count-1) then
+          begin
+            CbItems := CbCutList.Items[CbCutList.itemindex];
+            if (Pos(' ',CbItems) <> 0) then
+              DateCopy  := trim(Copy(CbItems,Pos(' ',CbItems)+1,length(CbItems)-Pos(' ',CbItems)));
+
+            If CbCutList.ItemIndex < CbCutList.Items.Count-1 then
+              TABSQuery(QrDataCut).SQL.Add('and (ToString(CutDate,"DD/MM/YYYY hh24:nn:ss") = "'+DateCopy+'")');
+          end;
+          TABSQuery(QrDataCut).SQL.Add('Group By Num,Is3TTeng,Is4TTeng,Is5TTeng,CutDate');
+          TABSQuery(QrDataCut).Open;
         end;
-        QrDataCut.SQL.Add('Group By Num,Is3TTeng,Is4TTeng,Is5TTeng,CutDate');
-        QrDataCut.Open;
 
         if QrDataCut.RecordCount > 0 then
         begin
@@ -16156,7 +16253,7 @@ begin
             else
             if Length(NumCut) = 3 then
             begin
-              Is3ToTeng := QrDataCut.fieldByName('Tod3').AsBoolean;
+              Is3ToTeng := (QrDataCut.fieldByName('Tod3').AsInteger <> 0);
 
               PrCut1[0] := QrDataCut.fieldByName('N3Up').AsFloat;
               PrCut1[1] := QrDataCut.fieldByName('N3Tod').AsFloat;
@@ -16213,7 +16310,7 @@ begin
             else
             if (Length(NumCut) = 4) then
             begin
-              Is4ToTeng := QrDataCut.fieldByName('Tod4').AsBoolean;
+              Is4ToTeng := (QrDataCut.fieldByName('Tod4').AsInteger <> 0);
 
               PrCut1[0] := QrDataCut.fieldByName('N4').AsFloat;
               PrCut1[1] := QrDataCut.fieldByName('N4T').AsFloat;
@@ -16282,7 +16379,7 @@ begin
             else
             if Length(NumCut) = 5 then
             begin
-              Is5ToTeng := QrDataCut.fieldByName('Tod5').AsBoolean;
+              Is5ToTeng := (QrDataCut.fieldByName('Tod5').AsInteger <> 0);
               PrCut1[0] := QrDataCut.fieldByName('N5').AsFloat;
               PrCut1[1] := QrDataCut.fieldByName('N5T').AsFloat;
 
@@ -18150,7 +18247,7 @@ begin
           begin
             With CutGrid3 do
             begin
-              Is3Tod := QrCuted.fieldByName('Tod3').AsBoolean;
+              Is3Tod := (QrCuted.fieldByName('Tod3').AsInteger <> 0);
               Num    := QrCuted.fieldByName('Num').AsString;
               Pr3Up  := QrCuted.fieldByName('N3Up').AsFloat;
               Pr3Tod := QrCuted.fieldByName('N3Tod').AsFloat;
@@ -18358,7 +18455,7 @@ begin
               begin
                 if Not(Chk5Tod2Teng.Checked) then
                 begin
-                  if Not(QrCuted.fieldByName('Tod5').AsBoolean) then
+                  if Not((QrCuted.fieldByName('Tod5').AsInteger <> 0)) then
                   begin
                     foundNum := false;
                     for k := 0 to CutGrid5.RowCount-1 do
@@ -18515,7 +18612,7 @@ begin
               begin
                 if Not(Chk4Tod2Teng.Checked) then
                 begin
-                  if Not(QrCuted.fieldByName('Tod4').AsBoolean) then
+                  if Not((QrCuted.fieldByName('Tod4').AsInteger <> 0)) then
                   begin
                     foundNum := false;
                     for k := 0 to CutGrid4.RowCount-1 do
@@ -20509,7 +20606,7 @@ begin
 end;
 
 procedure TfMain.RdgSellClick(Sender: TObject);
-Var QrItemsCut: TABSQuery;
+Var QrItemsCut: TDataSet;
     i: integer;
 begin
   Case RdgSell.ItemIndex of
@@ -20601,28 +20698,58 @@ begin
   if rdgSell.ItemIndex = 3 then
   with Dm do
   begin
-    QrItemsCut := TABSQuery.Create(nil);
-    QrItemsCut.DatabaseName := Database.DatabaseName;
-    QrItemsCut.SQL.Add('Select DealerID, CutDate from Cut');
-    QrItemsCut.SQL.Add('Where ((DateCut = :aDate)');
-    QrItemsCut.SQL.Add('And (LottoType = :aLotType))');
-    QrItemsCut.SQL.Add('Group By DealerID, CutDate');
-    QrItemsCut.SQL.Add('Order By CutDate DESC');
-    QrItemsCut.ParamByName('aDate').Value    := DateToStr(DatePick.Date);
-    QrItemsCut.ParamByName('aLotType').Value := StrToInt(edLotID.Text);
-    QrItemsCut.Open;
-
-    QrItemsCut.First;
-    CbCutlist.Clear;
-    
-    for i := 0 to QrItemsCut.RecordCount-1 do
+    if ZConnection1.Connected then
     begin
-      CbCutList.Items.Add(QrItemsCut.fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:mm:ss',QrItemsCut.fieldByName('CutDate').AsDateTime));
-      QrItemsCut.Next;
+      QrItemsCut := TZQuery.Create(nil);
+      TZQuery(QrItemsCut).Connection := ZConnection1;
+      TZQuery(QrItemsCut).Close;
+      TZQuery(QrItemsCut).SQL.Clear;
+      TZQuery(QrItemsCut).SQL.Add('Select DealerID, CutDate from Cut');
+      TZQuery(QrItemsCut).SQL.Add('Where (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      TZQuery(QrItemsCut).SQL.Add('and (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrItemsCut).SQL.Add('Group By DealerID, CutDate');
+      TZQuery(QrItemsCut).SQL.Add('Order By CutDate DESC');
+      TZQuery(QrItemsCut).Open;
+
+      TZQuery(QrItemsCut).First;
+      CbCutlist.Clear;
+
+      for i := 0 to TZQuery(QrItemsCut).RecordCount-1 do
+      begin
+        CbCutList.Items.Add(TZQuery(QrItemsCut).fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:nn:ss', TZQuery(QrItemsCut).fieldByName('CutDate').AsDateTime));
+        TZQuery(QrItemsCut).Next;
+      end;
+      TZQuery(QrItemsCut).Free;
+      CbCutList.Items.Add('ยอดตีออกทั้งหมด');
+      CbCutList.ItemIndex := 0;
+    end
+    else
+    begin
+      QrItemsCut := TABSQuery.Create(nil);
+      TABSQuery(QrItemsCut).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrItemsCut).Close;
+      TABSQuery(QrItemsCut).SQL.Clear;
+      TABSQuery(QrItemsCut).SQL.Add('Select DealerID, CutDate from Cut');
+      TABSQuery(QrItemsCut).SQL.Add('Where ((DateCut = :aDate)');
+      TABSQuery(QrItemsCut).SQL.Add('And (LottoType = :aLotType))');
+      TABSQuery(QrItemsCut).SQL.Add('Group By DealerID, CutDate');
+      TABSQuery(QrItemsCut).SQL.Add('Order By CutDate DESC');
+      TABSQuery(QrItemsCut).ParamByName('aDate').Value    := DateToStr(DatePick.Date);
+      TABSQuery(QrItemsCut).ParamByName('aLotType').Value := StrToInt(edLotID.Text);
+      TABSQuery(QrItemsCut).Open;
+
+      TABSQuery(QrItemsCut).First;
+      CbCutlist.Clear;
+
+      for i := 0 to TABSQuery(QrItemsCut).RecordCount-1 do
+      begin
+        CbCutList.Items.Add(TABSQuery(QrItemsCut).fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:nn:ss', TABSQuery(QrItemsCut).fieldByName('CutDate').AsDateTime));
+        TABSQuery(QrItemsCut).Next;
+      end;
+      TABSQuery(QrItemsCut).Free;
+      CbCutList.Items.Add('ยอดตีออกทั้งหมด');
+      CbCutList.ItemIndex := 0;
     end;
-    QrItemsCut.Free;
-    CbCutList.Items.Add('ยอดตีออกทั้งหมด');
-    CbCutList.ItemIndex := 0;
   end;
 
   Totalsales;
@@ -25262,7 +25389,7 @@ Var FoundCorctNum,foundCust,foundCustAr,FoundNumPay: Boolean;
     i,j,k,C,CRow,Pa,Pb,Pab,CustNoInt: integer;
     C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,CustNo,NetCust,CustNoIntToStr: String;
     CDwn: Array of String;
-    QrDataRep,QrDataCust,QrCustComPay,QrLimitNum: TABSQuery;
+    QrDataRep,QrDataCust,QrCustComPay,QrLimitNum: TDataSet;
     Income,Commis,SumCom,Total,Win,Pay,Net: Array Of real;
     footSum: Array of real;
     SumCust: Array of Array of real;
@@ -25310,39 +25437,82 @@ begin
 
   With Dm,CustListRep do
   begin
-    QrCustComPay := TABSQuery.Create(nil);
-    QrCustComPay.DatabaseName := Database.DatabaseName;
-    QrCustComPay.Close;
-    QrCustComPay.SQL.Clear;
-    QrCustComPay.SQL.Add('Select DISTINCT CustNo from Data');
-    QrCustComPay.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrCustComPay.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-    QrCustComPay.Open;
+    if ZConnection1.Connected then
+    begin
+      QrCustComPay := TZQuery.Create(nil);
+      TZQuery(QrCustComPay).Connection := ZConnection1;
+      TZQuery(QrCustComPay).Close;
+      TZQuery(QrCustComPay).SQL.Clear;
+      TZQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TZQuery(QrCustComPay).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrCustComPay).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      TZQuery(QrCustComPay).Open;
+    end
+    else
+    begin
+      QrCustComPay := TABSQuery.Create(nil);
+      TABSQuery(QrCustComPay).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrCustComPay).Close;
+      TABSQuery(QrCustComPay).SQL.Clear;
+      TABSQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TABSQuery(QrCustComPay).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrCustComPay).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+      TABSQuery(QrCustComPay).Open;
+    end;
 
     if QrCustComPay.RecordCount > 0 then
       Pbar.Visible := true;
 
     Application.ProcessMessages;
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    QrDataRep.SQL.Add('Select * from Data');
-    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-    QrDataRep.SQL.Add('ORDER BY CustNo DESC');
-    QrDataRep.Open;
+    if ZConnection1.Connected then
+    begin
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      TZQuery(QrDataRep).SQL.Add('Select * from Data');
+      TZQuery(QrDataRep).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDataRep).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      TZQuery(QrDataRep).SQL.Add('ORDER BY CustNo DESC');
+      TZQuery(QrDataRep).Open;
+    end
+    else
+    begin
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      TABSQuery(QrDataRep).SQL.Add('Select * from Data');
+      TABSQuery(QrDataRep).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrDataRep).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+      TABSQuery(QrDataRep).SQL.Add('ORDER BY CustNo DESC');
+      TABSQuery(QrDataRep).Open;
+    end;
 
     if QrCustComPay.RecordCount > 0 then
     begin
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -25572,13 +25742,13 @@ begin
 
           if FoundNumPay then
           begin
-            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+            IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+            IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+            IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+            IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+            IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+            IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+            IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
             PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat/100;
             PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat/100;
@@ -26426,7 +26596,7 @@ end;
 
 procedure TfMain.DealerRepTotals;
 Var
-    QrDataRep,QrDealerComPay,QrLimitNum: TABSQuery;
+    QrDataRep,QrDealerComPay,QrLimitNum: TDataSet;
     TbDealer: TABSTable;
     CDwn: Array of String;
     footSum: Array of real;
@@ -26483,70 +26653,104 @@ begin
     TbDealer.Close;
     TbDealer.Open;
 
-    QrDealerComPay := TABSQuery.Create(nil);
-    QrDealerComPay.DatabaseName := Database.DatabaseName;
-    QrDealerComPay.Close;
-    QrDealerComPay.SQL.Clear;
-    QrDealerComPay.SQL.Add('Select DISTINCT DealerID from Cut');
-    QrDealerComPay.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-    QrDealerComPay.SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
-    if RdbRepByDealer.Checked then
-      QrDealerComPay.SQL.Add('and (DealerID = "'+Items[ItemIndex].Caption+'")');
-    QrDealerComPay.Open;
+    if ZConnection1.Connected then
+    begin
+      QrDealerComPay := TZQuery.Create(nil);
+      TZQuery(QrDealerComPay).Connection := ZConnection1;
+      TZQuery(QrDealerComPay).Close;
+      TZQuery(QrDealerComPay).SQL.Clear;
+      TZQuery(QrDealerComPay).SQL.Add('Select DISTINCT DealerID from Cut');
+      TZQuery(QrDealerComPay).SQL.Add('Where (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDealerComPay).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      if RdbRepByDealer.Checked then
+        TZQuery(QrDealerComPay).SQL.Add('and (DealerID = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+      TZQuery(QrDealerComPay).Open;
+    end
+    else
+    begin
+      QrDealerComPay := TABSQuery.Create(nil);
+      TABSQuery(QrDealerComPay).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDealerComPay).Close;
+      TABSQuery(QrDealerComPay).SQL.Clear;
+      TABSQuery(QrDealerComPay).SQL.Add('Select DISTINCT DealerID from Cut');
+      TABSQuery(QrDealerComPay).SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+      TABSQuery(QrDealerComPay).SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
+      if RdbRepByDealer.Checked then
+        TABSQuery(QrDealerComPay).SQL.Add('and (DealerID = "'+Items[ItemIndex].Caption+'")');
+      TABSQuery(QrDealerComPay).Open;
+    end;
 
     if QrDealerComPay.RecordCount > 0 then
       Pbar.Visible := true;
     Application.ProcessMessages;
 
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    {
-    SQLTxt := 'Select Num,DealerID,Is3TTeng Tod3,Is4TTeng Tod4,Is5TTeng Tod5,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, ';
-    QrDataRep.SQL.Add(SQLTxt +'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, '+
-                              'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
-    }
-    SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ';
-    QrDataRep.SQL.Add(SQLTxt +' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, '+
-                              ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut');
-
-
-    //QrDataRep.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-    //QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
-
-    if RdbRepByDealer.Checked then
+    if ZConnection1.Connected then
     begin
-      if SelCount = 0 then
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ' +
+                ' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, ' +
+                ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut';
+      TZQuery(QrDataRep).SQL.Add(SQLTxt);
+
+      if RdbRepByDealer.Checked then
       begin
-        Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
-        QrDataRep.Free;
-        Exit;
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TZQuery(QrDataRep).SQL.Add('Where (DealerID = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+          TZQuery(QrDataRep).SQL.Add('and (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+          TZQuery(QrDataRep).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+          TZQuery(QrDataRep).Open;
+        end;
       end
       else
       begin
-        QrDataRep.SQL.Add('Where (DealerID = "'+Items[ItemIndex].Caption+'")');
-        QrDataRep.SQL.Add('and (LottoType = "'+edLotID.Text+'")');
-        QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
-
-        //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5, CutDate ');
-        //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5');
-        QrDataRep.Open;
-        //Showmessage(IntToStr(QrDataRep.RecordCount));
+        TZQuery(QrDataRep).SQL.Add('Where (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrDataRep).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrDataRep).Open;
       end;
     end
     else
     begin
-      //Showmessage('djfdkfd');
-      //QrDataRep.SQL.Add('Where (DealerID = 0004)');
-      //QrDataRep.SQL.Add('Where (DealerID <> "'+'0000'+'")');
-      QrDataRep.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-      QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ' +
+                ' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, ' +
+                ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut';
+      TABSQuery(QrDataRep).SQL.Add(SQLTxt);
 
-      //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5, CutDate ');
-      //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5');
-      QrDataRep.Open;
-      //Showmessage(IntToStr(QrDataRep.RecordCount));
+      if RdbRepByDealer.Checked then
+      begin
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TABSQuery(QrDataRep).SQL.Add('Where (DealerID = "'+Items[ItemIndex].Caption+'")');
+          TABSQuery(QrDataRep).SQL.Add('and (LottoType = "'+edLotID.Text+'")');
+          TABSQuery(QrDataRep).SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+          TABSQuery(QrDataRep).Open;
+        end;
+      end
+      else
+      begin
+        TABSQuery(QrDataRep).SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+        TABSQuery(QrDataRep).SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrDataRep).Open;
+      end;
     end;
     //TbDealer.Close;
     //TbDealer.Open;
@@ -26554,14 +26758,28 @@ begin
 
     if QrDealerComPay.RecordCount > 0 then
     begin
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -26664,14 +26882,28 @@ begin
         Net[i]     := 0;
       end;
 
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -26708,9 +26940,9 @@ begin
         WinItem  := 0;
         PayItem  := 0;
 
-        Is3Tod    := QrDataRep.fieldByName('Tod3').AsBoolean;
-        Is4Tod    := QrDataRep.fieldByName('Tod4').AsBoolean;
-        Is5Tod    := QrDataRep.fieldByName('Tod5').AsBoolean;
+        Is3Tod    := (QrDataRep.fieldByName('Tod3').AsInteger <> 0);
+        Is4Tod    := (QrDataRep.fieldByName('Tod4').AsInteger <> 0);
+        Is5Tod    := (QrDataRep.fieldByName('Tod5').AsInteger <> 0);
 
         Numb      := QrDataRep.fieldByName('Num').AsString;
         RunUp     := QrDataRep.fieldByName('RU').AsFloat;
@@ -26864,13 +27096,13 @@ begin
 
           if FoundNumPay then
           begin
-            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+            IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+            IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+            IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+            IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+            IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+            IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+            IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
             PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat;
             PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat;
@@ -27494,7 +27726,7 @@ Var FoundCorctNum,foundCust,FoundNumPay: Boolean;
     i,j,k,Pa,Pb,Pab,CountCust,CustNoInt: integer;
     C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,CustNo,StrNumLmt: String;
     CDwn: Array of String;
-    QrDataRep,QrCustComPay,QrLimitNum: TABSQuery;
+    QrDataRep,QrCustComPay,QrLimitNum: TDataSet;
     Income,Commis,SumCom,Total,Win,Pay,TotalPay,Net: Array Of real;
     footSum: Array of real;
     SellItem,ComItem,WinItem,PayItem: real;
@@ -27538,59 +27770,121 @@ begin
 
   With Dm,CustListRep do
   begin
-    QrCustComPay := TABSQuery.Create(nil);
-    QrCustComPay.DatabaseName := Database.DatabaseName;
-    QrCustComPay.Close;
-    QrCustComPay.SQL.Clear;
-    QrCustComPay.SQL.Add('Select DISTINCT CustNo from Data');
-    QrCustComPay.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrCustComPay.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-    if RdbRepByCust.Checked then
-      QrCustComPay.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
-    QrCustComPay.Open;
+    if ZConnection1.Connected then
+    begin
+      QrCustComPay := TZQuery.Create(nil);
+      TZQuery(QrCustComPay).Connection := ZConnection1;
+      TZQuery(QrCustComPay).Close;
+      TZQuery(QrCustComPay).SQL.Clear;
+      TZQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TZQuery(QrCustComPay).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrCustComPay).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      if RdbRepByCust.Checked then
+        TZQuery(QrCustComPay).SQL.Add('and (CustNo = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+      TZQuery(QrCustComPay).Open;
+    end
+    else
+    begin
+      QrCustComPay := TABSQuery.Create(nil);
+      TABSQuery(QrCustComPay).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrCustComPay).Close;
+      TABSQuery(QrCustComPay).SQL.Clear;
+      TABSQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TABSQuery(QrCustComPay).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrCustComPay).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+      if RdbRepByCust.Checked then
+        TABSQuery(QrCustComPay).SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
+      TABSQuery(QrCustComPay).Open;
+    end;
 
     if QrCustComPay.RecordCount > 0 then
       Pbar.Visible := true;
 
     Application.ProcessMessages;
 
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    QrDataRep.SQL.Add('Select * from Data');
-    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-
-    if RdbRepByCust.Checked then
+    if ZConnection1.Connected then
     begin
-      if SelCount = 0 then
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      TZQuery(QrDataRep).SQL.Add('Select * from Data');
+      TZQuery(QrDataRep).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDataRep).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+
+      if RdbRepByCust.Checked then
       begin
-        Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
-        QrDataRep.Free;
-        Exit;
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TZQuery(QrDataRep).SQL.Add('and (CustNo = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+          TZQuery(QrDataRep).Open;
+        end;
       end
       else
       begin
-        QrDataRep.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
-        QrDataRep.Open;
+        TZQuery(QrDataRep).Open;
       end;
     end
     else
     begin
-      QrDataRep.Open;
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      TABSQuery(QrDataRep).SQL.Add('Select * from Data');
+      TABSQuery(QrDataRep).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrDataRep).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+
+      if RdbRepByCust.Checked then
+      begin
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TABSQuery(QrDataRep).SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
+          TABSQuery(QrDataRep).Open;
+        end;
+      end
+      else
+      begin
+        TABSQuery(QrDataRep).Open;
+      end;
     end;
 
     if QrCustComPay.RecordCount > 0 then
     begin
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -27774,13 +28068,13 @@ begin
 
           if FoundNumPay then
           begin
-            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+            IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+            IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+            IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+            IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+            IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+            IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+            IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
             PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat;
             PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat;
@@ -28616,7 +28910,7 @@ Var i,j,k,l,m, FoundNum: integer;
     Sum3Up,Sum3Tod,Sum3Dwn,Sum4,Sum4Tod,Sum5,Sum5Tod,SumMoney,SumCom : Real;
     sum2up,sum2Tod,Sum2Mee,Sum2Lft,sum2Rth,Sum2Dwn: Real;
     sum1up,sum1Lft,Sum1Mid,Sum1Rth,sum1Dwn,Sum1DLft,Sum1DRth: Real;
-    QrDataRep: TABSQuery;
+    QrDataRep: TDataSet;
     CutNum: String;
     found,FoundLmt,isTod: Boolean;
     Limited: Array of Boolean;
@@ -28660,26 +28954,52 @@ begin
   begin
 
     Application.ProcessMessages;
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    QrDataRep.SQL.Add('Select * from Data');
-    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-
-    if RdbRepByCust.Checked then
+    if ZConnection1.Connected then
     begin
-      if SelCount > 0 then
-        QrDataRep.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")')
-      else
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      TZQuery(QrDataRep).SQL.Add('Select * from Data');
+      TZQuery(QrDataRep).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDataRep).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+
+      if RdbRepByCust.Checked then
       begin
-        Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
-        QrDataRep.Free;
-        Exit;
+        if SelCount > 0 then
+          TZQuery(QrDataRep).SQL.Add('and (CustNo = ' + QuotedStr(Items[ItemIndex].Caption) + ')')
+        else
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end;
       end;
+      TZQuery(QrDataRep).Open;
+    end
+    else
+    begin
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      TABSQuery(QrDataRep).SQL.Add('Select * from Data');
+      TABSQuery(QrDataRep).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrDataRep).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+
+      if RdbRepByCust.Checked then
+      begin
+        if SelCount > 0 then
+          TABSQuery(QrDataRep).SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")')
+        else
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end;
+      end;
+      TABSQuery(QrDataRep).Open;
     end;
-    QrDataRep.Open;
     Pbar.Visible := true;
 
     if QrDataRep.RecordCount = 0 then
@@ -32000,16 +32320,26 @@ begin
   //CutProcBtnClick(Sender);
 end;
 
-procedure TfMain.BtnSelHuadClick(Sender: TObject);
+procedure TfMain.BtnSelHuadClick(Sender: TObject);   
+var
+  idx: Integer;
+  selName: string;
 begin
   With frmHuad, HuadList do
   begin
-    if Showmodal = mrOk then
+    if (Showmodal = mrOk) and (Selected <> nil) then
     begin
-      DatePick.Date := StrToDate(Items[selected.index].Caption);
-      lbDueDate.Caption := DateToStr(DatePick.Date);
-      lbLottoName.Caption := ComboLotType.Items[ComboLotType.itemIndex];
-      ComboLotType.ItemIndex := ComboLotType.Items.IndexOf(Items[selected.index].SubItems[0]);
+      DatePick.Date := StrToDate(Selected.Caption);
+      lbDueDate.Caption := DateToStr(DatePick.Date); 
+      
+      if Selected.SubItems.Count > 0 then
+      begin
+        selName := Selected.SubItems[0];
+        idx := ComboLotType.Items.IndexOf(selName);
+        if idx >= 0 then
+          ComboLotType.ItemIndex := idx;
+      end;
+      
       ComboLotTypeChange(Sender);
     end;
   end;
@@ -37650,7 +37980,7 @@ Var foundCust,FoundNumPay,FoundNum,Is3ToTeng,Is4ToTeng,Is5ToTeng,FoundInp: Boole
     QrDataRep: TDataSet;
     ZQDataRep: TZQuery;
     ABSDataRep: TABSQuery;
-    QrDataCut,QrLotto,QrLimitNum: TABSQuery;
+    QrDataCut,QrLotto,QrLimitNum: TDataSet;
     Numb,Nums,NumCut,PU,PD,P1,P2,ID,RefID: String;
     Sum1: Array of array of Real;
     SumItem: Array of array of Integer;
@@ -37693,7 +38023,7 @@ begin
       ZQDataRep := TZQuery.Create(nil);
       ZQDataRep.Connection := ZConnection1;
       ZQDataRep.SQL.Add('Select * from Data');
-      ZQDataRep.SQL.Add('Where (LotType = ' + IntToStr(ComboLotType.ItemIndex) + ' or LotType = ' + QuotedStr(edLotID.Text) + ')');
+      ZQDataRep.SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
       ZQDataRep.SQL.Add('and (Period_Date = :pDate)');
 
       if Not ChkTotal.Checked then
@@ -39668,7 +39998,7 @@ begin
 end;
 
 procedure TfMain.RdgSellClick(Sender: TObject);
-Var QrItemsCut: TABSQuery;
+Var QrItemsCut: TDataSet;
     i: integer;
 begin
   Case RdgSell.ItemIndex of
@@ -39760,28 +40090,58 @@ begin
   if rdgSell.ItemIndex = 3 then
   with Dm do
   begin
-    QrItemsCut := TABSQuery.Create(nil);
-    QrItemsCut.DatabaseName := Database.DatabaseName;
-    QrItemsCut.SQL.Add('Select DealerID, CutDate from Cut');
-    QrItemsCut.SQL.Add('Where ((DateCut = :aDate)');
-    QrItemsCut.SQL.Add('And (LottoType = :aLotType))');
-    QrItemsCut.SQL.Add('Group By DealerID, CutDate');
-    QrItemsCut.SQL.Add('Order By CutDate DESC');
-    QrItemsCut.ParamByName('aDate').Value    := DateToStr(DatePick.Date);
-    QrItemsCut.ParamByName('aLotType').Value := StrToInt(edLotID.Text);
-    QrItemsCut.Open;
-
-    QrItemsCut.First;
-    CbCutlist.Clear;
-    
-    for i := 0 to QrItemsCut.RecordCount-1 do
+    if ZConnection1.Connected then
     begin
-      CbCutList.Items.Add(QrItemsCut.fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:mm:ss',QrItemsCut.fieldByName('CutDate').AsDateTime));
-      QrItemsCut.Next;
+      QrItemsCut := TZQuery.Create(nil);
+      TZQuery(QrItemsCut).Connection := ZConnection1;
+      TZQuery(QrItemsCut).Close;
+      TZQuery(QrItemsCut).SQL.Clear;
+      TZQuery(QrItemsCut).SQL.Add('Select DealerID, CutDate from Cut');
+      TZQuery(QrItemsCut).SQL.Add('Where (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      TZQuery(QrItemsCut).SQL.Add('and (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrItemsCut).SQL.Add('Group By DealerID, CutDate');
+      TZQuery(QrItemsCut).SQL.Add('Order By CutDate DESC');
+      TZQuery(QrItemsCut).Open;
+
+      TZQuery(QrItemsCut).First;
+      CbCutlist.Clear;
+
+      for i := 0 to TZQuery(QrItemsCut).RecordCount-1 do
+      begin
+        CbCutList.Items.Add(TZQuery(QrItemsCut).fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:nn:ss', TZQuery(QrItemsCut).fieldByName('CutDate').AsDateTime));
+        TZQuery(QrItemsCut).Next;
+      end;
+      TZQuery(QrItemsCut).Free;
+      CbCutList.Items.Add('ยอดตีออกทั้งหมด');
+      CbCutList.ItemIndex := 0;
+    end
+    else
+    begin
+      QrItemsCut := TABSQuery.Create(nil);
+      TABSQuery(QrItemsCut).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrItemsCut).Close;
+      TABSQuery(QrItemsCut).SQL.Clear;
+      TABSQuery(QrItemsCut).SQL.Add('Select DealerID, CutDate from Cut');
+      TABSQuery(QrItemsCut).SQL.Add('Where ((DateCut = :aDate)');
+      TABSQuery(QrItemsCut).SQL.Add('And (LottoType = :aLotType))');
+      TABSQuery(QrItemsCut).SQL.Add('Group By DealerID, CutDate');
+      TABSQuery(QrItemsCut).SQL.Add('Order By CutDate DESC');
+      TABSQuery(QrItemsCut).ParamByName('aDate').Value    := DateToStr(DatePick.Date);
+      TABSQuery(QrItemsCut).ParamByName('aLotType').Value := StrToInt(edLotID.Text);
+      TABSQuery(QrItemsCut).Open;
+
+      TABSQuery(QrItemsCut).First;
+      CbCutlist.Clear;
+
+      for i := 0 to TABSQuery(QrItemsCut).RecordCount-1 do
+      begin
+        CbCutList.Items.Add(TABSQuery(QrItemsCut).fieldByName('DealerID').AsString+' '+FormatDateTime('dd/mm/yyyy hh:nn:ss', TABSQuery(QrItemsCut).fieldByName('CutDate').AsDateTime));
+        TABSQuery(QrItemsCut).Next;
+      end;
+      TABSQuery(QrItemsCut).Free;
+      CbCutList.Items.Add('ยอดตีออกทั้งหมด');
+      CbCutList.ItemIndex := 0;
     end;
-    QrItemsCut.Free;
-    CbCutList.Items.Add('ยอดตีออกทั้งหมด');
-    CbCutList.ItemIndex := 0;
   end;
 
   Totalsales;
@@ -44421,7 +44781,7 @@ Var FoundCorctNum,foundCust,foundCustAr,FoundNumPay: Boolean;
     i,j,k,C,CRow,Pa,Pb,Pab,CustNoInt: integer;
     C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,CustNo,NetCust,CustNoIntToStr: String;
     CDwn: Array of String;
-    QrDataRep,QrDataCust,QrCustComPay,QrLimitNum: TABSQuery;
+    QrDataRep,QrDataCust,QrCustComPay,QrLimitNum: TDataSet;
     Income,Commis,SumCom,Total,Win,Pay,Net: Array Of real;
     footSum: Array of real;
     SumCust: Array of Array of real;
@@ -44469,39 +44829,82 @@ begin
 
   With Dm,CustListRep do
   begin
-    QrCustComPay := TABSQuery.Create(nil);
-    QrCustComPay.DatabaseName := Database.DatabaseName;
-    QrCustComPay.Close;
-    QrCustComPay.SQL.Clear;
-    QrCustComPay.SQL.Add('Select DISTINCT CustNo from Data');
-    QrCustComPay.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrCustComPay.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-    QrCustComPay.Open;
+    if ZConnection1.Connected then
+    begin
+      QrCustComPay := TZQuery.Create(nil);
+      TZQuery(QrCustComPay).Connection := ZConnection1;
+      TZQuery(QrCustComPay).Close;
+      TZQuery(QrCustComPay).SQL.Clear;
+      TZQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TZQuery(QrCustComPay).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrCustComPay).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      TZQuery(QrCustComPay).Open;
+    end
+    else
+    begin
+      QrCustComPay := TABSQuery.Create(nil);
+      TABSQuery(QrCustComPay).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrCustComPay).Close;
+      TABSQuery(QrCustComPay).SQL.Clear;
+      TABSQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TABSQuery(QrCustComPay).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrCustComPay).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+      TABSQuery(QrCustComPay).Open;
+    end;
 
     if QrCustComPay.RecordCount > 0 then
       Pbar.Visible := true;
 
     Application.ProcessMessages;
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    QrDataRep.SQL.Add('Select * from Data');
-    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-    QrDataRep.SQL.Add('ORDER BY CustNo DESC');
-    QrDataRep.Open;
+    if ZConnection1.Connected then
+    begin
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      TZQuery(QrDataRep).SQL.Add('Select * from Data');
+      TZQuery(QrDataRep).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDataRep).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      TZQuery(QrDataRep).SQL.Add('ORDER BY CustNo DESC');
+      TZQuery(QrDataRep).Open;
+    end
+    else
+    begin
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      TABSQuery(QrDataRep).SQL.Add('Select * from Data');
+      TABSQuery(QrDataRep).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrDataRep).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+      TABSQuery(QrDataRep).SQL.Add('ORDER BY CustNo DESC');
+      TABSQuery(QrDataRep).Open;
+    end;
 
     if QrCustComPay.RecordCount > 0 then
     begin
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -44731,13 +45134,13 @@ begin
 
           if FoundNumPay then
           begin
-            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+            IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+            IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+            IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+            IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+            IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+            IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+            IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
             PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat/100;
             PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat/100;
@@ -45585,7 +45988,7 @@ end;
 
 procedure TfMain.DealerRepTotals;
 Var
-    QrDataRep,QrDealerComPay,QrLimitNum: TABSQuery;
+    QrDataRep,QrDealerComPay,QrLimitNum: TDataSet;
     TbDealer: TABSTable;
     CDwn: Array of String;
     footSum: Array of real;
@@ -45642,70 +46045,104 @@ begin
     TbDealer.Close;
     TbDealer.Open;
 
-    QrDealerComPay := TABSQuery.Create(nil);
-    QrDealerComPay.DatabaseName := Database.DatabaseName;
-    QrDealerComPay.Close;
-    QrDealerComPay.SQL.Clear;
-    QrDealerComPay.SQL.Add('Select DISTINCT DealerID from Cut');
-    QrDealerComPay.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-    QrDealerComPay.SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
-    if RdbRepByDealer.Checked then
-      QrDealerComPay.SQL.Add('and (DealerID = "'+Items[ItemIndex].Caption+'")');
-    QrDealerComPay.Open;
+    if ZConnection1.Connected then
+    begin
+      QrDealerComPay := TZQuery.Create(nil);
+      TZQuery(QrDealerComPay).Connection := ZConnection1;
+      TZQuery(QrDealerComPay).Close;
+      TZQuery(QrDealerComPay).SQL.Clear;
+      TZQuery(QrDealerComPay).SQL.Add('Select DISTINCT DealerID from Cut');
+      TZQuery(QrDealerComPay).SQL.Add('Where (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDealerComPay).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      if RdbRepByDealer.Checked then
+        TZQuery(QrDealerComPay).SQL.Add('and (DealerID = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+      TZQuery(QrDealerComPay).Open;
+    end
+    else
+    begin
+      QrDealerComPay := TABSQuery.Create(nil);
+      TABSQuery(QrDealerComPay).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDealerComPay).Close;
+      TABSQuery(QrDealerComPay).SQL.Clear;
+      TABSQuery(QrDealerComPay).SQL.Add('Select DISTINCT DealerID from Cut');
+      TABSQuery(QrDealerComPay).SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+      TABSQuery(QrDealerComPay).SQL.Add('and (DateCut ="'+DateToStr(Datepick.Date)+'")');
+      if RdbRepByDealer.Checked then
+        TABSQuery(QrDealerComPay).SQL.Add('and (DealerID = "'+Items[ItemIndex].Caption+'")');
+      TABSQuery(QrDealerComPay).Open;
+    end;
 
     if QrDealerComPay.RecordCount > 0 then
       Pbar.Visible := true;
     Application.ProcessMessages;
 
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    {
-    SQLTxt := 'Select Num,DealerID,Is3TTeng Tod3,Is4TTeng Tod4,Is5TTeng Tod5,Sum(Num5) N5,Sum(Num5Tod) N5T,Sum(Num4) N4,Sum(Num4Tod) N4T, Sum(Num3Up) N3Up,Sum(Num3Tod) N3Tod,sum(Num3Dwn) N3Dwn, ';
-    QrDataRep.SQL.Add(SQLTxt +'Sum(Num2Up) N2U,Sum(Num2Tod) N2T,Sum(Num2mee) N2Me,Sum(Num2Left) N2L,Sum(Num2Right) N2R,Sum(Num2Down) N2D, '+
-                              'Sum(RunUp) RU,Sum(NumPos1) PU1,Sum(NumPos2) PU2,Sum(NumPos3) PU3,Sum(RunDown) RD,Sum(DownPos1) PD1,Sum(DownPos2) PD2 from Cut');
-    }
-    SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ';
-    QrDataRep.SQL.Add(SQLTxt +' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, '+
-                              ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut');
-
-
-    //QrDataRep.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-    //QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
-
-    if RdbRepByDealer.Checked then
+    if ZConnection1.Connected then
     begin
-      if SelCount = 0 then
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ' +
+                ' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, ' +
+                ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut';
+      TZQuery(QrDataRep).SQL.Add(SQLTxt);
+
+      if RdbRepByDealer.Checked then
       begin
-        Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
-        QrDataRep.Free;
-        Exit;
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TZQuery(QrDataRep).SQL.Add('Where (DealerID = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+          TZQuery(QrDataRep).SQL.Add('and (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+          TZQuery(QrDataRep).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+          TZQuery(QrDataRep).Open;
+        end;
       end
       else
       begin
-        QrDataRep.SQL.Add('Where (DealerID = "'+Items[ItemIndex].Caption+'")');
-        QrDataRep.SQL.Add('and (LottoType = "'+edLotID.Text+'")');
-        QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
-
-        //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5, CutDate ');
-        //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5');
-        QrDataRep.Open;
-        //Showmessage(IntToStr(QrDataRep.RecordCount));
+        TZQuery(QrDataRep).SQL.Add('Where (LottoType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrDataRep).SQL.Add('and (DateCut = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrDataRep).Open;
       end;
     end
     else
     begin
-      //Showmessage('djfdkfd');
-      //QrDataRep.SQL.Add('Where (DealerID = 0004)');
-      //QrDataRep.SQL.Add('Where (DealerID <> "'+'0000'+'")');
-      QrDataRep.SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
-      QrDataRep.SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      SQLTxt := 'Select Num, DealerID, Is3TTeng Tod3, Is4TTeng Tod4, Is5TTeng Tod5, (Num5) N5, (Num5Tod) N5T, (Num4) N4, (Num4Tod) N4T, (Num3Up) N3Up, (Num3Tod) N3Tod, (Num3Dwn) N3Dwn, ' +
+                ' (Num2Up) N2U, (Num2Tod) N2T, (Num2mee) N2Me, (Num2Left) N2L, (Num2Right) N2R, (Num2Down) N2D, ' +
+                ' (RunUp) RU, (NumPos1) PU1, (NumPos2) PU2, (NumPos3) PU3, (RunDown) RD, (DownPos1) PD1, (DownPos2) PD2 from Cut';
+      TABSQuery(QrDataRep).SQL.Add(SQLTxt);
 
-      //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5, CutDate ');
-      //QrDataRep.SQL.Add('Group By Num, DealerID, Tod3, Tod4, Tod5');
-      QrDataRep.Open;
-      //Showmessage(IntToStr(QrDataRep.RecordCount));
+      if RdbRepByDealer.Checked then
+      begin
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกเจ้ามือ ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TABSQuery(QrDataRep).SQL.Add('Where (DealerID = "'+Items[ItemIndex].Caption+'")');
+          TABSQuery(QrDataRep).SQL.Add('and (LottoType = "'+edLotID.Text+'")');
+          TABSQuery(QrDataRep).SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+          TABSQuery(QrDataRep).Open;
+        end;
+      end
+      else
+      begin
+        TABSQuery(QrDataRep).SQL.Add('Where (LottoType = "'+edLotID.Text+'")');
+        TABSQuery(QrDataRep).SQL.Add('and (DateCut = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrDataRep).Open;
+      end;
     end;
     //TbDealer.Close;
     //TbDealer.Open;
@@ -45713,14 +46150,28 @@ begin
 
     if QrDealerComPay.RecordCount > 0 then
     begin
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -45823,14 +46274,28 @@ begin
         Net[i]     := 0;
       end;
 
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -45867,9 +46332,9 @@ begin
         WinItem  := 0;
         PayItem  := 0;
 
-        Is3Tod    := QrDataRep.fieldByName('Tod3').AsBoolean;
-        Is4Tod    := QrDataRep.fieldByName('Tod4').AsBoolean;
-        Is5Tod    := QrDataRep.fieldByName('Tod5').AsBoolean;
+        Is3Tod    := (QrDataRep.fieldByName('Tod3').AsInteger <> 0);
+        Is4Tod    := (QrDataRep.fieldByName('Tod4').AsInteger <> 0);
+        Is5Tod    := (QrDataRep.fieldByName('Tod5').AsInteger <> 0);
 
         Numb      := QrDataRep.fieldByName('Num').AsString;
         RunUp     := QrDataRep.fieldByName('RU').AsFloat;
@@ -46023,13 +46488,13 @@ begin
 
           if FoundNumPay then
           begin
-            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+            IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+            IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+            IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+            IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+            IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+            IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+            IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
             PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat;
             PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat;
@@ -46653,7 +47118,7 @@ Var FoundCorctNum,foundCust,FoundNumPay: Boolean;
     i,j,k,Pa,Pb,Pab,CountCust,CustNoInt: integer;
     C2Left,C2Tang,C2Up,C2Dwn,C3Up,C3UpTemp,C4Up,C5UP,Num,CustNo,StrNumLmt: String;
     CDwn: Array of String;
-    QrDataRep,QrCustComPay,QrLimitNum: TABSQuery;
+    QrDataRep,QrCustComPay,QrLimitNum: TDataSet;
     Income,Commis,SumCom,Total,Win,Pay,TotalPay,Net: Array Of real;
     footSum: Array of real;
     SellItem,ComItem,WinItem,PayItem: real;
@@ -46697,59 +47162,121 @@ begin
 
   With Dm,CustListRep do
   begin
-    QrCustComPay := TABSQuery.Create(nil);
-    QrCustComPay.DatabaseName := Database.DatabaseName;
-    QrCustComPay.Close;
-    QrCustComPay.SQL.Clear;
-    QrCustComPay.SQL.Add('Select DISTINCT CustNo from Data');
-    QrCustComPay.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrCustComPay.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-    if RdbRepByCust.Checked then
-      QrCustComPay.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
-    QrCustComPay.Open;
+    if ZConnection1.Connected then
+    begin
+      QrCustComPay := TZQuery.Create(nil);
+      TZQuery(QrCustComPay).Connection := ZConnection1;
+      TZQuery(QrCustComPay).Close;
+      TZQuery(QrCustComPay).SQL.Clear;
+      TZQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TZQuery(QrCustComPay).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrCustComPay).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+      if RdbRepByCust.Checked then
+        TZQuery(QrCustComPay).SQL.Add('and (CustNo = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+      TZQuery(QrCustComPay).Open;
+    end
+    else
+    begin
+      QrCustComPay := TABSQuery.Create(nil);
+      TABSQuery(QrCustComPay).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrCustComPay).Close;
+      TABSQuery(QrCustComPay).SQL.Clear;
+      TABSQuery(QrCustComPay).SQL.Add('Select DISTINCT CustNo from Data');
+      TABSQuery(QrCustComPay).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrCustComPay).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+      if RdbRepByCust.Checked then
+        TABSQuery(QrCustComPay).SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
+      TABSQuery(QrCustComPay).Open;
+    end;
 
     if QrCustComPay.RecordCount > 0 then
       Pbar.Visible := true;
 
     Application.ProcessMessages;
 
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    QrDataRep.SQL.Add('Select * from Data');
-    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-
-    if RdbRepByCust.Checked then
+    if ZConnection1.Connected then
     begin
-      if SelCount = 0 then
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      TZQuery(QrDataRep).SQL.Add('Select * from Data');
+      TZQuery(QrDataRep).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDataRep).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+
+      if RdbRepByCust.Checked then
       begin
-        Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
-        QrDataRep.Free;
-        Exit;
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TZQuery(QrDataRep).SQL.Add('and (CustNo = ' + QuotedStr(Items[ItemIndex].Caption) + ')');
+          TZQuery(QrDataRep).Open;
+        end;
       end
       else
       begin
-        QrDataRep.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
-        QrDataRep.Open;
+        TZQuery(QrDataRep).Open;
       end;
     end
     else
     begin
-      QrDataRep.Open;
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      TABSQuery(QrDataRep).SQL.Add('Select * from Data');
+      TABSQuery(QrDataRep).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrDataRep).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+
+      if RdbRepByCust.Checked then
+      begin
+        if SelCount = 0 then
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end
+        else
+        begin
+          TABSQuery(QrDataRep).SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")');
+          TABSQuery(QrDataRep).Open;
+        end;
+      end
+      else
+      begin
+        TABSQuery(QrDataRep).Open;
+      end;
     end;
 
     if QrCustComPay.RecordCount > 0 then
     begin
-      QrLimitNum := TABSQuery.Create(nil);
-      QrLimitNum.DatabaseName := Database.DatabaseName;
-      QrLimitNum.Close;
-      QrLimitNum.SQL.Clear;
-      QrLimitNum.SQL.Add('Select * from LimitNum');
-      QrLimitNum.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-      QrLimitNum.SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
-      QrLimitNum.Open;
+      if ZConnection1.Connected then
+      begin
+        QrLimitNum := TZQuery.Create(nil);
+        TZQuery(QrLimitNum).Connection := ZConnection1;
+        TZQuery(QrLimitNum).Close;
+        TZQuery(QrLimitNum).SQL.Clear;
+        TZQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TZQuery(QrLimitNum).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+        TZQuery(QrLimitNum).SQL.Add('and (LimitDate = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+        TZQuery(QrLimitNum).Open;
+      end
+      else
+      begin
+        QrLimitNum := TABSQuery.Create(nil);
+        TABSQuery(QrLimitNum).DatabaseName := Database.DatabaseName;
+        TABSQuery(QrLimitNum).Close;
+        TABSQuery(QrLimitNum).SQL.Clear;
+        TABSQuery(QrLimitNum).SQL.Add('Select * from LimitNum');
+        TABSQuery(QrLimitNum).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+        TABSQuery(QrLimitNum).SQL.Add('and (LimitDate = "'+DateToStr(Datepick.Date)+'")');
+        TABSQuery(QrLimitNum).Open;
+      end;
 
       QrLimitNum.First;
       StrNumLmt := '';
@@ -46933,13 +47460,13 @@ begin
 
           if FoundNumPay then
           begin
-            IsLmt1 := QrLimitNum.FieldByName('Limit1').AsBoolean;
-            IsLmt2 := QrLimitNum.FieldByName('Limit2').AsBoolean;
-            IsLmt3 := QrLimitNum.FieldByName('Limit3').AsBoolean;
-            IsLmt4 := QrLimitNum.FieldByName('Limit4').AsBoolean;
-            IsLmt5 := QrLimitNum.FieldByName('Limit5').AsBoolean;
-            IsLmt6 := QrLimitNum.FieldByName('Limit6').AsBoolean;
-            IsLmt7 := QrLimitNum.FieldByName('Limit7').AsBoolean;
+            IsLmt1 := (QrLimitNum.FieldByName('Limit1').AsInteger <> 0);
+            IsLmt2 := (QrLimitNum.FieldByName('Limit2').AsInteger <> 0);
+            IsLmt3 := (QrLimitNum.FieldByName('Limit3').AsInteger <> 0);
+            IsLmt4 := (QrLimitNum.FieldByName('Limit4').AsInteger <> 0);
+            IsLmt5 := (QrLimitNum.FieldByName('Limit5').AsInteger <> 0);
+            IsLmt6 := (QrLimitNum.FieldByName('Limit6').AsInteger <> 0);
+            IsLmt7 := (QrLimitNum.FieldByName('Limit7').AsInteger <> 0);
 
             PayPc1 := QrLimitNum.FieldByName('PayPcnt1').AsFloat;
             PayPc2 := QrLimitNum.FieldByName('PayPcnt2').AsFloat;
@@ -47775,7 +48302,7 @@ Var i,j,k,l,m, FoundNum: integer;
     Sum3Up,Sum3Tod,Sum3Dwn,Sum4,Sum4Tod,Sum5,Sum5Tod,SumMoney,SumCom : Real;
     sum2up,sum2Tod,Sum2Mee,Sum2Lft,sum2Rth,Sum2Dwn: Real;
     sum1up,sum1Lft,Sum1Mid,Sum1Rth,sum1Dwn,Sum1DLft,Sum1DRth: Real;
-    QrDataRep: TABSQuery;
+    QrDataRep: TDataSet;
     CutNum: String;
     found,FoundLmt,isTod: Boolean;
     Limited: Array of Boolean;
@@ -47819,26 +48346,52 @@ begin
   begin
 
     Application.ProcessMessages;
-    QrDataRep := TABSQuery.Create(nil);
-    QrDataRep.DatabaseName := Database.DatabaseName;
-    QrDataRep.Close;
-    QrDataRep.SQL.Clear;
-    QrDataRep.SQL.Add('Select * from Data');
-    QrDataRep.SQL.Add('Where (LotType = "'+edLotID.Text+'")');
-    QrDataRep.SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
-
-    if RdbRepByCust.Checked then
+    if ZConnection1.Connected then
     begin
-      if SelCount > 0 then
-        QrDataRep.SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")')
-      else
+      QrDataRep := TZQuery.Create(nil);
+      TZQuery(QrDataRep).Connection := ZConnection1;
+      TZQuery(QrDataRep).Close;
+      TZQuery(QrDataRep).SQL.Clear;
+      TZQuery(QrDataRep).SQL.Add('Select * from Data');
+      TZQuery(QrDataRep).SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
+      TZQuery(QrDataRep).SQL.Add('and (Period_Date = ' + QuotedStr(FormatDateTime('yyyy-mm-dd', DatePick.Date)) + ')');
+
+      if RdbRepByCust.Checked then
       begin
-        Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
-        QrDataRep.Free;
-        Exit;
+        if SelCount > 0 then
+          TZQuery(QrDataRep).SQL.Add('and (CustNo = ' + QuotedStr(Items[ItemIndex].Caption) + ')')
+        else
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end;
       end;
+      TZQuery(QrDataRep).Open;
+    end
+    else
+    begin
+      QrDataRep := TABSQuery.Create(nil);
+      TABSQuery(QrDataRep).DatabaseName := Database.DatabaseName;
+      TABSQuery(QrDataRep).Close;
+      TABSQuery(QrDataRep).SQL.Clear;
+      TABSQuery(QrDataRep).SQL.Add('Select * from Data');
+      TABSQuery(QrDataRep).SQL.Add('Where (LotType = "'+edLotID.Text+'")');
+      TABSQuery(QrDataRep).SQL.Add('and (Period_Date ="'+DateToStr(Datepick.Date)+'")');
+
+      if RdbRepByCust.Checked then
+      begin
+        if SelCount > 0 then
+          TABSQuery(QrDataRep).SQL.Add('and (CustNo = "'+Items[ItemIndex].Caption+'")')
+        else
+        begin
+          Showmessage('กรุณาเลือกชื่อลูกค้า/คนส่งโพย ที่ต้องการรายงาน');
+          QrDataRep.Free;
+          Exit;
+        end;
+      end;
+      TABSQuery(QrDataRep).Open;
     end;
-    QrDataRep.Open;
     Pbar.Visible := true;
 
     if QrDataRep.RecordCount = 0 then
@@ -51159,16 +51712,26 @@ begin
   //CutProcBtnClick(Sender);
 end;
 
-procedure TfMain.BtnSelHuadClick(Sender: TObject);
+procedure TfMain.BtnSelHuadClick(Sender: TObject);   
+var
+  idx: Integer;
+  selName: string;
 begin
   With frmHuad, HuadList do
   begin
-    if Showmodal = mrOk then
+    if (Showmodal = mrOk) and (Selected <> nil) then
     begin
-      DatePick.Date := StrToDate(Items[selected.index].Caption);
-      lbDueDate.Caption := DateToStr(DatePick.Date);
-      lbLottoName.Caption := ComboLotType.Items[ComboLotType.itemIndex];
-      ComboLotType.ItemIndex := ComboLotType.Items.IndexOf(Items[selected.index].SubItems[0]);
+      DatePick.Date := StrToDate(Selected.Caption);
+      lbDueDate.Caption := DateToStr(DatePick.Date); 
+      
+      if Selected.SubItems.Count > 0 then
+      begin
+        selName := Selected.SubItems[0];
+        idx := ComboLotType.Items.IndexOf(selName);
+        if idx >= 0 then
+          ComboLotType.ItemIndex := idx;
+      end;
+      
       ComboLotTypeChange(Sender);
     end;
   end;
@@ -56809,7 +57372,7 @@ Var foundCust,FoundNumPay,FoundNum,Is3ToTeng,Is4ToTeng,Is5ToTeng,FoundInp: Boole
     QrDataRep: TDataSet;
     ZQDataRep: TZQuery;
     ABSDataRep: TABSQuery;
-    QrDataCut,QrLotto,QrLimitNum: TABSQuery;
+    QrDataCut,QrLotto,QrLimitNum: TDataSet;
     Numb,Nums,NumCut,PU,PD,P1,P2,ID,RefID: String;
     Sum1: Array of array of Real;
     SumItem: Array of array of Integer;
@@ -56852,7 +57415,7 @@ begin
       ZQDataRep := TZQuery.Create(nil);
       ZQDataRep.Connection := ZConnection1;
       ZQDataRep.SQL.Add('Select * from Data');
-      ZQDataRep.SQL.Add('Where (LotType = ' + IntToStr(ComboLotType.ItemIndex) + ' or LotType = ' + QuotedStr(edLotID.Text) + ')');
+      ZQDataRep.SQL.Add('Where (LotType = ' + QuotedStr(edLotID.Text) + ')');
       ZQDataRep.SQL.Add('and (Period_Date = :pDate)');
 
       if Not ChkTotal.Checked then

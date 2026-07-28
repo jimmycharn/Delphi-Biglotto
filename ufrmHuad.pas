@@ -3,36 +3,26 @@ unit ufrmHuad;
 interface
 
 uses
-  ZDataset,
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, ComCtrls, SortListViews, ExtCtrls, StdCtrls, Buttons, PngBitBtn, ABSMain,
-  AppEvnts, se_controls, KsSkinButtons, KsSkinCheckBoxs;
+  Dialogs, ComCtrls, StdCtrls, ABSMain, Buttons, ExtCtrls, sSkinProvider,
+  sButton, ZAbstractRODataset, ZAbstractDataset, ZDataset;
 
 type
   TfrmHuad = class(TForm)
-    Panel3: TPanel;
-    HuadList: TSortListView;
-    ApplicationEvents1: TApplicationEvents;
+    HuadList: TListView;
     Panel1: TPanel;
-    Panel4: TPanel;
-    DeleteBtn: TSeSkinButton;
-    ChkSelAll: TSeSkinCheckBox;
-    OkBtn: TSeSkinButton;
-    SeSkinButton2: TSeSkinButton;
-    procedure FormShow(Sender: TObject);
-    procedure HuadListDblClick(Sender: TObject);
-    procedure HuadListCustomSort(Sender: TObject; ColIndex: Integer; Str1,
-      Str2: String; var Res: Integer; var Handled: Boolean);
-    procedure ApplicationEvents1Message(var Msg: tagMSG;
-      var Handled: Boolean);
-    procedure ChkSelAllClick(Sender: TObject);
-    procedure HuadListClick(Sender: TObject);
+    btnSelHuad: TsButton;
+    btnExit: TsButton;
+    DeleteBtn: TsButton;
+    procedure btnSelHuadClick(Sender: TObject);
+    procedure btnExitClick(Sender: TObject);
     procedure DeleteBtnClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     { Private declarations }
-    procedure ShowHuad;
   public
     { Public declarations }
+    Procedure ShowHuad;
   end;
 
 var
@@ -40,273 +30,312 @@ var
 
 implementation
 
-uses uDm, uMain;
+uses uMain, uDm;
 
 {$R *.dfm}
+
+procedure TfrmHuad.btnSelHuadClick(Sender: TObject);
+begin
+  if HuadList.Selected <> nil then
+  begin
+    modalresult := mrOk;
+  end
+  else
+  begin
+    MessageDlg('‚â•ÂççËÖ¶ÌÖåÊ£®„é∏ÎâµÏ¥õ‚ìñÌïúÎ≠çÊàæÎì§Á≥ª‚åíÔøΩ!', mtInformation, [mbOk], 0);
+  end;
+end;
+
+procedure TfrmHuad.btnExitClick(Sender: TObject);
+begin
+  modalresult := mrCancel;
+end;
 
 procedure TfrmHuad.ShowHuad;
 var QrFindHuad : TABSQuery;
     ZQFindHuad : TZQuery;
+    ZQLot : TZQuery;
+    ABSLot : TABSQuery;
     i, LotNo: integer;
-    found : Boolean;
-    FoundFB : Boolean;
-    LotNameStr : string;
+    LotNameStr, RawLotType : string;
+    
+    function LookupLotName(n: Integer; const RawStr: string): string;
+    var
+      c: Char;
+      isNonNumeric: Boolean;
+      idx: Integer;
+    begin
+      Result := '';
+      if Trim(RawStr) = '' then Exit;
+
+      isNonNumeric := False;
+      for idx := 1 to Length(RawStr) do
+      begin
+        c := RawStr[idx];
+        if not (c in ['0'..'9', '-']) then
+        begin
+          isNonNumeric := True;
+          Break;
+        end;
+      end;
+
+      if isNonNumeric then
+      begin
+        Result := RawStr;
+        Exit;
+      end;
+
+      // 1. Check Firebird ZQLot if available
+      if (ZQLot <> nil) and ZQLot.Active and not ZQLot.IsEmpty then
+      begin
+        if ZQLot.Locate('ID', RawStr, [loCaseInsensitive]) then
+          Result := ZQLot.FieldByName('LOTNAME').AsString
+        else if ZQLot.Locate('ID', n, []) then
+          Result := ZQLot.FieldByName('LOTNAME').AsString
+        else if (ZQLot.FindField('LOTID') <> nil) and ZQLot.Locate('LOTID', RawStr, [loCaseInsensitive]) then
+          Result := ZQLot.FieldByName('LOTNAME').AsString
+        else if (ZQLot.FindField('LOTID') <> nil) and ZQLot.Locate('LOTID', n, []) then
+          Result := ZQLot.FieldByName('LOTNAME').AsString
+        else if ZQLot.Locate('ID', n + 1, []) then
+          Result := ZQLot.FieldByName('LOTNAME').AsString
+        else if (ZQLot.FindField('LOTID') <> nil) and ZQLot.Locate('LOTID', n + 1, []) then
+          Result := ZQLot.FieldByName('LOTNAME').AsString;
+      end;
+
+      // 2. Check ABSLot if available
+      if (Result = '') and (ABSLot <> nil) and ABSLot.Active and not ABSLot.IsEmpty then
+      begin
+        if ABSLot.Locate('ID', RawStr, [loCaseInsensitive]) then
+          Result := ABSLot.fieldByName('LotName').AsString
+        else if ABSLot.Locate('ID', n, []) then
+          Result := ABSLot.fieldByName('LotName').AsString
+        else if (ABSLot.FindField('LotID') <> nil) and ABSLot.Locate('LotID', RawStr, [loCaseInsensitive]) then
+          Result := ABSLot.fieldByName('LotName').AsString
+        else if (ABSLot.FindField('LotID') <> nil) and ABSLot.Locate('LotID', n, []) then
+          Result := ABSLot.fieldByName('LotName').AsString
+        else if ABSLot.Locate('ID', n + 1, []) then
+          Result := ABSLot.fieldByName('LotName').AsString
+        else if (ABSLot.FindField('LotID') <> nil) and ABSLot.Locate('LotID', n + 1, []) then
+          Result := ABSLot.fieldByName('LotName').AsString;
+      end;
+
+      // 3. Fallback to fMain.ComboLotType items if still empty
+      if (Result = '') and (fMain <> nil) and (fMain.ComboLotType <> nil) and (fMain.ComboLotType.Items.Count > 0) then
+      begin
+        if (n >= 0) and (n < fMain.ComboLotType.Items.Count) then
+          Result := fMain.ComboLotType.Items[n]
+        else if (n - 1 >= 0) and (n - 1 < fMain.ComboLotType.Items.Count) then
+          Result := fMain.ComboLotType.Items[n - 1]
+        else
+          Result := fMain.ComboLotType.Items[0];
+      end;
+    end;
+
 begin
   With Dm, fMain, ComboLotType do
   begin
     Huadlist.Clear;
     Huadlist.Items.BeginUpdate;
+    try
+      ZQLot := nil;
+      ABSLot := nil;
 
-    FoundFB := False;
-    if ZConnection1.Connected then
-    begin
-      ZQFindHuad := TZQuery.Create(nil);
-      try
-        ZQFindHuad.Connection := ZConnection1;
-        ZQFindHuad.SQL.Text := 'Select Period_Date, LotType from Data Group By Period_Date, LotType ORDER BY Period_Date DESC';
+      if ZConnection1.Connected then
+      begin
+        ZQLot := TZQuery.Create(nil);
         try
-          ZQFindHuad.Open;
-          if ZQFindHuad.Active and (not ZQFindHuad.IsEmpty) then
-          begin
-            FoundFB := True;
-            ZQFindHuad.First;
-            while not ZQFindHuad.Eof do
-            begin
-              LotNo := ZQFindHuad.fieldByName('LotType').AsInteger;
-              with Huadlist.Items.Add do
+          ZQLot.Connection := ZConnection1;
+          ZQLot.SQL.Text := 'SELECT * FROM LOTTO ORDER BY ID';
+          try ZQLot.Open; except end;
+
+          ZQFindHuad := TZQuery.Create(nil);
+          try
+            ZQFindHuad.Connection := ZConnection1;
+            ZQFindHuad.SQL.Text := 'Select Period_Date, LotType from Data Group By Period_Date, LotType ORDER BY Period_Date DESC';
+            try
+              ZQFindHuad.Open;
+              if ZQFindHuad.Active and (not ZQFindHuad.IsEmpty) then
               begin
-                Caption := ZQFindHuad.FieldByName('Period_Date').AsString;
-
-                LotNameStr := '';
-                if Lotto.Active then
+                ZQFindHuad.First;
+                while not ZQFindHuad.Eof do
                 begin
-                  try
-                    if Lotto.Locate('ID', LotNo, []) then
-                      LotNameStr := Lotto.fieldByName('LotName').AsString;
-                  except
+                  RawLotType := ZQFindHuad.fieldByName('LotType').AsString;
+                  LotNo := StrToIntDef(RawLotType, 0);
+                  with Huadlist.Items.Add do
+                  begin
+                    Caption := ZQFindHuad.FieldByName('Period_Date').AsString;
+                    LotNameStr := LookupLotName(LotNo, RawLotType);
+                    SubItems.Add(LotNameStr);
+                    SubItems.Add(RawLotType);
                   end;
+                  ZQFindHuad.Next;
                 end;
-                SubItems.Add(LotNameStr);
-                SubItems.Add(IntToStr(LotNo));
               end;
-              ZQFindHuad.Next;
+            except
             end;
+          finally
+            ZQFindHuad.Free;
           end;
-        except
+        finally
+          ZQLot.Free;
+          ZQLot := nil;
         end;
-      finally
-        ZQFindHuad.Free;
-      end;
-    end;
-
-    if not FoundFB then
-    begin
-      QrFindHuad := TABSQuery.Create(nil);
-      try
-        QrFindHuad.DatabaseName := Database.DatabaseName;
-        QrFindHuad.SQL.Text := 'Select Period_Date, LotType from Data Group By Period_Date, LotType ORDER BY Period_Date DESC';
+      end
+      else
+      begin
+        ABSLot := TABSQuery.Create(nil);
         try
-          QrFindHuad.Open;
-          if QrFindHuad.Active and (not QrFindHuad.IsEmpty) then
-          begin
-            QrFindHuad.First;
-            While Not QrFindHuad.Eof do
-            begin
-              LotNo := QrFindHuad.fieldByName('LotType').AsInteger;
-              with Huadlist.Items.Add do
+          ABSLot.DatabaseName := Database.DatabaseName;
+          ABSLot.SQL.Text := 'Select ID, LotID, LotName from Lotto';
+          try ABSLot.Open; except end;
+
+          QrFindHuad := TABSQuery.Create(nil);
+          try
+            QrFindHuad.DatabaseName := Database.DatabaseName;
+            QrFindHuad.SQL.Text := 'Select Period_Date, LotType from Data Group By Period_Date, LotType ORDER BY Period_Date DESC';
+            try
+              QrFindHuad.Open;
+              if QrFindHuad.Active and (not QrFindHuad.IsEmpty) then
               begin
-                Caption := QrFindHuad.FieldByName('Period_Date').AsString;
-
-                LotNameStr := '';
-                if Lotto.Active then
+                QrFindHuad.First;
+                While Not QrFindHuad.Eof do
                 begin
-                  try
-                    if Lotto.Locate('ID', LotNo, []) then
-                      LotNameStr := Lotto.fieldByName('LotName').AsString;
-                  except
+                  RawLotType := QrFindHuad.fieldByName('LotType').AsString;
+                  LotNo := StrToIntDef(RawLotType, 0);
+                  with Huadlist.Items.Add do
+                  begin
+                    Caption := QrFindHuad.FieldByName('Period_Date').AsString;
+                    LotNameStr := LookupLotName(LotNo, RawLotType);
+                    SubItems.Add(LotNameStr);
+                    SubItems.Add(RawLotType);
                   end;
+                  QrFindHuad.Next;
                 end;
-                SubItems.Add(LotNameStr);
-                SubItems.Add(IntToStr(LotNo));
               end;
-              QrFindHuad.Next;
+            except
             end;
+          finally
+            QrFindHuad.Free;
           end;
-        except
+        finally
+          ABSLot.Free;
+          ABSLot := nil;
         end;
-      finally
-        QrFindHuad.Free;
       end;
+    finally
+      Huadlist.Items.EndUpdate;
     end;
-
-    Huadlist.Items.EndUpdate;
   end;
 end;
 
 procedure TfrmHuad.FormShow(Sender: TObject);
 begin
-  ChkSelAll.Checked := false;
   ShowHuad;
-end;
-
-procedure TfrmHuad.HuadListDblClick(Sender: TObject);
-begin
-  if HuadList.SelCount > 0 then
-    Modalresult := mrOk;
-end;
-
-procedure TfrmHuad.HuadListCustomSort(Sender: TObject; ColIndex: Integer;
-  Str1, Str2: String; var Res: Integer; var Handled: Boolean);
-Var  n1, n2: TDateTime;
-     n3, n4: String;
-begin
-  if (ColIndex in [0]) then
-  begin
-    n1 := StrToDate(Str1); //TxtToFloat(Str1);
-    n2 := StrToDate(Str2); //txtToFloat(Str2);
-    if (n1 = n2)
-      then Res := 0 else
-    if (n1 > n2)
-      then Res := 1
-      else Res := -1;
-    Handled := True;
-  end
-  else
-  begin
-    n3 := Str1; //TxtToFloat(Str1);
-    n4 := Str2; //txtToFloat(Str2);
-    if (n3 = n4)
-      then Res := 0 else
-    if (n3 > n4)
-      then Res := 1
-      else Res := -1;
-    Handled := True;
-  end;
-end;
-
-procedure TfrmHuad.ApplicationEvents1Message(var Msg: tagMSG;
-  var Handled: Boolean);
-begin
-  OkBtn.Enabled := HuadList.SelCount > 0;
-end;
-
-procedure TfrmHuad.ChkSelAllClick(Sender: TObject);
-Var i,j: integer;
-begin
- if Not HuadList.Focused then
- begin
-  with HuadList do
-  begin
-    for i := 0 to Items.Count-1 do
-        Items[i].checked := ChkSelAll.Checked;
-
-    j:=0;
-    if Items.Count > 0 then
-    begin 
-      for i:= 0 to Items.Count-1 do
-      begin
-          if items[i].Checked = true then
-          begin
-            inc(j);
-          end;
-      end;
-    end;
-    DeleteBtn.Enabled := (j > 0);
-  end;
- end;
-end;
-
-procedure TfrmHuad.HuadListClick(Sender: TObject);
-Var i,j: integer;
-begin
-  with HuadList do
-  begin
-    j:=0;
-    if Items.Count > 0 then
-    begin 
-      for i:= 0 to Items.Count-1 do
-      begin
-          if items[i].Checked = true then
-          begin
-            inc(j);
-          end;
-      end;
-    end;
-    DeleteBtn.Enabled := (j > 0);
-    ChkSelAll.Checked := (j = Items.Count);
-  end;
 end;
 
 procedure TfrmHuad.DeleteBtnClick(Sender: TObject);
 var QrDelHuad : TABSQuery;
-    i,j: integer;
-    found : Boolean;
+    ZQDelHuad : TZQuery;
+    i, j: integer;
+    dt, ltStr: string;
 begin
- With Dm, HuadList do
- begin
-  j:=0;
-  for i:= 0 to Items.Count-1 do
+  With Dm, HuadList do
   begin
-    if items[i].Checked = true then
+    j := 0;
+    for i := 0 to Items.Count - 1 do
     begin
-      inc(j);
+      if Items[i].Checked then
+        inc(j);
     end;
-  end;
 
-  if MessageDlg('µÈÕß≈∫√“¬°“√∑’Ë‡≈◊Õ°  "'+IntToStr(j)+'"  √“¬°“√ „™ËÀ√◊Õ‰¡Ë?',
-   mtConfirmation, [mbYes, mbNo], 0) = mrYes then
-  begin
-    QrDelHuad := TABSQuery.Create(nil);
-    QrDelHuad.DatabaseName := Database.DatabaseName;
-    QrDelHuad.Close;
-    for i := Items.Count-1 DownTo 0 do
+    if j = 0 then Exit;
+
+    if MessageDlg('Îì§Á≥ªÌÉÑÏ¥§ÏßïÔ§±Î°±Ê≠™ÌÖåÊ£® "' + IntToStr(j) + '" Ï¥§ÏßïÔ§± ‰∏ûÊµ£Ïµ†Áê®Ï•°?',
+      mtConfirmation, [mbYes, mbNo], 0) = mrYes then
     begin
-      if (Items[i].Checked) then
+      if ZConnection1.Connected then
       begin
-        found := Lotto.Locate('LotName',Items[i].SubItems[0],[]);
-        if found then
-        begin
-          QrDelHuad.SQL.Clear;
-          QrDelHuad.SQL.Add('Delete from Data');
-          QrDelHuad.SQL.Add('Where Period_Date = "'+Items[i].Caption+'"');
-          QrDelHuad.SQL.Add('and LotType = "'+Items[i].SubItems[1]+'"');
-          try
-            QrDelHuad.ExecSQL;
-          except
-          end;
+        ZQDelHuad := TZQuery.Create(nil);
+        try
+          ZQDelHuad.Connection := ZConnection1;
+          for i := Items.Count - 1 DownTo 0 do
+          begin
+            if Items[i].Checked then
+            begin
+              dt := Items[i].Caption;
+              ltStr := Items[i].SubItems[1];
 
-          QrDelHuad.SQL.Clear;
-          QrDelHuad.SQL.Add('Delete from Cut');
-          QrDelHuad.SQL.Add('Where DateCut = "'+Items[i].Caption+'"');
-          try
-            QrDelHuad.ExecSQL;
-          except
-          end;
+              // Delete from Data
+              ZQDelHuad.SQL.Text := 'DELETE FROM DATA WHERE PERIOD_DATE = ' + QuotedStr(dt) + 
+                                    ' AND LOTTYPE = ' + QuotedStr(ltStr);
+              try ZQDelHuad.ExecSQL; except end;
 
-          QrDelHuad.SQL.Clear;
-          QrDelHuad.SQL.Add('Delete from CorrectNum');
-          QrDelHuad.SQL.Add('Where CrDate = "'+Items[i].Caption+'"');
-          try
-            QrDelHuad.ExecSQL;
-          except
-          end;
+              // Delete from Cut
+              ZQDelHuad.SQL.Text := 'DELETE FROM CUT WHERE DATECUT = ' + QuotedStr(dt) + 
+                                    ' AND LOTTYPE = ' + QuotedStr(ltStr);
+              try ZQDelHuad.ExecSQL; except end;
 
-          QrDelHuad.SQL.Clear;
-          QrDelHuad.SQL.Add('Delete from LimitNum');
-          QrDelHuad.SQL.Add('Where LimitDate = "'+Items[i].Caption+'"');
-          try
-            QrDelHuad.ExecSQL;
-          except
-          end;
+              // Delete from CorrectNum
+              ZQDelHuad.SQL.Text := 'DELETE FROM CORRECTNUM WHERE CRDATE = ' + QuotedStr(dt) + 
+                                    ' AND LOTTYPE = ' + QuotedStr(ltStr);
+              try ZQDelHuad.ExecSQL; except end;
 
-          Items[i].Delete;
+              // Delete from LimitNum
+              ZQDelHuad.SQL.Text := 'DELETE FROM LIMITNUM WHERE LIMITDATE = ' + QuotedStr(dt) + 
+                                    ' AND LOTTYPE = ' + QuotedStr(ltStr);
+              try ZQDelHuad.ExecSQL; except end;
+
+              Items[i].Delete;
+            end;
+          end;
+        finally
+          ZQDelHuad.Free;
+        end;
+      end
+      else
+      begin
+        QrDelHuad := TABSQuery.Create(nil);
+        try
+          QrDelHuad.DatabaseName := Database.DatabaseName;
+          for i := Items.Count - 1 DownTo 0 do
+          begin
+            if Items[i].Checked then
+            begin
+              dt := Items[i].Caption;
+              ltStr := Items[i].SubItems[1];
+
+              QrDelHuad.SQL.Clear;
+              QrDelHuad.SQL.Add('Delete from Data');        
+              QrDelHuad.SQL.Add('Where Period_Date = "' + dt + '"');
+              QrDelHuad.SQL.Add('and LotType = "' + ltStr + '"');
+              try QrDelHuad.ExecSQL; except end;
+
+              QrDelHuad.SQL.Clear;
+              QrDelHuad.SQL.Add('Delete from Cut');
+              QrDelHuad.SQL.Add('Where DateCut = "' + dt + '"');
+              try QrDelHuad.ExecSQL; except end;
+
+              QrDelHuad.SQL.Clear;
+              QrDelHuad.SQL.Add('Delete from CorrectNum');  
+              QrDelHuad.SQL.Add('Where CrDate = "' + dt + '"');
+              try QrDelHuad.ExecSQL; except end;
+
+              QrDelHuad.SQL.Clear;
+              QrDelHuad.SQL.Add('Delete from LimitNum');    
+              QrDelHuad.SQL.Add('Where LimitDate = "' + dt + '"');
+              try QrDelHuad.ExecSQL; except end;
+
+              Items[i].Delete;
+            end;
+          end;
+        finally
+          QrDelHuad.Free;
         end;
       end;
-    end;
-    MessageDlg('¢ÈÕ¡Ÿ≈∑’Ë‡≈◊Õ°∂Ÿ°≈∫‡√’¬∫√ÈÕ¬·≈È«',mtInformation, [mbOk], 0);
-  end;
- end;
 
+      MessageDlg('ÔøΩÁöêËäºÎ°±Ê≠™ÌÖåÊ£®Îõ∞‚à¥Î∑ïÏ¥πÏ®òÏ∑åÁùæÁ¨ëËå∏', mtInformation, [mbOk], 0);
+    end;
+  end;
 end;
 
 end.
